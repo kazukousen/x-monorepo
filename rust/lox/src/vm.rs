@@ -36,7 +36,7 @@ impl<'a> VM<'a> {
                 }
                 Negate => {
                     let v = self.pop();
-                    self.push(v);
+                    self.push(-v);
                 }
                 Add => {
                     let (b, a) = (self.pop(), self.pop());
