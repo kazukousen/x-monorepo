@@ -25,7 +25,10 @@ impl<'a> Scanner<'a> {
     }
 
     fn is_alpha(c: char) -> bool {
-        false
+        match c {
+            'a'..='z' | 'A'..='Z' | '_' => true,
+            _ => false
+        }
     }
 
     pub fn scan_token(&mut self) -> Token<'a> {
@@ -203,6 +206,7 @@ impl<'a> Scanner<'a> {
         match c {
             'a' => if self.check_rest_keyword(1, "nd") { TokenType::And } else { TokenType::Identifier }
             'c' => if self.check_rest_keyword(1, "lass") { TokenType::Class } else { TokenType::Identifier }
+            'p' => if self.check_rest_keyword(1, "rint") { TokenType::Print } else { TokenType::Identifier }
             'f' => if self.current - self.start >= 2 {
                 match self.source
                     .chars()
