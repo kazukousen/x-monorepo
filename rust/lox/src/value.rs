@@ -1,17 +1,18 @@
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Value {
-    typ: ValueType,
+pub struct Value<'a> {
+    typ: ValueType<'a>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ValueType {
+pub enum ValueType<'a> {
     Bool(bool),
     Nil,
     Number(f64),
+    Obj(Obj<'a>),
 }
 
-impl Value {
+impl<'a> Value<'a> {
 
     pub fn new_bool(v: bool) -> Self {
         Self {
@@ -28,6 +29,12 @@ impl Value {
     pub fn new_number(v: f64) -> Self {
         Self {
             typ: ValueType::Number(v),
+        }
+    }
+    
+    pub fn new_string(s: &'a str) -> Self {
+        Self {
+            typ: ValueType::Obj(Obj{ typ: ObjType::String(s) })
         }
     }
 
@@ -48,6 +55,15 @@ impl Value {
     pub fn is_bool(&self) -> bool {
         match self.typ {
             ValueType::Bool(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_string(&self) -> bool {
+        match &self.typ {
+            ValueType::Obj(v) => match v.typ {
+                ObjType::String(_) => true,
+            },
             _ => false,
         }
     }
@@ -73,14 +89,43 @@ impl Value {
             _ => unreachable!(),
         }
     }
+
+    pub fn as_obj(&self) -> &Obj<'a> {
+        match &self.typ {
+            ValueType::Obj(v) => v,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn as_string(&self) -> &'a str {
+        match &self.typ {
+            ValueType::Obj(v) => match v.typ {
+                ObjType::String(v) => v,
+            }
+            _ => unreachable!(),
+        }
+    }
 }
 
-impl std::fmt::Display for Value {
+impl<'a> std::fmt::Display for Value<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.typ {
+        match &self.typ {
             ValueType::Nil => write!(f, "nil"),
             ValueType::Bool(v) => write!(f, "{}", v),
             ValueType::Number(v) => write!(f, "{}", v),
+            ValueType::Obj(v) => match v.typ {
+                ObjType::String(v) => write!(f, "{}", v),
+            }
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Obj<'a> {
+    typ: ObjType<'a>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ObjType<'a> {
+    String(&'a str),
 }

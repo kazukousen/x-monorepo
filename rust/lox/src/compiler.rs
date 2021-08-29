@@ -67,7 +67,7 @@ impl<'r> ParseRule<'r> {
 }
 
 pub struct Compiler<'a> {
-    compiling_chunk: Chunk,
+    compiling_chunk: Chunk<'a>,
     scanner: Scanner<'a>,
     parser: Parser<'a>,
     parse_rules: HashMap<TokenType, ParseRule<'a>>,
@@ -109,6 +109,7 @@ impl<'a> Compiler<'a> {
                 Minus => Some(Compiler::unary), Some(Compiler::binary), Term;
                 Star => None, Some(Compiler::binary), Term;
                 Slash => None, Some(Compiler::binary), Term;
+                String => Some(Compiler::string), None, None;
                 Number => Some(Compiler::number), None, None;
                 True => Some(Compiler::literal), None, None;
                 False => Some(Compiler::literal), None, None;
@@ -207,8 +208,8 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn emit_constant(&mut self, v: f64) {
-        let idx = self.compiling_chunk.add_constant(Value::new_number(v));
+    fn emit_constant(&mut self, v: Value<'a>) {
+        let idx = self.compiling_chunk.add_constant(v);
         self.emit(OpCode::Constant(idx));
     }
 
@@ -226,7 +227,7 @@ impl<'a> Compiler<'a> {
         let v: f64 = self.parser.previous.source
             .parse().expect("Compiler tried to parse to number");
 
-        self.emit_constant(v);
+        self.emit_constant(Value::new_number(v));
     }
 
     // parentheses for grouping
@@ -299,6 +300,12 @@ impl<'a> Compiler<'a> {
             TokenType::Nil => self.emit(OpCode::Nil),
             _ => unreachable!(),
         }
+    }
+
+    fn string(&mut self) {
+        let s = &self.parser.previous.source[1..self.parser.previous.source.len()];
+        let s = s.clone();
+        self.emit_constant(Value::new_string(s));
     }
 
     fn expression(&mut self) {

@@ -17,13 +17,13 @@ pub enum OpCode {
     Not,
 }
 
-pub struct Chunk {
+pub struct Chunk<'a> {
     pub instructions: Vec<OpCode>,
-    pub values: Vec<Value>,
+    pub values: Vec<Value<'a>>,
     pub lines: Vec<usize>,
 }
 
-impl Chunk {
+impl<'a> Chunk<'a> {
     pub fn new() -> Self {
         Self {
             instructions: Vec::new(),
@@ -32,7 +32,7 @@ impl Chunk {
         }
     }
 
-    pub fn add_constant(&mut self, value: Value) -> usize {
+    pub fn add_constant(&mut self, value: Value<'a>) -> usize {
         self.values.push(value);
         self.values.len() - 1
     }
@@ -47,7 +47,7 @@ pub trait Debug {
     fn disassemble(&self, name: &str);
 }
 
-impl Debug for Chunk {
+impl<'a> Debug for Chunk<'a> {
     fn disassemble(&self, name: &str) {
         println!("== {} ==", name);
 

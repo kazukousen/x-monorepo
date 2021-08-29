@@ -1,6 +1,5 @@
-use crate::chunk::{Chunk, OpCode::*};
+use crate::chunk::{Chunk, OpCode};
 use crate::value::Value;
-use crate::OpCode;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum InterpretResult {
@@ -10,9 +9,9 @@ pub enum InterpretResult {
 }
 
 pub struct VM<'a> {
-    chunk: &'a Chunk,
+    chunk: &'a Chunk<'a>,
     pc: usize,
-    pub stack: Vec<Value>,
+    pub stack: Vec<Value<'a>>,
 }
 
 macro_rules! binary_op {
@@ -46,25 +45,25 @@ impl<'a> VM<'a> {
             self.pc = self.pc + 1;
 
             match instruction {
-                Return => return InterpretResult::Ok,
-                Constant(index) => {
+                OpCode::Return => return InterpretResult::Ok,
+                OpCode::Constant(index) => {
                     let v = self.chunk.values[*index].clone();
                     self.push(v);
                 }
-                Nil => self.push(Value::new_nil()),
-                True => self.push(Value::new_bool(true)),
-                False => self.push(Value::new_bool(false)),
-                Equal => {
+                OpCode::Nil => self.push(Value::new_nil()),
+                OpCode::True => self.push(Value::new_bool(true)),
+                OpCode::False => self.push(Value::new_bool(false)),
+                OpCode::Equal => {
                     let (b, a) = (self.pop(), self.pop());
                     self.push(Value::new_bool(b == a));
                 }
-                Greater => binary_op!(self, Value::new_bool, >),
-                Less => binary_op!(self, Value::new_bool, <),
-                Add => binary_op!(self, Value::new_number, +),
-                Subtract => binary_op!(self, Value::new_number, -),
-                Multiply => binary_op!(self, Value::new_number, *),
-                Divide => binary_op!(self, Value::new_number, /),
-                Negate => {
+                OpCode::Greater => binary_op!(self, Value::new_bool, >),
+                OpCode::Less => binary_op!(self, Value::new_bool, <),
+                OpCode::Add => binary_op!(self, Value::new_number, +),
+                OpCode::Subtract => binary_op!(self, Value::new_number, -),
+                OpCode::Multiply => binary_op!(self, Value::new_number, *),
+                OpCode::Divide => binary_op!(self, Value::new_number, /),
+                OpCode::Negate => {
                     if !self.peek(0).is_number() {
                         eprintln!("Operand must be a number.");
                         return InterpretResult::RuntimeError;
@@ -72,7 +71,7 @@ impl<'a> VM<'a> {
                     let v = self.pop();
                     self.push(Value::new_number(-v.as_number()));
                 }
-                Not => {
+                OpCode::Not => {
                     if !self.peek(0).is_bool()
                         && !self.peek(0).is_nil() {
                         eprintln!("Operand must be a bool or nil.");
@@ -85,18 +84,18 @@ impl<'a> VM<'a> {
         }
     }
 
-    fn push(&mut self, v: Value) {
+    fn push(&mut self, v: Value<'a>) {
         self.stack.push(v);
     }
 
-    fn pop(&mut self) -> Value {
+    fn pop(&mut self) -> Value<'a> {
         match self.stack.pop() {
             Some(v) => return v,
             _ => panic!("VM tried to get value from empty stack"),
         }
     }
 
-    fn peek(&self, distance: usize) -> &Value {
+    fn peek(&self, distance: usize) -> &Value<'a> {
         match self.stack.get(self.stack.len() - (distance + 1)) {
             Some(v) => v,
             None => panic!("VM tried to peek value from stack"),

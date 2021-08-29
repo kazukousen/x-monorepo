@@ -261,6 +261,4 @@ impl<'a> Scanner<'a> {
             source: message,
         }
     }
-
-
 }
