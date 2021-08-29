@@ -35,7 +35,7 @@ fn run_comparison() {
 fn run_string() {
     let mut compiler = Compiler::new();
     let source = r#"
-"foo" + "bar"
+"foo" + "bar" == "foobar"
 "#;
     let chunk = compiler.compile(source);
     assert_eq!(true, chunk.is_some());
@@ -43,5 +43,5 @@ fn run_string() {
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
-    assert_eq!("foobar", vm.stack[0].as_string());
+    assert_eq!(true, vm.stack[0].as_bool());
 }
