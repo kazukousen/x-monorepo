@@ -8,5 +8,18 @@ fn run_arithmetic() {
 
     let tok = sc.scan_token();
     assert_eq!(TokenType::Number, tok.typ);
+    assert_eq!("1.2", tok.source);
+    let tok = sc.scan_token();
+    assert_eq!(TokenType::Plus, tok.typ);
+    assert_eq!("+", tok.source);
+    let tok = sc.scan_token();
+    assert_eq!(TokenType::Number, tok.typ);
+    assert_eq!("3.8", tok.source);
+    let tok = sc.scan_token();
+    assert_eq!(TokenType::EqualEqual, tok.typ);
+    assert_eq!("==", tok.source);
+    let tok = sc.scan_token();
+    assert_eq!(TokenType::Number, tok.typ);
+    assert_eq!("5", tok.source);
 }
 

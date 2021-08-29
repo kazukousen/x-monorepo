@@ -18,7 +18,10 @@ impl<'a> Scanner<'a> {
     }
 
     fn is_digit(c: char) -> bool {
-        false
+        match c {
+            '0'..='9' => true,
+            _ => false,
+        }
     }
 
     fn is_alpha(c: char) -> bool {
