@@ -1,4 +1,5 @@
-use crate::chunk::{Chunk, OpCode::*, Value};
+use crate::chunk::{Chunk, OpCode::*};
+use crate::value::Value;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum InterpretResult {
@@ -11,6 +12,21 @@ pub struct VM<'a> {
     chunk: &'a Chunk,
     pc: usize,
     pub stack: Vec<Value>,
+}
+
+macro_rules! binary_op {
+    ( $vm:ident, $op:tt ) => {
+        {
+            if !$vm.peek(0).is_number()
+                || !$vm.peek(1).is_number() {
+                    eprintln!("Operand must be a number.");
+                    return InterpretResult::RuntimeError;
+            }
+
+            let (b, a) = ($vm.pop().as_number(), $vm.pop().as_number());
+            $vm.push(Value::new_number(a $op b));
+        }
+    };
 }
 
 impl<'a> VM<'a> {
@@ -31,29 +47,21 @@ impl<'a> VM<'a> {
             match instruction {
                 Return => return InterpretResult::Ok,
                 Constant(index) => {
-                    let v = self.chunk.values[*index];
+                    let v = self.chunk.values[*index].clone();
                     self.push(v);
                 }
                 Negate => {
+                    if !self.peek(0).is_number() {
+                        eprintln!("Operand must be a number.");
+                        return InterpretResult::RuntimeError;
+                    }
                     let v = self.pop();
-                    self.push(-v);
+                    self.push(Value::new_number(-v.as_number()));
                 }
-                Add => {
-                    let (b, a) = (self.pop(), self.pop());
-                    self.push(a + b);
-                }
-                Subtract => {
-                    let (b, a) = (self.pop(), self.pop());
-                    self.push(a - b);
-                }
-                Multiply => {
-                    let (b, a) = (self.pop(), self.pop());
-                    self.push(a * b);
-                }
-                Divide => {
-                    let (b, a) = (self.pop(), self.pop());
-                    self.push(a / b);
-                }
+                Add => binary_op!(self, +),
+                Subtract => binary_op!(self, -),
+                Multiply => binary_op!(self, *),
+                Divide => binary_op!(self, /),
             }
         }
     }
@@ -66,6 +74,13 @@ impl<'a> VM<'a> {
         match self.stack.pop() {
             Some(v) => return v,
             _ => panic!("VM tried to get value from empty stack"),
+        }
+    }
+
+    fn peek(&self, distance: usize) -> &Value {
+        match self.stack.get(self.stack.len() - (distance + 1)) {
+            Some(v) => v,
+            None => panic!("VM tried to peek value from stack"),
         }
     }
 }

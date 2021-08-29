@@ -13,5 +13,5 @@ fn run_arithmetic() {
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
-    assert_eq!(-1_f64, vm.stack[0]);
+    assert_eq!(-1_f64, vm.stack[0].as_number());
 }

@@ -1,3 +1,4 @@
+use crate::value::Value;
 
 pub enum OpCode {
     Return,
@@ -8,8 +9,6 @@ pub enum OpCode {
     Multiply,
     Divide,
 }
-
-pub type Value = f64;
 
 pub struct Chunk {
     pub instructions: Vec<OpCode>,

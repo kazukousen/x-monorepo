@@ -1,6 +1,7 @@
 use crate::scanner::Scanner;
-use crate::chunk::{Chunk, OpCode, Value};
+use crate::chunk::{Chunk, OpCode};
 use crate::token::{Token, TokenType};
+use crate::value::Value;
 
 use std::collections::HashMap;
 use std::ops::Add;
@@ -193,6 +194,11 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    fn emit_constant(&mut self, v: f64) {
+        let idx = self.compiling_chunk.add_constant(Value::new_number(v));
+        self.emit(OpCode::Constant(idx));
+    }
+
     fn emit_return(&mut self) {
         self.emit(OpCode::Return)
     }
@@ -207,8 +213,7 @@ impl<'a> Compiler<'a> {
         let v: f64 = self.parser.previous.source
             .parse().expect("Compiler tried to parse to number");
 
-        let idx = self.compiling_chunk.add_constant(v);
-        self.emit(OpCode::Constant(idx));
+        self.emit_constant(v);
     }
 
     // parentheses for grouping
