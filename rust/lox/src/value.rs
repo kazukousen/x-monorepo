@@ -1,18 +1,18 @@
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Value<'a> {
-    typ: ValueType<'a>,
+pub struct Value {
+    typ: ValueType,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ValueType<'a> {
+pub enum ValueType {
     Bool(bool),
     Nil,
     Number(f64),
-    Obj(Obj<'a>),
+    Obj(Obj),
 }
 
-impl<'a> Value<'a> {
+impl Value {
 
     pub fn new_bool(v: bool) -> Self {
         Self {
@@ -32,7 +32,7 @@ impl<'a> Value<'a> {
         }
     }
     
-    pub fn new_string(s: &'a str) -> Self {
+    pub fn new_string(s: String) -> Self {
         Self {
             typ: ValueType::Obj(Obj{ typ: ObjType::String(s) })
         }
@@ -90,16 +90,16 @@ impl<'a> Value<'a> {
         }
     }
 
-    pub fn as_obj(&self) -> &Obj<'a> {
+    pub fn as_obj(&self) -> &Obj {
         match &self.typ {
             ValueType::Obj(v) => v,
             _ => unreachable!(),
         }
     }
 
-    pub fn as_string(&self) -> &'a str {
+    pub fn as_string(&self) -> &String {
         match &self.typ {
-            ValueType::Obj(v) => match v.typ {
+            ValueType::Obj(v) => match &v.typ {
                 ObjType::String(v) => v,
             }
             _ => unreachable!(),
@@ -107,13 +107,13 @@ impl<'a> Value<'a> {
     }
 }
 
-impl<'a> std::fmt::Display for Value<'a> {
+impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.typ {
             ValueType::Nil => write!(f, "nil"),
             ValueType::Bool(v) => write!(f, "{}", v),
             ValueType::Number(v) => write!(f, "{}", v),
-            ValueType::Obj(v) => match v.typ {
+            ValueType::Obj(v) => match &v.typ {
                 ObjType::String(v) => write!(f, "{}", v),
             }
         }
@@ -121,11 +121,11 @@ impl<'a> std::fmt::Display for Value<'a> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Obj<'a> {
-    typ: ObjType<'a>,
+pub struct Obj {
+    typ: ObjType,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ObjType<'a> {
-    String(&'a str),
+pub enum ObjType {
+    String(String),
 }

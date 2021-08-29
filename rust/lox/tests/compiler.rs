@@ -35,7 +35,7 @@ fn run_comparison() {
 fn run_string() {
     let mut compiler = Compiler::new();
     let source = r#"
-"foobar"
+"foo" + "bar"
 "#;
     let chunk = compiler.compile(source);
     assert_eq!(true, chunk.is_some());

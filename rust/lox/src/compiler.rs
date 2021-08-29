@@ -67,7 +67,7 @@ impl<'r> ParseRule<'r> {
 }
 
 pub struct Compiler<'a> {
-    compiling_chunk: Chunk<'a>,
+    compiling_chunk: Chunk,
     scanner: Scanner<'a>,
     parser: Parser<'a>,
     parse_rules: HashMap<TokenType, ParseRule<'a>>,
@@ -167,6 +167,7 @@ impl<'a> Compiler<'a> {
         loop {
             self.parser.current = self.scanner.scan_token();
             if self.parser.current.typ != TokenType::Error {
+                println!("type: {}", self.parser.current.typ);
                 break;
             }
             self.error_at_current(self.parser.current.source);
@@ -208,7 +209,7 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn emit_constant(&mut self, v: Value<'a>) {
+    fn emit_constant(&mut self, v: Value) {
         let idx = self.compiling_chunk.add_constant(v);
         self.emit(OpCode::Constant(idx));
     }
@@ -303,8 +304,9 @@ impl<'a> Compiler<'a> {
     }
 
     fn string(&mut self) {
-        let s = &self.parser.previous.source[1..self.parser.previous.source.len()];
-        let s = s.clone();
+        // trim quotes
+        let s = &self.parser.previous.source[1..=self.parser.previous.source.len()-2];
+        let s = s.to_string();
         self.emit_constant(Value::new_string(s));
     }
 

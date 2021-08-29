@@ -9,9 +9,9 @@ pub enum InterpretResult {
 }
 
 pub struct VM<'a> {
-    chunk: &'a Chunk<'a>,
+    chunk: &'a Chunk,
     pc: usize,
-    pub stack: Vec<Value<'a>>,
+    pub stack: Vec<Value>,
 }
 
 macro_rules! binary_op {
@@ -19,7 +19,7 @@ macro_rules! binary_op {
         {
             if !$vm.peek(0).is_number()
                 || !$vm.peek(1).is_number() {
-                    eprintln!("Operand must be a number.");
+                    eprintln!("Operand must be numbers.");
                     return InterpretResult::RuntimeError;
             }
 
@@ -59,7 +59,24 @@ impl<'a> VM<'a> {
                 }
                 OpCode::Greater => binary_op!(self, Value::new_bool, >),
                 OpCode::Less => binary_op!(self, Value::new_bool, <),
-                OpCode::Add => binary_op!(self, Value::new_number, +),
+                OpCode::Add => {
+                    if self.peek(0).is_number() && self.peek(1).is_number() {
+                        // numerical
+
+                        let (b, a) = (self.pop().as_number(), self.pop().as_number());
+                        self.push(Value::new_number(a + b));
+
+                    } else if self.peek(0).is_string() && self.peek(1).is_string() {
+                        // string
+
+                        let (b, a) = (self.pop(), self.pop());
+                        let (b, a) = (b.as_string(), a.as_string());
+                        self.push(Value::new_string(format!("{}{}", a, b)));
+                    } else {
+                        eprintln!("Operand must be numbers or strings.");
+                        return InterpretResult::RuntimeError;
+                    }
+                },
                 OpCode::Subtract => binary_op!(self, Value::new_number, -),
                 OpCode::Multiply => binary_op!(self, Value::new_number, *),
                 OpCode::Divide => binary_op!(self, Value::new_number, /),
@@ -84,18 +101,18 @@ impl<'a> VM<'a> {
         }
     }
 
-    fn push(&mut self, v: Value<'a>) {
+    fn push(&mut self, v: Value) {
         self.stack.push(v);
     }
 
-    fn pop(&mut self) -> Value<'a> {
+    fn pop(&mut self) -> Value {
         match self.stack.pop() {
             Some(v) => return v,
             _ => panic!("VM tried to get value from empty stack"),
         }
     }
 
-    fn peek(&self, distance: usize) -> &Value<'a> {
+    fn peek(&self, distance: usize) -> &Value {
         match self.stack.get(self.stack.len() - (distance + 1)) {
             Some(v) => v,
             None => panic!("VM tried to peek value from stack"),

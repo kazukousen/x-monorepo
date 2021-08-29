@@ -168,6 +168,9 @@ impl<'a> Scanner<'a> {
             return self.error_token("Unterminated string")
         }
 
+        // closing quote.
+        self.advance();
+
         self.make_token(TokenType::String)
     }
 
