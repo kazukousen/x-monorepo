@@ -17,7 +17,7 @@ fn run_arithmetic() {
     chunk.add_instruction(OpCode::Return, 2);
 
     let mut vm = VM::new(&chunk);
-    assert_eq!(vm.run(), InterpretResult::Ok);
-    assert_eq!(vm.stack[0], -1_f64); // - (1.2 + 3.4) / 4.6
+    assert_eq!(InterpretResult::Ok, vm.run());
+    assert_eq!(-1_f64, vm.stack[0]); // - (1.2 + 3.4) / 4.6
 }
 
