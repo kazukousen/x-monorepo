@@ -1,5 +1,5 @@
 use crate::scanner::Scanner;
-use crate::chunk::{Chunk, OpCode};
+use crate::chunk::{Chunk, OpCode, Debug};
 use crate::token::{Token, TokenType};
 use crate::value::Value;
 
@@ -107,11 +107,20 @@ impl<'a> Compiler<'a> {
                 RightParen => None, None, None;
                 Plus => None, Some(Compiler::binary), Term;
                 Minus => Some(Compiler::unary), Some(Compiler::binary), Term;
+                Star => None, Some(Compiler::binary), Term;
+                Slash => None, Some(Compiler::binary), Term;
                 Number => Some(Compiler::number), None, None;
                 True => Some(Compiler::literal), None, None;
                 False => Some(Compiler::literal), None, None;
                 Nil => Some(Compiler::literal), None, None;
                 Bang => Some(Compiler::unary), None, None;
+                BangEqual => None, Some(Compiler::binary), Equality;
+                Equal => None, None, None;
+                EqualEqual => None, Some(Compiler::binary), Equality;
+                Greater => None, Some(Compiler::binary), Comparison;
+                GreaterEqual => None, Some(Compiler::binary), Comparison;
+                Less => None, Some(Compiler::binary), Comparison;
+                LessEqual => None, Some(Compiler::binary), Comparison;
                 Eof => None, None, None;
             ],
         }
@@ -194,7 +203,7 @@ impl<'a> Compiler<'a> {
     fn end_compiler(&mut self) {
         self.emit_return();
         if !self.parser.had_error {
-
+            self.compiling_chunk.disassemble("code");
         }
     }
 
@@ -262,6 +271,21 @@ impl<'a> Compiler<'a> {
             TokenType::Minus => self.emit(OpCode::Subtract),
             TokenType::Star => self.emit(OpCode::Multiply),
             TokenType::Slash => self.emit(OpCode::Divide),
+            TokenType::BangEqual => {
+                self.emit(OpCode::Equal);
+                self.emit(OpCode::Not);
+            },
+            TokenType::EqualEqual => self.emit(OpCode::Equal),
+            TokenType::Greater => self.emit(OpCode::Greater),
+            TokenType::GreaterEqual => {
+                self.emit(OpCode::Less);
+                self.emit(OpCode::Not);
+            },
+            TokenType::Less => self.emit(OpCode::Less),
+            TokenType::LessEqual => {
+                self.emit(OpCode::Greater);
+                self.emit(OpCode::Not);
+            },
             _ => unreachable!(),
         }
     }

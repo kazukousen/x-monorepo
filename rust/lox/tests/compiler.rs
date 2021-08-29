@@ -17,10 +17,10 @@ fn run_arithmetic() {
 }
 
 #[test]
-fn run_falsy() {
+fn run_comparison() {
     let mut compiler = Compiler::new();
     let source = r#"
-!nil
+!(5 - 4 > 3 * 2 == !nil)
 "#;
     let chunk = compiler.compile(source);
     assert_eq!(true, chunk.is_some());

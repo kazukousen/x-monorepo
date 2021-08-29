@@ -1,10 +1,10 @@
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Value {
     typ: ValueType,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ValueType {
     Bool(bool),
     Nil,

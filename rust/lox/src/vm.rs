@@ -16,7 +16,7 @@ pub struct VM<'a> {
 }
 
 macro_rules! binary_op {
-    ( $vm:ident, $op:tt ) => {
+    ( $vm:ident, $constructor:expr, $op:tt ) => {
         {
             if !$vm.peek(0).is_number()
                 || !$vm.peek(1).is_number() {
@@ -25,7 +25,7 @@ macro_rules! binary_op {
             }
 
             let (b, a) = ($vm.pop().as_number(), $vm.pop().as_number());
-            $vm.push(Value::new_number(a $op b));
+            $vm.push($constructor(a $op b));
         }
     };
 }
@@ -54,6 +54,16 @@ impl<'a> VM<'a> {
                 Nil => self.push(Value::new_nil()),
                 True => self.push(Value::new_bool(true)),
                 False => self.push(Value::new_bool(false)),
+                Equal => {
+                    let (b, a) = (self.pop(), self.pop());
+                    self.push(Value::new_bool(b == a));
+                }
+                Greater => binary_op!(self, Value::new_bool, >),
+                Less => binary_op!(self, Value::new_bool, <),
+                Add => binary_op!(self, Value::new_number, +),
+                Subtract => binary_op!(self, Value::new_number, -),
+                Multiply => binary_op!(self, Value::new_number, *),
+                Divide => binary_op!(self, Value::new_number, /),
                 Negate => {
                     if !self.peek(0).is_number() {
                         eprintln!("Operand must be a number.");
@@ -62,10 +72,6 @@ impl<'a> VM<'a> {
                     let v = self.pop();
                     self.push(Value::new_number(-v.as_number()));
                 }
-                Add => binary_op!(self, +),
-                Subtract => binary_op!(self, -),
-                Multiply => binary_op!(self, *),
-                Divide => binary_op!(self, /),
                 Not => {
                     if !self.peek(0).is_bool()
                         && !self.peek(0).is_nil() {
