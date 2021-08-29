@@ -7,6 +7,6 @@ fn run_arithmetic() {
     let mut sc = Scanner::new(source);
 
     let tok = sc.scan_token();
-    assert_eq!(TokenType::Number, tok);
+    assert_eq!(TokenType::Number, tok.typ);
 }
 
