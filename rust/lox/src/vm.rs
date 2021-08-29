@@ -1,5 +1,6 @@
 use crate::chunk::{Chunk, OpCode::*};
 use crate::value::Value;
+use crate::OpCode;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum InterpretResult {
@@ -50,6 +51,9 @@ impl<'a> VM<'a> {
                     let v = self.chunk.values[*index].clone();
                     self.push(v);
                 }
+                Nil => self.push(Value::new_nil()),
+                True => self.push(Value::new_bool(true)),
+                False => self.push(Value::new_bool(false)),
                 Negate => {
                     if !self.peek(0).is_number() {
                         eprintln!("Operand must be a number.");
@@ -62,6 +66,15 @@ impl<'a> VM<'a> {
                 Subtract => binary_op!(self, -),
                 Multiply => binary_op!(self, *),
                 Divide => binary_op!(self, /),
+                Not => {
+                    if !self.peek(0).is_bool()
+                        && !self.peek(0).is_nil() {
+                        eprintln!("Operand must be a bool or nil.");
+                        return InterpretResult::RuntimeError;
+                    }
+                    let v = self.pop();
+                    self.push(Value::new_bool(v.is_falsy()));
+                }
             }
         }
     }

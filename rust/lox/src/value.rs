@@ -52,6 +52,14 @@ impl Value {
         }
     }
 
+    pub fn is_falsy(&self) -> bool {
+        match self.typ {
+            ValueType::Bool(v) => !v,
+            ValueType::Nil => true,
+            _ => false,
+        }
+    }
+
     pub fn as_number(&self) -> f64 {
         match self.typ {
             ValueType::Number(v) => v,

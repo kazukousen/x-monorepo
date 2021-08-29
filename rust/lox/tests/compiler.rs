@@ -15,3 +15,18 @@ fn run_arithmetic() {
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!(-1_f64, vm.stack[0].as_number());
 }
+
+#[test]
+fn run_falsy() {
+    let mut compiler = Compiler::new();
+    let source = r#"
+!nil
+"#;
+    let chunk = compiler.compile(source);
+    assert_eq!(true, chunk.is_some());
+
+    let chunk = chunk.unwrap();
+    let mut vm = VM::new(&chunk);
+    assert_eq!(InterpretResult::Ok, vm.run());
+    assert_eq!(true, vm.stack[0].as_bool());
+}

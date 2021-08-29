@@ -3,11 +3,15 @@ use crate::value::Value;
 pub enum OpCode {
     Return,
     Constant(usize),
-    Negate,
+    Nil,
+    True,
+    False,
     Add,
     Subtract,
     Multiply,
     Divide,
+    Negate,
+    Not,
 }
 
 pub struct Chunk {

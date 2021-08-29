@@ -206,6 +206,7 @@ impl<'a> Scanner<'a> {
         match c {
             'a' => if self.check_rest_keyword(1, "nd") { TokenType::And } else { TokenType::Identifier }
             'c' => if self.check_rest_keyword(1, "lass") { TokenType::Class } else { TokenType::Identifier }
+            'n' => if self.check_rest_keyword(1, "il") { TokenType::Nil } else { TokenType::Identifier }
             'p' => if self.check_rest_keyword(1, "rint") { TokenType::Print } else { TokenType::Identifier }
             'f' => if self.current - self.start >= 2 {
                 match self.source
@@ -215,6 +216,18 @@ impl<'a> Scanner<'a> {
                     'a' => if self.check_rest_keyword(2, "lse") { TokenType::False } else { TokenType::Identifier }
                     'o' => if self.check_rest_keyword(2, "r") { TokenType::For } else { TokenType::Identifier }
                     'u' => if self.check_rest_keyword(2, "n") { TokenType::Fun } else { TokenType::Identifier }
+                    _ => TokenType::Identifier
+                }
+            } else {
+                TokenType::Identifier
+            }
+            't' => if self.current - self.start >= 2 {
+                match self.source
+                    .chars()
+                    .nth(self.start + 1)
+                    .expect("Scanner tried to peek identifier out of bounds character") {
+                    'h' => if self.check_rest_keyword(2, "is") { TokenType::This } else { TokenType::Identifier }
+                    'r' => if self.check_rest_keyword(2, "ue") { TokenType::True } else { TokenType::Identifier }
                     _ => TokenType::Identifier
                 }
             } else {

@@ -108,6 +108,10 @@ impl<'a> Compiler<'a> {
                 Plus => None, Some(Compiler::binary), Term;
                 Minus => Some(Compiler::unary), Some(Compiler::binary), Term;
                 Number => Some(Compiler::number), None, None;
+                True => Some(Compiler::literal), None, None;
+                False => Some(Compiler::literal), None, None;
+                Nil => Some(Compiler::literal), None, None;
+                Bang => Some(Compiler::unary), None, None;
                 Eof => None, None, None;
             ],
         }
@@ -238,6 +242,7 @@ impl<'a> Compiler<'a> {
         // emit the operator instruction.
         match typ {
             TokenType::Minus => self.emit(OpCode::Negate),
+            TokenType::Bang => self.emit(OpCode::Not),
             _ => unreachable!(),
         }
     }
@@ -257,6 +262,17 @@ impl<'a> Compiler<'a> {
             TokenType::Minus => self.emit(OpCode::Subtract),
             TokenType::Star => self.emit(OpCode::Multiply),
             TokenType::Slash => self.emit(OpCode::Divide),
+            _ => unreachable!(),
+        }
+    }
+
+    // e.g. true
+    fn literal(&mut self) {
+        let typ = self.parser.previous.typ;
+        match typ {
+            TokenType::True => self.emit(OpCode::True),
+            TokenType::False => self.emit(OpCode::False),
+            TokenType::Nil => self.emit(OpCode::Nil),
             _ => unreachable!(),
         }
     }
