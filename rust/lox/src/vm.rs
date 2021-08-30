@@ -115,7 +115,7 @@ impl<'a> VM<'a> {
     fn peek(&self, distance: usize) -> &Value {
         match self.stack.get(self.stack.len() - (distance + 1)) {
             Some(v) => v,
-            None => panic!("VM tried to peek value from stack"),
+            None => panic!("VM tried to peek value out of bounds stack"),
         }
     }
 }
