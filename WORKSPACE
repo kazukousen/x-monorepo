@@ -10,6 +10,25 @@ http_archive(
     url = "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/{version}/bazel-skylib-{version}.tar.gz".format(version = skylib_version),
 )
 
+# proto
+http_archive(
+    name = "rules_proto",
+    sha256 = "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
+    strip_prefix = "rules_proto-7e4afce6fe62dbff0a4a03450143146f9f2d7488",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
+        "https://github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
+    ],
+)
+
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+
+# Declares @com_google_protobuf//:protoc pointing to released binary
+# This should stop building protoc during bazel build
+# See https://github.com/bazelbuild/rules_proto/pull/36
+rules_proto_dependencies()
+rules_proto_toolchains()
+
 # rules_go
 rules_go_version = "v0.28.0"
 
@@ -83,21 +102,24 @@ load("@io_bazel_rules_scala//testing:scalatest.bzl", "scalatest_repositories", "
 scalatest_repositories()
 scalatest_toolchain()
 
-# proto
+# maven
+rules_jvm_external_version = "4.1"
+
 http_archive(
-    name = "rules_proto",
-    sha256 = "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
-    strip_prefix = "rules_proto-7e4afce6fe62dbff0a4a03450143146f9f2d7488",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
-        "https://github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
-    ],
+    name = "rules_jvm_external",
+    sha256 = "f36441aa876c4f6427bfb2d1f2d723b48e9d930b62662bf723ddfb8fc80f0140",
+    strip_prefix = "rules_jvm_external-{version}".format(version = rules_jvm_external_version),
+    url = "https://github.com/bazelbuild/rules_jvm_external/archive/{version}.zip".format(version = rules_jvm_external_version),
 )
 
-load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+load("@rules_jvm_external//:defs.bzl", "maven_install")
 
-# Declares @com_google_protobuf//:protoc pointing to released binary
-# This should stop building protoc during bazel build
-# See https://github.com/bazelbuild/rules_proto/pull/36
-rules_proto_dependencies()
-rules_proto_toolchains()
+maven_install(
+    name = "maven",
+    artifacts = [
+    ],
+    repositories = [
+        "https://repo1.maven.org/maven2",
+        "https://maven.google.com",
+    ],
+)
