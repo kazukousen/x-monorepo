@@ -1,7 +1,5 @@
 package app.nitta.x.greeting
 
-object Greeter {
-  def main(args: Array[String]): Unit = {
-    println("Hello, world!")
-  }
+object Greeter extends App {
+  println("Hello, world!")
 }
