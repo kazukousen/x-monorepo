@@ -123,4 +123,5 @@ maven_install(
         "https://repo1.maven.org/maven2",
         "https://maven.google.com",
     ],
+    fetch_sources = True,
 )
