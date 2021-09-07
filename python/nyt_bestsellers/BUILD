@@ -1,5 +1,5 @@
-load("@py_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary")
+load("@py_deps//:requirements.bzl", "requirement")
 load("//tools/python/repl:macro.bzl", "py_repl")
 
 py_binary(
