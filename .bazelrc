@@ -1,1 +1,4 @@
 test --test_output=errors
+
+build:mac --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64
+run:gazelle-update  -- update-repos -from_file=go.mod -to_macro=3rdparty/go_repositories.bzl%go_repositories -prune=true
