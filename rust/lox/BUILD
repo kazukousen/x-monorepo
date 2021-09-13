@@ -1,4 +1,5 @@
 package(default_visibility = ["//visibility:public"])
+
 load("@rules_rust//rust:rust.bzl", "rust_library", "rust_test")
 
 rust_library(

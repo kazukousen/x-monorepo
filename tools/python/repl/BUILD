@@ -4,8 +4,8 @@ load("@py_deps//:requirements.bzl", "all_requirements")
 py_binary(
     name = "repl",
     srcs = ["repl.py"],
-    deps = all_requirements,
     visibility = ["//visibility:public"],
+    deps = all_requirements,
 )
 
 exports_files(["repl.py"])

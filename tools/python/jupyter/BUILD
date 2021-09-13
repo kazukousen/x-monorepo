@@ -5,8 +5,8 @@ py_binary(
     name = "jupyter",
     srcs = glob(["*.py"]),
     main = "jupyter.py",
-    deps = all_requirements,
     visibility = ["//visibility:public"],
+    deps = all_requirements,
 )
 
 exports_files(["jupyter.py"])
