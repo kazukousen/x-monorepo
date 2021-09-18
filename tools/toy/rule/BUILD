@@ -1,5 +1,6 @@
 load(":def.bzl", "foo_binary", "hello_gen", "hello_gen2")
 load(":shell.bzl", "emit_size", "convert_to_uppercase")
+load(":fortune.bzl", "haiku_fortune")
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 print("BUILD file")
@@ -39,4 +40,13 @@ convert_to_uppercase(
     name = "foo_upper",
     input = "foo.txt",
     output = "foo_upper.txt",
+)
+
+haiku_fortune(
+    name = "haikus",
+    srcs = [
+        "correct.txt",
+        "extensible.txt",
+        "fast.txt",
+    ],
 )
