@@ -22,7 +22,7 @@ def _haiku_fortune_impl(ctx):
         num_fortunes = len(ctx.attr.srcs),
         fortunes_files = datafile.short_path,
     )
-    ctx.actions.write(script, script_content, is_executable = True)
+    ctx.actions.write(output = script, content = script_content, is_executable = True)
 
     # The datafile must be in the runfiles for the executable to see it.
     runfiles = ctx.runfiles([datafile])
