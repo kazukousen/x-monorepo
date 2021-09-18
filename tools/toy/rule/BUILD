@@ -1,4 +1,5 @@
 load(":def.bzl", "foo_binary", "hello_gen", "hello_gen2")
+load(":shell.bzl", "emit_size")
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 print("BUILD file")
@@ -27,4 +28,9 @@ hello_gen2(
 cc_binary(
     name = "david",
     srcs = [":david_src"],
+)
+
+emit_size(
+    name = "foo",
+    file = "foo.txt",
 )
