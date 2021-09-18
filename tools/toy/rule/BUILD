@@ -1,5 +1,5 @@
 load(":def.bzl", "foo_binary", "hello_gen", "hello_gen2")
-load(":shell.bzl", "emit_size")
+load(":shell.bzl", "emit_size", "convert_to_uppercase")
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 print("BUILD file")
@@ -33,4 +33,10 @@ cc_binary(
 emit_size(
     name = "foo",
     file = "foo.txt",
+)
+
+convert_to_uppercase(
+    name = "foo_upper",
+    input = "foo.txt",
+    output = "foo_upper.txt",
 )
