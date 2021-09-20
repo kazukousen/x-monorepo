@@ -2,6 +2,7 @@ use crate::value::Value;
 
 pub enum OpCode {
     Return,
+    Print,
     Constant(usize),
     Nil,
     True,
@@ -68,6 +69,7 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) {
     if let Some(op) = chunk.instructions.get(offset) {
         match op {
             OpCode::Return => simple_instruction("OP_RETURN"),
+            OpCode::Print => simple_instruction("OP_PRINT"),
             OpCode::Constant(index) => constant_instruction(chunk, *index),
             OpCode::Negate => simple_instruction("OP_NEGATE"),
             OpCode::Add => simple_instruction("OP_ADD"),

@@ -46,6 +46,9 @@ impl<'a> VM<'a> {
 
             match instruction {
                 OpCode::Return => return InterpretResult::Ok,
+                OpCode::Print => {
+                    print!("{}\n", self.pop());
+                }
                 OpCode::Constant(index) => {
                     let v = self.chunk.values[*index].clone();
                     self.push(v);

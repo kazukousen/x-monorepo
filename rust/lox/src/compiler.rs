@@ -109,11 +109,13 @@ impl<'a> Compiler<'a> {
                 Minus => Some(Compiler::unary), Some(Compiler::binary), Term;
                 Star => None, Some(Compiler::binary), Term;
                 Slash => None, Some(Compiler::binary), Term;
+                SemiColon => None, None, None;
                 String => Some(Compiler::string), None, None;
                 Number => Some(Compiler::number), None, None;
                 True => Some(Compiler::literal), None, None;
                 False => Some(Compiler::literal), None, None;
                 Nil => Some(Compiler::literal), None, None;
+                Print => None, None, None;
                 Bang => Some(Compiler::unary), None, None;
                 BangEqual => None, Some(Compiler::binary), Equality;
                 Equal => None, None, None;
@@ -135,10 +137,9 @@ impl<'a> Compiler<'a> {
         self.parser.panicked = false;
 
         self.advance();
-        self.expression();
-        // after we compile the expression, we should bet at the end of the source,
-        // so we check for the sentinel EOF token.
-        self.consume(TokenType::Eof, "Expect end of expression.");
+        while !self.advance_if_matched(TokenType::Eof) {
+            self.declaration();
+        }
         self.end_compiler();
 
         if self.parser.had_error {
@@ -147,6 +148,31 @@ impl<'a> Compiler<'a> {
             let chunk = std::mem::replace(&mut self.compiling_chunk, Chunk::new());
             Some(chunk)
         }
+    }
+
+    fn advance_if_matched(&mut self, typ: TokenType) -> bool {
+        if self.parser.current.typ == typ {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn declaration(&mut self) {
+        self.statement();
+    }
+
+    fn statement(&mut self) {
+        if self.advance_if_matched(TokenType::Print) {
+            self.print_statement();
+        }
+    }
+
+    fn print_statement(&mut self) {
+        self.expression();
+        self.consume(TokenType::SemiColon, "Expect ';' after value.");
+        self.emit(OpCode::Print);
     }
 
     // consume is similar to advance() in that it reads the next token.
