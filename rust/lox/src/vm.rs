@@ -13,7 +13,7 @@ pub struct VM<'a> {
     chunk: &'a Chunk,
     pc: usize,
     pub stack: Vec<Value>,
-    globals: HashMap<String, Value>,
+    pub globals: HashMap<String, Value>,
 }
 
 macro_rules! binary_op {

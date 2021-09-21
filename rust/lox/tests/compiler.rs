@@ -71,4 +71,6 @@ print breakfast;
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
+    assert_eq!("beignets with cafe au lait", vm.globals.get("breakfast")
+        .expect("no such key").as_string().clone())
 }
