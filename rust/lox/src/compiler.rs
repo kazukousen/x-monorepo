@@ -161,8 +161,9 @@ impl<'a> Compiler<'a> {
     }
 
     /*
-    declaration -> classDecl | funDecl | varDecl | statement;
-    statement -> exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block;
+    program -> declaration* EOF ;
+    declaration -> classDecl | funDecl | varDecl | statement ;
+    statement -> exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block ;
      */
 
     fn declaration(&mut self) {
@@ -178,7 +179,7 @@ impl<'a> Compiler<'a> {
     }
 
     // ```
-    // var identifier [= expr];
+    // "var" IDENTIFIER ("=" expression)? ";" ;
     // ```
     fn var_declaration(&mut self) {
         self.consume(TokenType::Identifier, "Expect variable name");
