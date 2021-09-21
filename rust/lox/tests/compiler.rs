@@ -80,3 +80,23 @@ print mut_foo;
     assert_eq!("updated foo!", vm.globals.get("mut_foo")
         .expect("no such key").as_string().clone());
 }
+
+#[test]
+fn run_local() {
+    let mut compiler = Compiler::new();
+    let source = r#"
+var global = "globalized";
+{
+    var local = "localized";
+    print local + " and " + global;
+}
+"#;
+    let chunk = compiler.compile(source);
+    assert_eq!(true, chunk.is_some());
+
+    let chunk = chunk.unwrap();
+    let mut vm = VM::new(&chunk);
+    assert_eq!(InterpretResult::Ok, vm.run());
+    assert_eq!("globalized", vm.globals.get("global")
+        .expect("no such key").as_string().clone());
+}

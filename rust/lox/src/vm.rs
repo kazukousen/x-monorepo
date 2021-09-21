@@ -85,6 +85,20 @@ impl<'a> VM<'a> {
                     self.globals.insert(name, self.peek(0).clone());
                     self.pop();
                 }
+                OpCode::GetLocal(index) => {
+                    match self.stack.get(*index) {
+                        Some(v) => {
+                            self.push(v.clone());
+                        }
+                        None => {
+                            eprintln!("Undefined local variable at: '{}'.", index);
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
+                OpCode::SetLocal(index) => {
+                    self.stack.insert(*index, self.peek(0).clone());
+                }
                 OpCode::Constant(index) => {
                     let v = self.chunk.values[*index].clone();
                     self.push(v);

@@ -7,6 +7,8 @@ pub enum OpCode {
     GetGlobal(usize),
     SetGlobal(usize),
     DefineGlobal(usize),
+    GetLocal(usize),
+    SetLocal(usize),
     Constant(usize),
     Nil,
     True,
@@ -78,6 +80,8 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) {
             OpCode::GetGlobal(index) => constant_instruction("OP_GET_GLOBAL", chunk, *index),
             OpCode::SetGlobal(index) => constant_instruction("OP_SET_GLOBAL", chunk, *index),
             OpCode::DefineGlobal(index) => constant_instruction("OP_DEFINE_GLOBAL", chunk, *index),
+            OpCode::GetLocal(index) => byte_instruction("OP_GET_LOCAL", *index),
+            OpCode::SetLocal(index) => byte_instruction("OP_SET_LOCAL", *index),
             OpCode::Constant(index) => constant_instruction( "OP_CONSTANT", chunk, *index),
             OpCode::Negate => simple_instruction("OP_NEGATE"),
             OpCode::Add => simple_instruction("OP_ADD"),
@@ -102,4 +106,8 @@ fn simple_instruction(name: &str) {
 fn constant_instruction(name: &str, chunk: &Chunk, index: usize) {
     let value = &chunk.values[index];
     println!("{} {:04} {:.2}", name, index, value);
+}
+
+fn byte_instruction(name: &str, index: usize) {
+    println!("{} {:04}", name, index);
 }
