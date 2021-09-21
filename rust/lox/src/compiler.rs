@@ -192,7 +192,6 @@ impl<'a> Compiler<'a> {
     // "var" IDENTIFIER ("=" expression)? ";" ;
     // ```
     fn var_declaration(&mut self) {
-        // start:parse
         self.consume(TokenType::Identifier, "Expect variable name");
         let name = self.parser.previous.source;
         if self.scope_depth > 0 {
