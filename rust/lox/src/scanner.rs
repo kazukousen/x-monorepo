@@ -236,6 +236,7 @@ impl<'a> Scanner<'a> {
             } else {
                 TokenType::Identifier
             }
+            'v' => if self.check_rest_keyword(1, "ar") { TokenType::Var } else { TokenType::Identifier }
             _ => TokenType::Identifier,
         }
     }

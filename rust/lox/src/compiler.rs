@@ -110,6 +110,7 @@ impl<'a> Compiler<'a> {
                 Star => None, Some(Compiler::binary), Term;
                 Slash => None, Some(Compiler::binary), Term;
                 SemiColon => None, None, None;
+                Identifier => Some(Compiler::variable), None, None;
                 String => Some(Compiler::string), None, None;
                 Number => Some(Compiler::number), None, None;
                 True => Some(Compiler::literal), None, None;
@@ -159,13 +160,71 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    /*
+    declaration -> classDecl | funDecl | varDecl | statement;
+    statement -> exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block;
+     */
+
     fn declaration(&mut self) {
-        self.statement();
+        if self.advance_if_matched(TokenType::Var) {
+            self.var_declaration();
+        } else {
+            self.statement();
+        }
+
+        if self.parser.panicked {
+            self.synchronize();
+        }
+    }
+
+    // ```
+    // var identifier [= expr];
+    // ```
+    fn var_declaration(&mut self) {
+        self.consume(TokenType::Identifier, "Expect variable name");
+        let global = self.identifier_constant();
+
+        if self.advance_if_matched(TokenType::Equal) {
+            self.expression();
+        } else {
+            self.emit(OpCode::Nil);
+        }
+
+        self.consume(TokenType::SemiColon, "Expect ';' after value declaration.");
+        self.emit(OpCode::DefineGlobal(global));
+    }
+
+    fn identifier_constant(&mut self) -> usize {
+        let s = self.parser.previous.source.to_string();
+        let idx = self.compiling_chunk.add_constant(Value::new_string(s));
+        return idx;
+    }
+
+    fn synchronize(&mut self) {
+        self.parser.panicked = false;
+        while self.parser.current.typ == TokenType::Eof {
+            if self.parser.previous.typ == TokenType::SemiColon {
+                return;
+            }
+            match self.parser.current.typ {
+                TokenType::Class | TokenType::Fun | TokenType::Var |
+                TokenType::For | TokenType::If | TokenType::While |
+                TokenType::Print | TokenType::Return
+                => {
+                    return;
+                }
+                _ => {
+                    self.advance();
+                }
+            }
+        }
     }
 
     fn statement(&mut self) {
         if self.advance_if_matched(TokenType::Print) {
             self.print_statement();
+        } else {
+            self.expression_statement();
         }
     }
 
@@ -173,6 +232,12 @@ impl<'a> Compiler<'a> {
         self.expression();
         self.consume(TokenType::SemiColon, "Expect ';' after value.");
         self.emit(OpCode::Print);
+    }
+
+    fn expression_statement(&mut self) {
+        self.expression();
+        self.consume(TokenType::SemiColon, "Expect ';' after value.");
+        self.emit(OpCode::Pop);
     }
 
     // consume is similar to advance() in that it reads the next token.
@@ -334,6 +399,11 @@ impl<'a> Compiler<'a> {
         let s = &self.parser.previous.source[1..=self.parser.previous.source.len()-2];
         let s = s.to_string();
         self.emit_constant(Value::new_string(s));
+    }
+
+    fn variable(&mut self) {
+        let idx = self.identifier_constant();
+        self.emit(OpCode::GetGlobal(idx));
     }
 
     fn expression(&mut self) {

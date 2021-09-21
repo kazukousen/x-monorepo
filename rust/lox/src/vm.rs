@@ -1,5 +1,6 @@
 use crate::chunk::{Chunk, OpCode};
 use crate::value::Value;
+use std::collections::HashMap;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum InterpretResult {
@@ -12,6 +13,7 @@ pub struct VM<'a> {
     chunk: &'a Chunk,
     pc: usize,
     pub stack: Vec<Value>,
+    globals: HashMap<String, Value>,
 }
 
 macro_rules! binary_op {
@@ -35,6 +37,7 @@ impl<'a> VM<'a> {
             chunk,
             pc: 0,
             stack: vec![],
+            globals: Default::default(),
         }
     }
 
@@ -48,6 +51,26 @@ impl<'a> VM<'a> {
                 OpCode::Return => return InterpretResult::Ok,
                 OpCode::Print => {
                     print!("{}\n", self.pop());
+                }
+                OpCode::Pop => {
+                    self.pop(); // discard the result
+                }
+                OpCode::GetGlobal(index) => {
+                    let name = self.chunk.values[*index].as_string().clone();
+                    match self.globals.get(&name) {
+                        Some(v) => {
+                            self.push(v.clone());
+                        },
+                        None => {
+                            eprintln!("Undefined global variable: '{}'.", name);
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
+                OpCode::DefineGlobal(index) => {
+                    let name = self.chunk.values[*index].as_string().clone();
+                    self.globals.insert(name, self.peek(0).clone());
+                    self.pop();
                 }
                 OpCode::Constant(index) => {
                     let v = self.chunk.values[*index].clone();
