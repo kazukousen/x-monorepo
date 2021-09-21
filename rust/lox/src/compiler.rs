@@ -71,6 +71,14 @@ pub struct Compiler<'a> {
     scanner: Scanner<'a>,
     parser: Parser<'a>,
     parse_rules: HashMap<TokenType, ParseRule<'a>>,
+    locals: Vec<Local<'a>>,
+    scope_depth: usize,
+}
+
+#[derive(Default)]
+struct Local<'a> {
+    name: &'a str,
+    depth: usize,
 }
 
 #[derive(Default)]
@@ -127,6 +135,8 @@ impl<'a> Compiler<'a> {
                 LessEqual => None, Some(Compiler::binary), Comparison;
                 Eof => None, None, None;
             ],
+            locals: Vec::new(),
+            scope_depth: 0
         }
     }
 
@@ -183,7 +193,10 @@ impl<'a> Compiler<'a> {
     // ```
     fn var_declaration(&mut self) {
         self.consume(TokenType::Identifier, "Expect variable name");
-        let global = self.identifier_constant();
+        let name = self.parser.previous.source;
+        if self.scope_depth > 0 {
+            self.locals.push(Local{ name, depth: 0 });
+        }
 
         if self.advance_if_matched(TokenType::Equal) {
             self.expression();
@@ -192,12 +205,19 @@ impl<'a> Compiler<'a> {
         }
 
         self.consume(TokenType::SemiColon, "Expect ';' after value declaration.");
+
+        if self.scope_depth > 0 {
+            self.locals.last_mut().expect("Expect locals exist one more").depth = self.scope_depth;
+            return;
+        }
+
+        let global = self.identifier_constant(name);
         self.emit(OpCode::DefineGlobal(global));
     }
 
-    fn identifier_constant(&mut self) -> usize {
-        let s = self.parser.previous.source.to_string();
-        let idx = self.compiling_chunk.add_constant(Value::new_string(s));
+    fn identifier_constant(&mut self, name: &'a str) -> usize {
+        let name = name.to_string();
+        let idx = self.compiling_chunk.add_constant(Value::new_string(name));
         return idx;
     }
 
@@ -221,9 +241,16 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    /*
+    statement -> exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block ;
+     */
     fn statement(&mut self) {
         if self.advance_if_matched(TokenType::Print) {
             self.print_statement();
+        } else if self.advance_if_matched(TokenType::LeftBrace) {
+            self.begin_scope();
+            self.block();
+            self.end_scope();
         } else {
             self.expression_statement();
         }
@@ -231,14 +258,35 @@ impl<'a> Compiler<'a> {
 
     fn print_statement(&mut self) {
         self.expression();
-        self.consume(TokenType::SemiColon, "Expect ';' after value.");
+        self.consume(TokenType::SemiColon, "Expect ';' after print statement.");
         self.emit(OpCode::Print);
     }
 
     fn expression_statement(&mut self) {
         self.expression();
-        self.consume(TokenType::SemiColon, "Expect ';' after value.");
+        self.consume(TokenType::SemiColon, "Expect ';' after expression statement.");
         self.emit(OpCode::Pop);
+    }
+
+    fn block(&mut self) {
+        while self.parser.current.typ != TokenType::RightBrace && self.parser.current.typ != TokenType::Eof {
+            self.declaration();
+        }
+
+        self.consume(TokenType::RightBrace, "Expect '}' after block.");
+    }
+
+    fn begin_scope(&mut self) {
+        self.scope_depth += 1;
+    }
+
+    fn end_scope(&mut self) {
+        self.scope_depth -= 1;
+        while self.locals.len() > 0 {
+            // discard local variables.
+            self.locals.pop();
+            self.emit(OpCode::Pop);
+        }
     }
 
     // consume is similar to advance() in that it reads the next token.
@@ -403,14 +451,37 @@ impl<'a> Compiler<'a> {
     }
 
     fn variable(&mut self) {
-        let idx = self.identifier_constant();
+        let name = self.parser.previous.source;
+        let (set_op, get_op) = match self.resolve_local(name) {
+            Some(idx) => {
+                // in current scope
+                (OpCode::SetLocal(idx), OpCode::GetLocal(idx))
+            }
+            None => {
+                // global
+                let idx = self.identifier_constant(name);
+                (OpCode::SetGlobal(idx), OpCode::GetGlobal(idx))
+            }
+        };
 
         if self.advance_if_matched(TokenType::Equal) {
             self.expression();
-            self.emit(OpCode::SetGlobal(idx));
+            self.emit(set_op);
         } else {
-            self.emit(OpCode::GetGlobal(idx));
+            self.emit(get_op);
         }
+    }
+
+    fn resolve_local(&mut self, name: &'a str) -> Option<usize> {
+        for (i, local) in self.locals.iter().enumerate() {
+            if local.name == name {
+                if local.depth == 0 {
+                    self.error("Can't read local variable in its own initializer.");
+                }
+                return Some(i)
+            }
+        }
+        None
     }
 
     fn expression(&mut self) {
@@ -418,7 +489,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn get_rule(&self, typ: &TokenType) -> &ParseRule<'a> {
-        &self.parse_rules[typ]
+        &self.parse_rules.get(typ).expect(format!("no entry found for key: {}", typ).as_str())
     }
 
     fn parse_precedence(&mut self, precedence: Precedence) {
