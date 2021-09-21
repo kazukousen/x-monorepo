@@ -403,7 +403,13 @@ impl<'a> Compiler<'a> {
 
     fn variable(&mut self) {
         let idx = self.identifier_constant();
-        self.emit(OpCode::GetGlobal(idx));
+
+        if self.advance_if_matched(TokenType::Equal) {
+            self.expression();
+            self.emit(OpCode::SetGlobal(idx));
+        } else {
+            self.emit(OpCode::GetGlobal(idx));
+        }
     }
 
     fn expression(&mut self) {

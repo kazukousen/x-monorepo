@@ -64,6 +64,10 @@ fn run_global() {
 var beverage = "cafe au lait";
 var breakfast = "beignets with " + beverage;
 print breakfast;
+
+var mut_foo = "foo";
+mut_foo = "updated foo!";
+print mut_foo;
 "#;
     let chunk = compiler.compile(source);
     assert_eq!(true, chunk.is_some());
@@ -72,5 +76,7 @@ print breakfast;
     let mut vm = VM::new(&chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!("beignets with cafe au lait", vm.globals.get("breakfast")
-        .expect("no such key").as_string().clone())
+        .expect("no such key").as_string().clone());
+    assert_eq!("updated foo!", vm.globals.get("mut_foo")
+        .expect("no such key").as_string().clone());
 }

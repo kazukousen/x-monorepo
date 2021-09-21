@@ -67,6 +67,19 @@ impl<'a> VM<'a> {
                         }
                     }
                 }
+                OpCode::SetGlobal(index) => {
+                    let name = self.chunk.values[*index].as_string().clone();
+                    match self.globals.get(&name) {
+                        Some(_) => {
+                            self.globals.insert(name, self.peek(0).clone());
+                        }
+                        None => {
+                            self.globals.remove(&name);
+                            eprintln!("Undefined global variable: '{}'.", name);
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
                 OpCode::DefineGlobal(index) => {
                     let name = self.chunk.values[*index].as_string().clone();
                     self.globals.insert(name, self.peek(0).clone());
