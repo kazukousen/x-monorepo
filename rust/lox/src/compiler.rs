@@ -425,8 +425,8 @@ impl<'a> Compiler<'a> {
         let prefix_rule = self.get_rule(&self.parser.previous.typ).prefix;
 
         match prefix_rule {
-            Some(rule) => {
-                rule(self);
+            Some(prefix_rule) => {
+                prefix_rule(self);
 
                 while precedence <= self.get_rule(&self.parser.current.typ).precedence {
                     self.advance();
