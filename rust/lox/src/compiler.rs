@@ -109,11 +109,14 @@ impl<'a> Compiler<'a> {
                 Minus => Some(Compiler::unary), Some(Compiler::binary), Term;
                 Star => None, Some(Compiler::binary), Term;
                 Slash => None, Some(Compiler::binary), Term;
+                SemiColon => None, None, None;
+                Identifier => Some(Compiler::variable), None, None;
                 String => Some(Compiler::string), None, None;
                 Number => Some(Compiler::number), None, None;
                 True => Some(Compiler::literal), None, None;
                 False => Some(Compiler::literal), None, None;
                 Nil => Some(Compiler::literal), None, None;
+                Print => None, None, None;
                 Bang => Some(Compiler::unary), None, None;
                 BangEqual => None, Some(Compiler::binary), Equality;
                 Equal => None, None, None;
@@ -135,10 +138,9 @@ impl<'a> Compiler<'a> {
         self.parser.panicked = false;
 
         self.advance();
-        self.expression();
-        // after we compile the expression, we should bet at the end of the source,
-        // so we check for the sentinel EOF token.
-        self.consume(TokenType::Eof, "Expect end of expression.");
+        while !self.advance_if_matched(TokenType::Eof) {
+            self.declaration();
+        }
         self.end_compiler();
 
         if self.parser.had_error {
@@ -147,6 +149,95 @@ impl<'a> Compiler<'a> {
             let chunk = std::mem::replace(&mut self.compiling_chunk, Chunk::new());
             Some(chunk)
         }
+    }
+
+    fn advance_if_matched(&mut self, typ: TokenType) -> bool {
+        if self.parser.current.typ == typ {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
+
+    /*
+    declaration -> classDecl | funDecl | varDecl | statement;
+    statement -> exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block;
+     */
+
+    fn declaration(&mut self) {
+        if self.advance_if_matched(TokenType::Var) {
+            self.var_declaration();
+        } else {
+            self.statement();
+        }
+
+        if self.parser.panicked {
+            self.synchronize();
+        }
+    }
+
+    // ```
+    // var identifier [= expr];
+    // ```
+    fn var_declaration(&mut self) {
+        self.consume(TokenType::Identifier, "Expect variable name");
+        let global = self.identifier_constant();
+
+        if self.advance_if_matched(TokenType::Equal) {
+            self.expression();
+        } else {
+            self.emit(OpCode::Nil);
+        }
+
+        self.consume(TokenType::SemiColon, "Expect ';' after value declaration.");
+        self.emit(OpCode::DefineGlobal(global));
+    }
+
+    fn identifier_constant(&mut self) -> usize {
+        let s = self.parser.previous.source.to_string();
+        let idx = self.compiling_chunk.add_constant(Value::new_string(s));
+        return idx;
+    }
+
+    fn synchronize(&mut self) {
+        self.parser.panicked = false;
+        while self.parser.current.typ == TokenType::Eof {
+            if self.parser.previous.typ == TokenType::SemiColon {
+                return;
+            }
+            match self.parser.current.typ {
+                TokenType::Class | TokenType::Fun | TokenType::Var |
+                TokenType::For | TokenType::If | TokenType::While |
+                TokenType::Print | TokenType::Return
+                => {
+                    return;
+                }
+                _ => {
+                    self.advance();
+                }
+            }
+        }
+    }
+
+    fn statement(&mut self) {
+        if self.advance_if_matched(TokenType::Print) {
+            self.print_statement();
+        } else {
+            self.expression_statement();
+        }
+    }
+
+    fn print_statement(&mut self) {
+        self.expression();
+        self.consume(TokenType::SemiColon, "Expect ';' after value.");
+        self.emit(OpCode::Print);
+    }
+
+    fn expression_statement(&mut self) {
+        self.expression();
+        self.consume(TokenType::SemiColon, "Expect ';' after value.");
+        self.emit(OpCode::Pop);
     }
 
     // consume is similar to advance() in that it reads the next token.
@@ -310,6 +401,17 @@ impl<'a> Compiler<'a> {
         self.emit_constant(Value::new_string(s));
     }
 
+    fn variable(&mut self) {
+        let idx = self.identifier_constant();
+
+        if self.advance_if_matched(TokenType::Equal) {
+            self.expression();
+            self.emit(OpCode::SetGlobal(idx));
+        } else {
+            self.emit(OpCode::GetGlobal(idx));
+        }
+    }
+
     fn expression(&mut self) {
         self.parse_precedence(Precedence::Assignment)
     }
@@ -323,8 +425,8 @@ impl<'a> Compiler<'a> {
         let prefix_rule = self.get_rule(&self.parser.previous.typ).prefix;
 
         match prefix_rule {
-            Some(rule) => {
-                rule(self);
+            Some(prefix_rule) => {
+                prefix_rule(self);
 
                 while precedence <= self.get_rule(&self.parser.current.typ).precedence {
                     self.advance();

@@ -2,6 +2,11 @@ use crate::value::Value;
 
 pub enum OpCode {
     Return,
+    Print,
+    Pop,
+    GetGlobal(usize),
+    SetGlobal(usize),
+    DefineGlobal(usize),
     Constant(usize),
     Nil,
     True,
@@ -68,7 +73,12 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) {
     if let Some(op) = chunk.instructions.get(offset) {
         match op {
             OpCode::Return => simple_instruction("OP_RETURN"),
-            OpCode::Constant(index) => constant_instruction(chunk, *index),
+            OpCode::Print => simple_instruction("OP_PRINT"),
+            OpCode::Pop => simple_instruction("OP_POP"),
+            OpCode::GetGlobal(index) => constant_instruction("OP_GET_GLOBAL", chunk, *index),
+            OpCode::SetGlobal(index) => constant_instruction("OP_SET_GLOBAL", chunk, *index),
+            OpCode::DefineGlobal(index) => constant_instruction("OP_DEFINE_GLOBAL", chunk, *index),
+            OpCode::Constant(index) => constant_instruction( "OP_CONSTANT", chunk, *index),
             OpCode::Negate => simple_instruction("OP_NEGATE"),
             OpCode::Add => simple_instruction("OP_ADD"),
             OpCode::Subtract => simple_instruction("OP_SUBSTRACT"),
@@ -89,7 +99,7 @@ fn simple_instruction(name: &str) {
     println!("{}", name);
 }
 
-fn constant_instruction(chunk: &Chunk, index: usize) {
+fn constant_instruction(name: &str, chunk: &Chunk, index: usize) {
     let value = &chunk.values[index];
-    println!("CONSTANT {:04} {:.2}", index, value);
+    println!("{} {:04} {:.2}", name, index, value);
 }
