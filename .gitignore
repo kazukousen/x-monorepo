@@ -1,5 +1,12 @@
+# IDE
 .idea
+.ijwb
+
 # bazel
 bazel-*
 
+# go
+vendor/
+
+# rust
 target

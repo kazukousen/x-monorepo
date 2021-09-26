@@ -1,5 +1,5 @@
 load(":def.bzl", "foo_binary", "hello_gen", "hello_gen2")
-load(":shell.bzl", "emit_size", "convert_to_uppercase")
+load(":shell.bzl", "convert_to_uppercase", "emit_size")
 load(":fortune.bzl", "haiku_fortune")
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
@@ -17,8 +17,8 @@ foo_binary(
 
 hello_gen(
     name = "Carol",
-    username = "Carol",
     template = "hello.cc.tpl",
+    username = "Carol",
 )
 
 hello_gen2(
