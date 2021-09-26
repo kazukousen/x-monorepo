@@ -37,9 +37,3 @@ def go_repositories():
         sum = "h1:cokOdA+Jmi5PJGXLlLllQSgYigAEfHXJAERHVMaCc2k=",
         version = "v0.3.3",
     )
-    go_repository(
-        name = "org_golang_x_tools",
-        importpath = "golang.org/x/tools",
-        sum = "h1:FDhOuMEY4JVRztM/gsbk+IKUQ8kj74bxZrgw87eMMVc=",
-        version = "v0.0.0-20180917221912-90fa682c2a6e",
-    )
