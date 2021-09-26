@@ -11,22 +11,15 @@ http_archive(
     url = "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/{version}/bazel-skylib-{version}.tar.gz".format(version = skylib_version),
 )
 
-# python
-
-rules_python_version = "0.3.0"
-
-http_archive(
-    name = "rules_python",
-    sha256 = "934c9ceb552e84577b0faf1e5a2f0450314985b4d8712b2b70717dc679fdc01b",
-    url = "https://github.com/bazelbuild/rules_python/releases/download/{version}/rules_python-{version}.tar.gz".format(version = rules_python_version),
+local_repository(
+    name = "bazel_rules_python",
+    path = "bazel/python/",
 )
 
-load("@rules_python//python:pip.bzl", "pip_install")
-
-pip_install(
-    name = "py_deps",
-    requirements = "//3rdparty:requirements.txt",
-)
+load("@bazel_rules_python//:repos.bzl", "python_repos")
+python_repos()
+load("@bazel_rules_python//:def.bzl", "python_rules_deps")
+python_rules_deps()
 
 # proto
 http_archive(
