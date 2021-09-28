@@ -17,29 +17,24 @@ local_repository(
 )
 
 load("@bazel_rules_python//:repos.bzl", "python_repos")
+load("//:3rdparty/go_repositories.bzl", "go_repositories")
+
+# gazelle:repository_macro 3rdparty/go_repositories.bzl%go_repositories
+go_repositories()
+
 python_repos()
+
 load("@bazel_rules_python//:def.bzl", "python_rules_deps")
+
 python_rules_deps()
 
-# proto
-http_archive(
-    name = "rules_proto",
-    sha256 = "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
-    strip_prefix = "rules_proto-7e4afce6fe62dbff0a4a03450143146f9f2d7488",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
-        "https://github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
-    ],
-)
+load("//bazel/go:repos.bzl", "go_repos")
 
-load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+go_repos()
 
-# Declares @com_google_protobuf//:protoc pointing to released binary
-# This should stop building protoc during bazel build
-# See https://github.com/bazelbuild/rules_proto/pull/36
-rules_proto_dependencies()
+load("//bazel/go:def.bzl", "go_rules_deps")
 
-rules_proto_toolchains()
+go_rules_deps()
 
 # rules_rust
 http_archive(
@@ -112,22 +107,6 @@ maven_install(
         "https://maven.google.com",
     ],
 )
-
-local_repository(
-    name = "bazel_rules_go",
-    path = "bazel/go/",
-)
-
-load("@bazel_rules_go//:repos.bzl", "go_repos")
-go_repos()
-load("@bazel_rules_go//:def.bzl", "go_rules_deps")
-go_rules_deps()
-
-# gazelle:repository_macro 3rdparty/go_repositories.bzl%go_repositories
-
-load("//3rdparty:go_repositories.bzl", "go_repositories")
-
-go_repositories()
 
 # rules_docker
 
