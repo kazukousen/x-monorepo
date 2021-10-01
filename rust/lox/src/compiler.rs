@@ -394,6 +394,7 @@ impl<'a> Compiler<'a> {
         self.compiling_chunk.instructions.len() - 1
     }
 
+    // patches the instruction at 'pos' to replace the offset value for the jump
     fn patch_jump(&mut self, pos: usize) {
         let offset = self.compiling_chunk.instructions.len() - 1 - pos;
         match self.compiling_chunk.instructions.get(pos).unwrap() {
