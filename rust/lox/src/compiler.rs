@@ -398,10 +398,10 @@ impl<'a> Compiler<'a> {
         let offset = self.compiling_chunk.instructions.len() - 1 - pos;
         match self.compiling_chunk.instructions.get(pos).expect("") {
             OpCode::JumpIfFalse(_) => {
-                std::mem::replace(&mut self.compiling_chunk.instructions[pos], OpCode::JumpIfFalse(offset));
+                self.compiling_chunk.instructions[pos] = OpCode::JumpIfFalse(offset);
             }
             OpCode::Jump(_) => {
-                std::mem::replace(&mut self.compiling_chunk.instructions[pos], OpCode::Jump(offset));
+                self.compiling_chunk.instructions[pos] = OpCode::Jump(offset);
             }
             _ => unreachable!()
         }
