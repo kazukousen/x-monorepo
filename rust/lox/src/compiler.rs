@@ -396,7 +396,7 @@ impl<'a> Compiler<'a> {
 
     fn patch_jump(&mut self, pos: usize) {
         let offset = self.compiling_chunk.instructions.len() - 1 - pos;
-        match self.compiling_chunk.instructions.get(pos).expect("") {
+        match self.compiling_chunk.instructions.get(pos).unwrap() {
             OpCode::JumpIfFalse(_) => {
                 self.compiling_chunk.instructions[pos] = OpCode::JumpIfFalse(offset);
             }
