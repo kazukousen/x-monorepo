@@ -121,6 +121,8 @@ impl<'a> Compiler<'a> {
                 Identifier => Some(Compiler::variable), None, None;
                 String => Some(Compiler::string), None, None;
                 Number => Some(Compiler::number), None, None;
+                And => None, Some(Compiler::and), And;
+                Or => None, Some(Compiler::or), Or;
                 True => Some(Compiler::literal), None, None;
                 False => Some(Compiler::literal), None, None;
                 Nil => Some(Compiler::literal), None, None;
@@ -269,22 +271,22 @@ impl<'a> Compiler<'a> {
         self.expression();
         self.consume(TokenType::RightParen, "Expect ')' after condition of 'if'.");
 
-        let then_jump = self.emit_jump(
+        let then_pos = self.emit_jump(
             /* Set a place holder for now, and patch it later */
             OpCode::JumpIfFalse(0)
         );
         self.emit(OpCode::Pop);
         self.statement();
-        let else_jump = self.emit_jump(
+        let else_pos = self.emit_jump(
             /* Set a place holder for now, and patch it later */
             OpCode::Jump(0)
         );
-        self.patch_jump(then_jump);
+        self.patch_jump(then_pos);
         self.emit(OpCode::Pop);
         if self.advance_if_matched(TokenType::Else) {
             self.statement();
         }
-        self.patch_jump(else_jump);
+        self.patch_jump(else_pos);
     }
 
     fn expression_statement(&mut self) {
@@ -392,15 +394,15 @@ impl<'a> Compiler<'a> {
         self.compiling_chunk.instructions.len() - 1
     }
 
-    fn patch_jump(&mut self, jump_pos: usize) {
-        let jump = self.compiling_chunk.instructions.len() - 1 - jump_pos;
-        let maybe_jump = self.compiling_chunk.instructions.get(jump_pos).expect("");
-        match maybe_jump {
+    // patches the instruction at 'pos' to replace the offset value for the jump
+    fn patch_jump(&mut self, pos: usize) {
+        let offset = self.compiling_chunk.instructions.len() - 1 - pos;
+        match self.compiling_chunk.instructions.get(pos).unwrap() {
             OpCode::JumpIfFalse(_) => {
-                std::mem::replace(&mut self.compiling_chunk.instructions[jump_pos], OpCode::JumpIfFalse(jump));
+                self.compiling_chunk.instructions[pos] = OpCode::JumpIfFalse(offset);
             }
             OpCode::Jump(_) => {
-                std::mem::replace(&mut self.compiling_chunk.instructions[jump_pos], OpCode::Jump(jump));
+                self.compiling_chunk.instructions[pos] = OpCode::Jump(offset);
             }
             _ => unreachable!()
         }
@@ -493,6 +495,38 @@ impl<'a> Compiler<'a> {
         let s = &self.parser.previous.source[1..=self.parser.previous.source.len()-2];
         let s = s.to_string();
         self.emit_constant(Value::new_string(s));
+    }
+
+    fn and(&mut self) {
+        let pos = self.emit_jump(
+            /* set a placeholder for now, and patch it later. */
+            OpCode::JumpIfFalse(0)
+        );
+
+        self.emit(OpCode::Pop);
+
+        // compile the right operand.
+        self.parse_precedence(Precedence::And);
+
+        self.patch_jump(pos);
+    }
+
+    fn or(&mut self) {
+        let else_pos = self.emit_jump(
+            /* set a placeholder for now, and patch it later. */
+            OpCode::JumpIfFalse(0)
+        );
+        let end_pos = self.emit_jump(
+            /* set a placeholder for now, and patch it later. */
+            OpCode::Jump(0)
+        );
+
+        self.patch_jump(else_pos);
+        self.emit(OpCode::Pop);
+
+        // compile the right operand.
+        self.parse_precedence(Precedence::Or);
+        self.patch_jump(end_pos);
     }
 
     fn variable(&mut self) {
