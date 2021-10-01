@@ -240,6 +240,7 @@ impl<'a> Scanner<'a> {
                 TokenType::Identifier
             }
             'v' => if self.check_rest_keyword(1, "ar") { TokenType::Var } else { TokenType::Identifier }
+            'w' => if self.check_rest_keyword(1, "hile") { TokenType::While } else { TokenType::Identifier }
             _ => TokenType::Identifier,
         }
     }

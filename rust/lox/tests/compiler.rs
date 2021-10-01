@@ -155,3 +155,23 @@ var or_exp_false = ( global != "globalized" or local != "localized" );
     assert_eq!(false, vm.globals.get("or_exp_false")
         .expect("no such key").as_bool().clone());
 }
+
+#[test]
+fn run_while() {
+    let mut compiler = Compiler::new();
+    let source = r#"
+var retries = 5;
+var cnt = 0;
+while (cnt < retries) {
+    cnt = cnt + 1;
+}
+"#;
+    let chunk = compiler.compile(source);
+    assert_eq!(true, chunk.is_some());
+
+    let chunk = chunk.unwrap();
+    let mut vm = VM::new(&chunk);
+    assert_eq!(InterpretResult::Ok, vm.run());
+    assert_eq!(5_f64, vm.globals.get("cnt")
+        .expect("no such key").as_number().clone());
+}

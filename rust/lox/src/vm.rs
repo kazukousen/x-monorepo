@@ -60,6 +60,9 @@ impl<'a> VM<'a> {
                 OpCode::Jump(offset) => {
                     self.pc += *offset;
                 }
+                OpCode::Loop(offset) => {
+                    self.pc -= *offset;
+                }
                 OpCode::Pop => {
                     self.pop(); // discard the result
                 }

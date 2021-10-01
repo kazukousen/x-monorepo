@@ -251,6 +251,8 @@ impl<'a> Compiler<'a> {
             self.print_statement();
         } else if self.advance_if_matched(TokenType::If) {
             self.if_statement();
+        } else if self.advance_if_matched(TokenType::While) {
+            self.while_statement();
         } else if self.advance_if_matched(TokenType::LeftBrace) {
             self.begin_scope();
             self.block();
@@ -287,6 +289,31 @@ impl<'a> Compiler<'a> {
             self.statement();
         }
         self.patch_jump(else_pos);
+    }
+
+    fn while_statement(&mut self) {
+        let start_pos = self.compiling_chunk.instructions.len() - 1;
+        self.consume(TokenType::LeftParen, "Expect '(' after 'while'.");
+        self.expression();
+        self.consume(TokenType::RightParen, "Expect ')' after condition of 'while'.");
+
+        let exit_pos = self.emit_jump(
+            /* set a placeholder for now, patch it later. */
+            OpCode::JumpIfFalse(0)
+        );
+
+        self.emit(OpCode::Pop);
+        self.statement();
+
+        self.emit_loop(start_pos);
+
+        self.patch_jump(exit_pos);
+        self.emit(OpCode::Pop);
+    }
+
+    fn emit_loop(&mut self, start_pos: usize) {
+        let offset = self.compiling_chunk.instructions.len() - start_pos;
+        self.emit(OpCode::Loop(offset));
     }
 
     fn expression_statement(&mut self) {
