@@ -3,6 +3,8 @@ use crate::value::Value;
 pub enum OpCode {
     Return,
     Print,
+    JumpIfFalse(usize),
+    Jump(usize),
     Pop,
     GetGlobal(usize),
     SetGlobal(usize),
@@ -76,6 +78,8 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) {
         match op {
             OpCode::Return => simple_instruction("OP_RETURN"),
             OpCode::Print => simple_instruction("OP_PRINT"),
+            OpCode::JumpIfFalse(offset) => constant_instruction("OP_JUMP_IF_FALSE", chunk, *offset),
+            OpCode::Jump(offset) => constant_instruction("OP_JUMP", chunk, *offset),
             OpCode::Pop => simple_instruction("OP_POP"),
             OpCode::GetGlobal(index) => constant_instruction("OP_GET_GLOBAL", chunk, *index),
             OpCode::SetGlobal(index) => constant_instruction("OP_SET_GLOBAL", chunk, *index),

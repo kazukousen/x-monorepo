@@ -209,8 +209,7 @@ impl<'a> Scanner<'a> {
         match c {
             'a' => if self.check_rest_keyword(1, "nd") { TokenType::And } else { TokenType::Identifier }
             'c' => if self.check_rest_keyword(1, "lass") { TokenType::Class } else { TokenType::Identifier }
-            'n' => if self.check_rest_keyword(1, "il") { TokenType::Nil } else { TokenType::Identifier }
-            'p' => if self.check_rest_keyword(1, "rint") { TokenType::Print } else { TokenType::Identifier }
+            'e' => if self.check_rest_keyword(1, "lse") { TokenType::Else } else { TokenType::Identifier }
             'f' => if self.current - self.start >= 2 {
                 match self.source
                     .chars()
@@ -224,6 +223,9 @@ impl<'a> Scanner<'a> {
             } else {
                 TokenType::Identifier
             }
+            'n' => if self.check_rest_keyword(1, "il") { TokenType::Nil } else { TokenType::Identifier }
+            'p' => if self.check_rest_keyword(1, "rint") { TokenType::Print } else { TokenType::Identifier }
+            'i' => if self.check_rest_keyword(1, "f") { TokenType::If } else { TokenType::Identifier }
             't' => if self.current - self.start >= 2 {
                 match self.source
                     .chars()

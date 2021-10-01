@@ -52,6 +52,14 @@ impl<'a> VM<'a> {
                 OpCode::Print => {
                     print!("{}\n", self.pop());
                 }
+                OpCode::JumpIfFalse(offset) => {
+                    if self.peek(0).is_falsy() {
+                        self.pc += *offset;
+                    }
+                }
+                OpCode::Jump(offset) => {
+                    self.pc += *offset;
+                }
                 OpCode::Pop => {
                     self.pop(); // discard the result
                 }

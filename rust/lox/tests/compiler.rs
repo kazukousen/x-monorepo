@@ -100,3 +100,32 @@ var global = "globalized";
     assert_eq!("globalized", vm.globals.get("global")
         .expect("no such key").as_string().clone());
 }
+
+#[test]
+fn run_if() {
+    let mut compiler = Compiler::new();
+    let source = r#"
+var global = "globalized";
+var falsy = false;
+if (global == "globalized") {
+    global = "localized";
+} else {
+    global = "foo";
+}
+if (global != "localized") {
+    falsy = false;
+} else {
+    falsy = true;
+}
+"#;
+    let chunk = compiler.compile(source);
+    assert_eq!(true, chunk.is_some());
+
+    let chunk = chunk.unwrap();
+    let mut vm = VM::new(&chunk);
+    assert_eq!(InterpretResult::Ok, vm.run());
+    assert_eq!("localized", vm.globals.get("global")
+        .expect("no such key").as_string().clone());
+    assert_eq!(true, vm.globals.get("falsy")
+        .expect("no such key").as_bool().clone());
+}
