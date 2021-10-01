@@ -247,6 +247,8 @@ impl<'a> Compiler<'a> {
     fn statement(&mut self) {
         if self.advance_if_matched(TokenType::Print) {
             self.print_statement();
+        } else if self.advance_if_matched(TokenType::If) {
+            self.if_statement();
         } else if self.advance_if_matched(TokenType::LeftBrace) {
             self.begin_scope();
             self.block();
@@ -260,6 +262,29 @@ impl<'a> Compiler<'a> {
         self.expression();
         self.consume(TokenType::SemiColon, "Expect ';' after print statement.");
         self.emit(OpCode::Print);
+    }
+
+    fn if_statement(&mut self) {
+        self.consume(TokenType::LeftParen, "Expect '(' after 'if'.");
+        self.expression();
+        self.consume(TokenType::RightParen, "Expect ')' after condition of 'if'.");
+
+        let then_jump = self.emit_jump(
+            /* Set a place holder for now, and patch it later */
+            OpCode::JumpIfFalse(0)
+        );
+        self.emit(OpCode::Pop);
+        self.statement();
+        let else_jump = self.emit_jump(
+            /* Set a place holder for now, and patch it later */
+            OpCode::Jump(0)
+        );
+        self.patch_jump(then_jump);
+        self.emit(OpCode::Pop);
+        if self.advance_if_matched(TokenType::Else) {
+            self.statement();
+        }
+        self.patch_jump(else_jump);
     }
 
     fn expression_statement(&mut self) {
@@ -360,6 +385,26 @@ impl<'a> Compiler<'a> {
 
     fn emit(&mut self, op: OpCode) {
         self.compiling_chunk.add_instruction(op, self.parser.previous.line)
+    }
+
+    fn emit_jump(&mut self, op: OpCode) -> usize {
+        self.emit(op);
+        self.compiling_chunk.instructions.len() - 1
+    }
+
+    fn patch_jump(&mut self, jump_pos: usize) {
+        let jump = self.compiling_chunk.instructions.len() - 1 - jump_pos;
+        let maybe_jump = self.compiling_chunk.instructions.get(jump_pos).expect("");
+        match maybe_jump {
+            OpCode::JumpIfFalse(_) => {
+                std::mem::replace(&mut self.compiling_chunk.instructions[jump_pos], OpCode::JumpIfFalse(jump));
+            }
+            OpCode::Jump(_) => {
+                std::mem::replace(&mut self.compiling_chunk.instructions[jump_pos], OpCode::Jump(jump));
+            }
+            _ => unreachable!()
+        }
+        return
     }
 
     // number literals
