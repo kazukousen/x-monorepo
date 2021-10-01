@@ -223,9 +223,10 @@ impl<'a> Scanner<'a> {
             } else {
                 TokenType::Identifier
             }
-            'n' => if self.check_rest_keyword(1, "il") { TokenType::Nil } else { TokenType::Identifier }
-            'p' => if self.check_rest_keyword(1, "rint") { TokenType::Print } else { TokenType::Identifier }
             'i' => if self.check_rest_keyword(1, "f") { TokenType::If } else { TokenType::Identifier }
+            'n' => if self.check_rest_keyword(1, "il") { TokenType::Nil } else { TokenType::Identifier }
+            'o' => if self.check_rest_keyword(1, "r") { TokenType::Or } else { TokenType::Identifier }
+            'p' => if self.check_rest_keyword(1, "rint") { TokenType::Print } else { TokenType::Identifier }
             't' => if self.current - self.start >= 2 {
                 match self.source
                     .chars()

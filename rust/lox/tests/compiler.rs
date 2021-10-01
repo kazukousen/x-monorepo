@@ -129,3 +129,29 @@ if (global != "localized") {
     assert_eq!(true, vm.globals.get("falsy")
         .expect("no such key").as_bool().clone());
 }
+#[test]
+fn run_logical_operators() {
+    let mut compiler = Compiler::new();
+    let source = r#"
+var global = "globalized";
+var local = "localized";
+var and_exp_true = ( global == "globalized" and local == "localized" );
+var and_exp_false = ( global != "globalized" and local == "localized" );
+var or_exp_true = ( global == "globalized" or local != "localized" );
+var or_exp_false = ( global != "globalized" or local != "localized" );
+"#;
+    let chunk = compiler.compile(source);
+    assert_eq!(true, chunk.is_some());
+
+    let chunk = chunk.unwrap();
+    let mut vm = VM::new(&chunk);
+    assert_eq!(InterpretResult::Ok, vm.run());
+    assert_eq!(true, vm.globals.get("and_exp_true")
+        .expect("no such key").as_bool().clone());
+    assert_eq!(false, vm.globals.get("and_exp_false")
+        .expect("no such key").as_bool().clone());
+    assert_eq!(true, vm.globals.get("or_exp_true")
+        .expect("no such key").as_bool().clone());
+    assert_eq!(false, vm.globals.get("or_exp_false")
+        .expect("no such key").as_bool().clone());
+}
