@@ -31,71 +31,82 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    pub fn scan_token(&mut self) -> Token<'a> {
+    pub fn scan_tokens(&mut self) -> Result<Vec<Token<'a>>, String> {
+        let mut tokens = Vec::new();
+        loop {
+            match self.scan_token() {
+                Ok(tok) => {
+                    tokens.push(tok);
+                    if tok.typ == TokenType::Eof {
+                        return Ok(tokens);
+                    }
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    pub fn scan_token(&mut self) -> Result<Token<'a>, String> {
         self.skip_whitespace();
 
         self.start = self.current;
 
         if self.is_at_end() {
-            return self.make_token(TokenType::Eof);
+            return Ok(self.make_token(TokenType::Eof));
         }
 
         let c = self.advance();
 
         if Self::is_digit(c) {
-            return self.number();
+            return Ok(self.number());
         }
 
         if Self::is_alpha(c) {
-            return self.identifier();
+            return Ok(self.identifier());
         }
 
         match c {
-            '(' => self.make_token(TokenType::LeftParen),
-            ')' => self.make_token(TokenType::RightParen),
-            '{' => self.make_token(TokenType::LeftBrace),
-            '}' => self.make_token(TokenType::RightBrace),
-            ';' => self.make_token(TokenType::SemiColon),
-            ',' => self.make_token(TokenType::Comma),
-            '.' => self.make_token(TokenType::Dot),
-            '-' => self.make_token(TokenType::Minus),
-            '+' => self.make_token(TokenType::Plus),
-            '/' => self.make_token(TokenType::Slash),
-            '*' => self.make_token(TokenType::Star),
+            '(' => Ok(self.make_token(TokenType::LeftParen)),
+            ')' => Ok(self.make_token(TokenType::RightParen)),
+            '{' => Ok(self.make_token(TokenType::LeftBrace)),
+            '}' => Ok(self.make_token(TokenType::RightBrace)),
+            ';' => Ok(self.make_token(TokenType::SemiColon)),
+            ',' => Ok(self.make_token(TokenType::Comma)),
+            '.' => Ok(self.make_token(TokenType::Dot)),
+            '-' => Ok(self.make_token(TokenType::Minus)),
+            '+' => Ok(self.make_token(TokenType::Plus)),
+            '/' => Ok(self.make_token(TokenType::Slash)),
+            '*' => Ok(self.make_token(TokenType::Star)),
             '!' => {
                 if self.peek() == '=' {
                     self.advance();
-                    self.make_token(TokenType::BangEqual)
-                } else {
-                    self.make_token(TokenType::Bang)
+                    return Ok(self.make_token(TokenType::BangEqual));
                 }
+                Ok(self.make_token(TokenType::Bang))
             }
             '=' => {
                 if self.peek() == '=' {
                     self.advance();
-                    self.make_token(TokenType::EqualEqual)
-                } else {
-                    self.make_token(TokenType::Equal)
+                    return Ok(self.make_token(TokenType::EqualEqual));
                 }
+                Ok(self.make_token(TokenType::Equal))
             }
             '>' => {
                 if self.peek() == '=' {
                     self.advance();
-                    self.make_token(TokenType::GreaterEqual)
-                } else {
-                    self.make_token(TokenType::Greater)
+                    return Ok(self.make_token(TokenType::GreaterEqual));
                 }
+                Ok(self.make_token(TokenType::Greater))
             }
             '<' => {
                 if self.peek() == '=' {
                     self.advance();
-                    self.make_token(TokenType::LessEqual)
-                } else {
-                    self.make_token(TokenType::Less)
+                    return Ok(self.make_token(TokenType::LessEqual));
                 }
+                Ok(self.make_token(TokenType::Less))
             }
             '"' => self.string(),
-            _ => self.error_token(  "Unexpected character")
+            _ => Err(format!(  "Unexpected character at {}", self.line))
         }
     }
 
@@ -156,7 +167,7 @@ impl<'a> Scanner<'a> {
     }
 
 
-    fn string(&mut self) -> Token<'a> {
+    fn string(&mut self) -> Result<Token<'a>, String> {
         while !self.is_at_end() && self.peek() != '"' {
             if self.peek() == '\n' {
                 self.line = self.line + 1;
@@ -165,13 +176,13 @@ impl<'a> Scanner<'a> {
         }
 
         if self.is_at_end() {
-            return self.error_token("Unterminated string")
+            return Err(format!("Unterminated string at {}", self.line));
         }
 
         // closing quote.
         self.advance();
 
-        self.make_token(TokenType::String)
+        Ok(self.make_token(TokenType::String))
     }
 
     fn number(&mut self) -> Token<'a> {
@@ -259,14 +270,6 @@ impl<'a> Scanner<'a> {
             typ,
             line: self.line,
             source: &self.source[self.start..self.current],
-        }
-    }
-
-    fn error_token(&self, message: &'static str) -> Token<'a> {
-        Token{
-            typ: TokenType::Error,
-            line: self.line,
-            source: message,
         }
     }
 }
