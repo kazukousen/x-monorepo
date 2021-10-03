@@ -86,9 +86,11 @@ fn run_local() {
     let mut compiler = Compiler::new();
     let source = r#"
 var global = "globalized";
+var con = "";
 {
     var local = "localized";
-    print local + " and " + global;
+    con = local + " and " + global;
+    print con;
 }
 "#;
     let chunk = compiler.compile(source);
@@ -98,6 +100,8 @@ var global = "globalized";
     let mut vm = VM::new(&chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!("globalized", vm.globals.get("global")
+        .expect("no such key").as_string().clone());
+    assert_eq!("localized and globalized", vm.globals.get("con")
         .expect("no such key").as_string().clone());
 }
 
@@ -154,4 +158,60 @@ var or_exp_false = ( global != "globalized" or local != "localized" );
         .expect("no such key").as_bool().clone());
     assert_eq!(false, vm.globals.get("or_exp_false")
         .expect("no such key").as_bool().clone());
+}
+
+#[test]
+fn run_while() {
+    let mut compiler = Compiler::new();
+    let source = r#"
+var retries = 5;
+var cnt = 0;
+while (cnt < retries) {
+    cnt = cnt + 1;
+}
+"#;
+    let chunk = compiler.compile(source);
+    assert_eq!(true, chunk.is_some());
+
+    let chunk = chunk.unwrap();
+    let mut vm = VM::new(&chunk);
+    assert_eq!(InterpretResult::Ok, vm.run());
+    assert_eq!(5_f64, vm.globals.get("cnt")
+        .expect("no such key").as_number().clone());
+}
+
+#[test]
+fn run_for() {
+    let mut compiler = Compiler::new();
+    let source = r#"
+var a = 0;
+for (var cnt = 0; cnt < 5; cnt = cnt + 1) {
+    a = a + 1;
+}
+
+var b = 0;
+var c = 0;
+for (; b < 5; b = b + 1) {
+    c = c + 1;
+}
+
+var d = 0;
+for (;d < 5;) {
+    d = d + 1;
+}
+"#;
+    let chunk = compiler.compile(source);
+    assert_eq!(true, chunk.is_some());
+
+    let chunk = chunk.unwrap();
+    let mut vm = VM::new(&chunk);
+    assert_eq!(InterpretResult::Ok, vm.run());
+    assert_eq!(5_f64, vm.globals.get("a")
+        .expect("no such key").as_number().clone());
+    assert_eq!(5_f64, vm.globals.get("b")
+        .expect("no such key").as_number().clone());
+    assert_eq!(5_f64, vm.globals.get("c")
+        .expect("no such key").as_number().clone());
+    assert_eq!(5_f64, vm.globals.get("d")
+        .expect("no such key").as_number().clone());
 }

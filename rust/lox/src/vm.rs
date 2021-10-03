@@ -60,6 +60,9 @@ impl<'a> VM<'a> {
                 OpCode::Jump(offset) => {
                     self.pc += *offset;
                 }
+                OpCode::Loop(offset) => {
+                    self.pc -= *offset;
+                }
                 OpCode::Pop => {
                     self.pop(); // discard the result
                 }
@@ -99,7 +102,7 @@ impl<'a> VM<'a> {
                             self.push(v.clone());
                         }
                         None => {
-                            eprintln!("Undefined local variable at: '{}'.", index);
+                            eprintln!("Undefined local variable at: '{}'. pc: {}", index, self.pc-1);
                             return InterpretResult::RuntimeError;
                         }
                     }

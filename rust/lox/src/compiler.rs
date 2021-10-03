@@ -48,7 +48,7 @@ impl Add<i32> for &Precedence {
     }
 }
 
-type ParseFn<'r> = fn(&mut Compiler<'r>) -> ();
+type ParseFn<'r> = fn(&mut Compiler<'r>, can_assign: bool) -> ();
 
 struct ParseRule<'r> {
     prefix: Option<ParseFn<'r>>,
@@ -251,6 +251,10 @@ impl<'a> Compiler<'a> {
             self.print_statement();
         } else if self.advance_if_matched(TokenType::If) {
             self.if_statement();
+        } else if self.advance_if_matched(TokenType::While) {
+            self.while_statement();
+        } else if self.advance_if_matched(TokenType::For) {
+            self.for_statement();
         } else if self.advance_if_matched(TokenType::LeftBrace) {
             self.begin_scope();
             self.block();
@@ -289,6 +293,103 @@ impl<'a> Compiler<'a> {
         self.patch_jump(else_pos);
     }
 
+    fn while_statement(&mut self) {
+        let start_pos = self.compiling_chunk.instructions.len() - 1;
+        self.consume(TokenType::LeftParen, "Expect '(' after 'while'.");
+        self.expression();
+        self.consume(TokenType::RightParen, "Expect ')' after condition of 'while'.");
+
+        let exit_pos = self.emit_jump(
+            /* set a placeholder for now, patch it later. */
+            OpCode::JumpIfFalse(0)
+        );
+
+        self.emit(OpCode::Pop);
+        self.statement();
+
+        // back immediately to a start position
+        self.emit_loop(start_pos);
+
+        self.patch_jump(exit_pos);
+        self.emit(OpCode::Pop);
+    }
+
+    /*
+    forStmt -> "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
+     */
+    fn for_statement(&mut self) {
+        self.begin_scope();
+        self.consume(TokenType::LeftParen, "Expect '(' after 'for' .");
+
+        // initializer clause
+        if self.advance_if_matched(TokenType::SemiColon) {
+            // no initializer.
+        } else if self.advance_if_matched(TokenType::Var) {
+            self.var_declaration();
+        } else {
+            self.expression_statement();
+        }
+
+        let cond_pos = self.compiling_chunk.instructions.len() - 1;
+
+        // condition expression
+        let maybe_exit_pos = match self.advance_if_matched(TokenType::SemiColon) {
+            true => None, // the condition is omitted
+            false => {
+                self.expression();
+                self.consume(TokenType::SemiColon, "Expect ';'.");
+                // if the condition is false, jump out of the loop.
+                let pos = self.emit_jump(
+                    /* set a placeholder for now, patch it later. */
+                    OpCode::JumpIfFalse(0)
+                );
+                self.emit(OpCode::Pop);
+                Some(pos)
+            }
+        };
+
+        // increment expression
+        let back_pos =  match self.advance_if_matched(TokenType::RightParen) {
+            true => {
+                // if the increment expression is omit
+                cond_pos
+            }
+            false => {
+                let body_pos = self.emit_jump(
+                    /* set a placeholder for now, patch it later. */
+                    OpCode::Jump(0)
+                );
+                let increment_pos = self.compiling_chunk.instructions.len() - 1;
+
+                self.expression();
+                self.emit(OpCode::Pop);
+                self.consume(TokenType::RightParen, "Expect ')' after clause of 'for' .");
+
+                self.emit_loop(cond_pos);
+                self.patch_jump(body_pos);
+
+                increment_pos
+            }
+        };
+
+        // body statement
+        self.statement();
+        self.emit_loop(back_pos);
+
+        maybe_exit_pos.map(|exit_pos| {
+            self.patch_jump(exit_pos);
+            self.emit(OpCode::Pop);
+        });
+
+        self.end_scope();
+    }
+
+    // back to a start position
+    fn emit_loop(&mut self, start_pos: usize) {
+        let offset = self.compiling_chunk.instructions.len() - start_pos;
+        self.emit(OpCode::Loop(offset));
+    }
+
     fn expression_statement(&mut self) {
         self.expression();
         self.consume(TokenType::SemiColon, "Expect ';' after expression statement.");
@@ -309,7 +410,7 @@ impl<'a> Compiler<'a> {
 
     fn end_scope(&mut self) {
         self.scope_depth -= 1;
-        while self.locals.len() > 0 {
+        while self.locals.len() > 0 && self.locals.last().unwrap().depth > self.scope_depth {
             // discard local variables.
             self.locals.pop();
             self.emit(OpCode::Pop);
@@ -411,7 +512,7 @@ impl<'a> Compiler<'a> {
 
     // number literals
     // e.g. 123
-    fn number(&mut self) {
+    fn number(&mut self, _: bool) {
         let v: f64 = self.parser.previous.source
             .parse().expect("Compiler tried to parse to number");
 
@@ -420,7 +521,7 @@ impl<'a> Compiler<'a> {
 
     // parentheses for grouping
     // e.g. (123)
-    fn grouping(&mut self) {
+    fn grouping(&mut self, _: bool) {
         // we assume the initial '(' has already been consumed.
         // so we recursively call back into expression() between the parentheses.
         self.expression();
@@ -430,7 +531,7 @@ impl<'a> Compiler<'a> {
 
     // unary negation
     // e.g. -123
-    fn unary(&mut self) {
+    fn unary(&mut self, _: bool) {
         // remember the operator.
         let typ = self.parser.previous.typ;
 
@@ -446,7 +547,7 @@ impl<'a> Compiler<'a> {
     }
 
     // e.g. 123 + 456
-    fn binary(&mut self) {
+    fn binary(&mut self, _: bool) {
         // remember the operator.
         let typ = self.parser.previous.typ;
 
@@ -480,7 +581,7 @@ impl<'a> Compiler<'a> {
     }
 
     // e.g. true
-    fn literal(&mut self) {
+    fn literal(&mut self, _: bool) {
         let typ = self.parser.previous.typ;
         match typ {
             TokenType::True => self.emit(OpCode::True),
@@ -490,14 +591,14 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn string(&mut self) {
+    fn string(&mut self, _: bool) {
         // trim quotes
         let s = &self.parser.previous.source[1..=self.parser.previous.source.len()-2];
         let s = s.to_string();
         self.emit_constant(Value::new_string(s));
     }
 
-    fn and(&mut self) {
+    fn and(&mut self, _: bool) {
         let pos = self.emit_jump(
             /* set a placeholder for now, and patch it later. */
             OpCode::JumpIfFalse(0)
@@ -511,7 +612,7 @@ impl<'a> Compiler<'a> {
         self.patch_jump(pos);
     }
 
-    fn or(&mut self) {
+    fn or(&mut self, _: bool) {
         let else_pos = self.emit_jump(
             /* set a placeholder for now, and patch it later. */
             OpCode::JumpIfFalse(0)
@@ -529,7 +630,7 @@ impl<'a> Compiler<'a> {
         self.patch_jump(end_pos);
     }
 
-    fn variable(&mut self) {
+    fn variable(&mut self, can_assign: bool) {
         let name = self.parser.previous.source;
         let (set_op, get_op) = match self.resolve_local(name) {
             Some(idx) => {
@@ -543,7 +644,7 @@ impl<'a> Compiler<'a> {
             }
         };
 
-        if self.advance_if_matched(TokenType::Equal) {
+        if can_assign && self.advance_if_matched(TokenType::Equal) {
             self.expression();
             self.emit(set_op);
         } else {
@@ -557,7 +658,7 @@ impl<'a> Compiler<'a> {
                 if local.depth == 0 {
                     self.error("Can't read local variable in its own initializer.");
                 }
-                return Some(i)
+                return Some(self.locals.len() - 1 - i)
             }
         }
         None
@@ -577,7 +678,8 @@ impl<'a> Compiler<'a> {
 
         match prefix_rule {
             Some(prefix_rule) => {
-                prefix_rule(self);
+                let can_assign = precedence <= Precedence::Assignment;
+                prefix_rule(self, can_assign);
 
                 while precedence <= self.get_rule(&self.parser.current.typ).precedence {
                     self.advance();
@@ -586,7 +688,11 @@ impl<'a> Compiler<'a> {
                         .infix
                         .expect("Expect infix");
 
-                    infix_rule(self);
+                    infix_rule(self, can_assign);
+                }
+
+                if can_assign && self.advance_if_matched(TokenType::Equal) {
+                    self.error("Invalid assignment target.");
                 }
             },
             None => self.error("Expect expression"),
