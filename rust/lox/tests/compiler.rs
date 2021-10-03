@@ -8,7 +8,7 @@ fn run_arithmetic() {
 -5 + (6 - 2);
 "#;
     let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_some());
+    assert_eq!(true, chunk.is_ok());
 
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
@@ -22,7 +22,7 @@ fn run_comparison() {
 !(5 - 4 > 3 * 2 == !nil);
 "#;
     let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_some());
+    assert_eq!(true, chunk.is_ok());
 
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
@@ -36,7 +36,7 @@ fn run_string() {
 "foo" + "bar" == "foobar";
 "#;
     let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_some());
+    assert_eq!(true, chunk.is_ok());
 
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
@@ -50,7 +50,7 @@ fn run_print() {
 print "foobar";
 "#;
     let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_some());
+    assert_eq!(true, chunk.is_ok());
 
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
@@ -70,7 +70,7 @@ mut_foo = "updated foo!";
 print mut_foo;
 "#;
     let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_some());
+    assert_eq!(true, chunk.is_ok());
 
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
@@ -94,7 +94,7 @@ var con = "";
 }
 "#;
     let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_some());
+    assert_eq!(true, chunk.is_ok());
 
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
@@ -123,7 +123,7 @@ if (global != "localized") {
 }
 "#;
     let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_some());
+    assert_eq!(true, chunk.is_ok());
 
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
@@ -145,7 +145,7 @@ var or_exp_true = ( global == "globalized" or local != "localized" );
 var or_exp_false = ( global != "globalized" or local != "localized" );
 "#;
     let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_some());
+    assert_eq!(true, chunk.is_ok());
 
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
@@ -171,7 +171,7 @@ while (cnt < retries) {
 }
 "#;
     let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_some());
+    assert_eq!(true, chunk.is_ok());
 
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
@@ -201,7 +201,7 @@ for (;d < 5;) {
 }
 "#;
     let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_some());
+    assert_eq!(true, chunk.is_ok());
 
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
