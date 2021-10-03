@@ -102,7 +102,7 @@ impl<'a> VM<'a> {
                             self.push(v.clone());
                         }
                         None => {
-                            eprintln!("Undefined local variable at: '{}'.", index);
+                            eprintln!("Undefined local variable at: '{}'. pc: {}", index, self.pc-1);
                             return InterpretResult::RuntimeError;
                         }
                     }
