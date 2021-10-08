@@ -17,10 +17,6 @@ local_repository(
 )
 
 load("@bazel_rules_python//:repos.bzl", "python_repos")
-load("//:3rdparty/go_repositories.bzl", "go_repositories")
-
-# gazelle:repository_macro 3rdparty/go_repositories.bzl%go_repositories
-go_repositories()
 
 python_repos()
 
@@ -133,3 +129,8 @@ container_pull(
     repository = "library/alpine",
     tag = "3.13",
 )
+
+load("//3rdparty:go_repositories.bzl", "go_repositories")
+# gazelle:repository_macro 3rdparty/go_repositories.bzl%go_repositories
+go_repositories()
+

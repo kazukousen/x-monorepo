@@ -15,4 +15,7 @@ go_proto_library(
     importpath = "github.com/kazukousen/x-monorepo/protos/echo",
     proto = ":echo",
     visibility = ["//visibility:public"],
+    deps = [
+        "@org_golang_google_grpc//:go_default_library",
+    ],
 )
