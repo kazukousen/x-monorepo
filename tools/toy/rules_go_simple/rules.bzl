@@ -1,4 +1,4 @@
-load(":go_actions.bzl", "go_compile", "go_link")
+load(":actions.bzl", "go_compile", "go_link")
 load(":providers.bzl", "GoLibraryInfo")
 
 def _go_binary_impl(ctx):
