@@ -1,5 +1,13 @@
 load(":rules.bzl", "go_binary", "go_library")
 
+
+sh_test(
+    name = "hello_test",
+    srcs = ["hello_test.sh"],
+    args = ["$(location :hello)"],
+    data = [":hello"],
+)
+
 go_binary(
     name = "hello",
     srcs = [
@@ -9,10 +17,10 @@ go_binary(
 )
 
 sh_test(
-    name = "hello_test",
-    srcs = ["hello_test.sh"],
-    args = ["$(location :hello)"],
-    data = [":hello"],
+    name = "bin_with_libs_test",
+    srcs = ["bin_with_libs_test.sh"],
+    args = ["$(location :bin_with_libs)"],
+    data = [":bin_with_libs"],
 )
 
 go_binary(
