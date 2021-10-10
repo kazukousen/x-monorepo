@@ -51,3 +51,24 @@ go_library(
     srcs = ["baz/baz.go"],
     importpath = "github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/baz",
 )
+
+sh_test(
+    name = "list_data_bin_test",
+    srcs = ["list_data_bin_test.sh"],
+    args = ["$(location :list_data_bin)"],
+    data = [":list_data_bin"],
+)
+
+go_binary(
+    name = "list_data_bin",
+    srcs = ["list_data_bin.go"],
+    deps = [":list_data_lib"],
+    data = ["foo.txt"],
+)
+
+go_library(
+    name = "list_data_lib",
+    srcs = ["list_data_lib/list_data_lib.go"],
+    data = ["bar.txt"],
+    importpath = "github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/list_data_lib",
+)
