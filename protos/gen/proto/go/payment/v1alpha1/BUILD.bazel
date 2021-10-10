@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "v1alpha1",
+    srcs = ["payment.pb.go"],
+    importpath = "github.com/kazukousen/x-monorepo/protos/gen/proto/go/payment/v1alpha1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/google.golang.org/genproto/googleapis/type/money",
+        "//vendor/google.golang.org/protobuf/reflect/protoreflect",
+        "//vendor/google.golang.org/protobuf/runtime/protoimpl",
+    ],
+)
