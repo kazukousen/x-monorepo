@@ -1,4 +1,4 @@
-load(":go_actions.bzl", "go_compile", "go_link")
+load(":actions.bzl", "go_compile", "go_link")
 load(":providers.bzl", "GoLibraryInfo")
 
 def _go_binary_impl(ctx):
@@ -24,6 +24,7 @@ def _go_binary_impl(ctx):
     return [DefaultInfo(
         files = depset([executable]),
         executable = executable,
+        runfiles = ctx.runfiles(collect_data = True),
     )]
 
 go_binary = rule(
@@ -36,6 +37,10 @@ go_binary = rule(
         "deps": attr.label_list(
             providers = [GoLibraryInfo],
             doc = "Direct dependencies of the library",
+        ),
+        "data": attr.label_list(
+            allow_files = True,
+            doc = "Data files available to binaries using this libary",
         ),
     },
     doc = "Builds an executable program from Go source code",
@@ -59,7 +64,10 @@ def _go_library_impl(ctx):
     )
 
     return [
-        DefaultInfo(files = depset([archive])),
+        DefaultInfo(
+            files = depset([archive]),
+            runfiles = ctx.runfiles(collect_data = True),
+        ),
         GoLibraryInfo(
             info = struct(
                 importpath = ctx.attr.importpath,
@@ -82,6 +90,10 @@ go_library = rule(
         "deps": attr.label_list(
             providers = [GoLibraryInfo],
             doc = "Direct dependencies of the library",
+        ),
+        "data": attr.label_list(
+            allow_files = True,
+            doc = "Data files available to binaries using this libary",
         ),
         "importpath": attr.string(
             mandatory = True,
