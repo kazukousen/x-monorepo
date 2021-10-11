@@ -4,8 +4,8 @@ set -euo pipefail
 
 program="$1"
 got=$("$program")
-want="tools/toy/rules_go_simple/bar.txt
-tools/toy/rules_go_simple/foo.txt"
+want="tools/toy/rules_go_simple/internal/bar.txt
+tools/toy/rules_go_simple/internal/foo.txt"
 
 if [ "$got" != "$want" ]; then
   cat >&2 <<EOF

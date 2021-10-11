@@ -32,7 +32,7 @@ go_binary(
 go_library(
     name = "foo",
     srcs = ["foo/foo.go"],
-    importpath = "github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/foo",
+    importpath = "github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/internal/foo",
     deps = [
         ":bar",
         ":baz",
@@ -42,7 +42,7 @@ go_library(
 go_library(
     name = "bar",
     srcs = ["bar/bar.go"],
-    importpath = "github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/bar",
+    importpath = "github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/internal/bar",
     deps = [":baz"],
 )
 
@@ -70,5 +70,5 @@ go_library(
     name = "list_data_lib",
     srcs = ["list_data_lib/list_data_lib.go"],
     data = ["bar.txt"],
-    importpath = "github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/list_data_lib",
+    importpath = "github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/internal/list_data_lib",
 )
