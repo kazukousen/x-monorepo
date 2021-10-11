@@ -2,9 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/internal/list_data_lib"
 	"os"
-
-	"github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/list_data_lib"
 )
 
 func main() {
