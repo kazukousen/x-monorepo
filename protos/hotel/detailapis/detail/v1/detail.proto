@@ -1,0 +1,35 @@
+syntax = "proto3";
+package detail.v1;
+
+service DetailService {
+  rpc GetDetails(GetDetailsRequest) returns (GetDetailsResponse) {}
+}
+
+message GetDetailsRequest {
+  repeated string hotel_ids = 1;
+  string locale = 2;
+}
+
+message GetDetailsResponse {
+  repeated Hotel hotels = 1;
+}
+
+message Hotel {
+  string id = 1;
+  string name = 2;
+  string phone_number = 3;
+  string description = 4;
+  Address address = 5;
+  repeated Image images = 6;
+}
+
+message Address {
+  float lat = 1;
+  float lon = 2;
+  string city = 3;
+}
+
+message Image {
+  string url = 1;
+  bool is_default = 2;
+}
