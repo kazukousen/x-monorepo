@@ -2,8 +2,8 @@ package foo
 
 import (
 	"fmt"
-	"github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/bar"
-	"github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/baz"
+	"github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/internal/bar"
+	"github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/internal/baz"
 )
 
 func Foo() {

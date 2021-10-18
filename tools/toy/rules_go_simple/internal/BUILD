@@ -49,7 +49,7 @@ go_library(
 go_library(
     name = "baz",
     srcs = ["baz/baz.go"],
-    importpath = "github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/baz",
+    importpath = "github.com/kazukousen/x-monorepo/tools/toy/rules_go_simple/internal/baz",
 )
 
 sh_test(
