@@ -164,6 +164,10 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    fn advance(&mut self) {
+        self.token_pos += 1;
+    }
+
     fn current(&self) -> &Token<'a> {
         &self.tokens[self.token_pos]
     }
@@ -416,10 +420,6 @@ impl<'a> Compiler<'a> {
         }
 
         Err(format!("[Line {}] Error: {}", self.current().line, msg))
-    }
-
-    fn advance(&mut self) {
-        self.token_pos += 1;
     }
 
     fn end_compiler(&mut self) {
