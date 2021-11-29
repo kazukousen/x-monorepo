@@ -1,4 +1,4 @@
-use super::{FuncType, Local, Module, ValueType};
+use super::{FuncType, Instruction, Local, Module, ValueType};
 use crate::exports::ExportDesc;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -97,7 +97,7 @@ impl ModuleInstanceRef {
                     .map(|ts| ts.get_func_type(type_idx))
                     .expect("Due to validation type should exists")
                     .into(),
-                body: code.body().to_vec(),
+                body: code.body().entries().to_vec(),
                 locals: code.locals().to_vec(),
             };
 
@@ -136,7 +136,7 @@ impl FunctionInstanceRef {
 pub struct FunctionInstance {
     name: String,
     signature: Signature,
-    body: Vec<u8>,
+    body: Vec<Instruction>,
     locals: Vec<Local>,
     module: Weak<ModuleInstance>,
 }
@@ -150,7 +150,7 @@ impl FunctionInstanceRef {
         &self.0.locals
     }
 
-    pub fn body(&self) -> &[u8] {
+    pub fn body(&self) -> &[Instruction] {
         &self.0.body
     }
 }

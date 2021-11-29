@@ -4,6 +4,10 @@ use super::{BlockType, Decoder, Error, Read, Result, VarInt32, VarUint32, VarUin
 pub struct Instructions(Vec<Instruction>);
 
 impl Instructions {
+    pub fn new() -> Self {
+        Self(vec![])
+    }
+
     pub fn entries(&self) -> &[Instruction] {
         &self.0
     }

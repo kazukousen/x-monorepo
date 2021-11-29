@@ -11,6 +11,7 @@ use exports::{Export, ExportDesc};
 use func::{Func, Local};
 use leb128::{List, Uint32, VarInt32, VarUint32, VarUint8};
 use module::Module;
+use ops::{Instruction, Instructions};
 use section::{CodeSection, CustomSection, ExportSection, FunctionSection, Section, TypeSection};
 use std::fmt::Formatter;
 use std::io::Read as io_read;
