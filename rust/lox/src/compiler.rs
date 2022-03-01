@@ -48,7 +48,7 @@ impl Add<i32> for &Precedence {
     }
 }
 
-type ParseFn<'r> = fn(&mut Compiler<'r>, can_assign: bool) -> Result<(), String>;
+type ParseFn<'r> = fn(&mut Parser<'r>, can_assign: bool) -> Result<(), String>;
 
 struct ParseRule<'r> {
     prefix: Option<ParseFn<'r>>,
@@ -66,7 +66,7 @@ impl<'r> ParseRule<'r> {
     }
 }
 
-pub struct Compiler<'a> {
+pub struct Parser<'a> {
     compiling_chunk: Chunk,
     tokens: Vec<Token<'a>>,
     token_pos: usize,
@@ -96,37 +96,37 @@ macro_rules! parse_rules {
     }
 }
 
-impl<'a> Compiler<'a> {
+impl<'a> Parser<'a> {
     pub fn new() -> Self {
         Self {
             compiling_chunk: Chunk::new(),
             tokens: Vec::new(),
             token_pos: 0,
             parse_rules: parse_rules![
-                LeftParen => Some(Compiler::grouping), None, None;
+                LeftParen => Some(Parser::grouping), None, None;
                 RightParen => None, None, None;
-                Plus => None, Some(Compiler::binary), Term;
-                Minus => Some(Compiler::unary), Some(Compiler::binary), Term;
-                Star => None, Some(Compiler::binary), Term;
-                Slash => None, Some(Compiler::binary), Term;
+                Plus => None, Some(Parser::binary), Term;
+                Minus => Some(Parser::unary), Some(Parser::binary), Term;
+                Star => None, Some(Parser::binary), Term;
+                Slash => None, Some(Parser::binary), Term;
                 SemiColon => None, None, None;
-                Identifier => Some(Compiler::variable), None, None;
-                String => Some(Compiler::string), None, None;
-                Number => Some(Compiler::number), None, None;
-                And => None, Some(Compiler::and), And;
-                Or => None, Some(Compiler::or), Or;
-                True => Some(Compiler::literal), None, None;
-                False => Some(Compiler::literal), None, None;
-                Nil => Some(Compiler::literal), None, None;
+                Identifier => Some(Parser::variable), None, None;
+                String => Some(Parser::string), None, None;
+                Number => Some(Parser::number), None, None;
+                And => None, Some(Parser::and), And;
+                Or => None, Some(Parser::or), Or;
+                True => Some(Parser::literal), None, None;
+                False => Some(Parser::literal), None, None;
+                Nil => Some(Parser::literal), None, None;
                 Print => None, None, None;
-                Bang => Some(Compiler::unary), None, None;
-                BangEqual => None, Some(Compiler::binary), Equality;
+                Bang => Some(Parser::unary), None, None;
+                BangEqual => None, Some(Parser::binary), Equality;
                 Equal => None, None, None;
-                EqualEqual => None, Some(Compiler::binary), Equality;
-                Greater => None, Some(Compiler::binary), Comparison;
-                GreaterEqual => None, Some(Compiler::binary), Comparison;
-                Less => None, Some(Compiler::binary), Comparison;
-                LessEqual => None, Some(Compiler::binary), Comparison;
+                EqualEqual => None, Some(Parser::binary), Equality;
+                Greater => None, Some(Parser::binary), Comparison;
+                GreaterEqual => None, Some(Parser::binary), Comparison;
+                Less => None, Some(Parser::binary), Comparison;
+                LessEqual => None, Some(Parser::binary), Comparison;
                 Eof => None, None, None;
             ],
             locals: Vec::new(),

@@ -9,5 +9,5 @@ pub use chunk::{Chunk, OpCode};
 pub use vm::{InterpretResult, VM};
 pub use scanner::Scanner;
 pub use token::TokenType;
-pub use compiler::Compiler;
+pub use compiler::Parser;
 pub use value::Value;

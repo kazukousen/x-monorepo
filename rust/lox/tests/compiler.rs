@@ -3,7 +3,7 @@ use lox::*;
 
 #[test]
 fn run_arithmetic() {
-    let mut compiler = Compiler::new();
+    let mut compiler = Parser::new();
     let source = r#"
 -5 + (6 - 2);
 "#;
@@ -17,7 +17,7 @@ fn run_arithmetic() {
 
 #[test]
 fn run_comparison() {
-    let mut compiler = Compiler::new();
+    let mut compiler = Parser::new();
     let source = r#"
 !(5 - 4 > 3 * 2 == !nil);
 "#;
@@ -31,7 +31,7 @@ fn run_comparison() {
 
 #[test]
 fn run_string() {
-    let mut compiler = Compiler::new();
+    let mut compiler = Parser::new();
     let source = r#"
 "foo" + "bar" == "foobar";
 "#;
@@ -45,7 +45,7 @@ fn run_string() {
 
 #[test]
 fn run_print() {
-    let mut compiler = Compiler::new();
+    let mut compiler = Parser::new();
     let source = r#"
 print "foobar";
 "#;
@@ -59,7 +59,7 @@ print "foobar";
 
 #[test]
 fn run_global() {
-    let mut compiler = Compiler::new();
+    let mut compiler = Parser::new();
     let source = r#"
 var beverage = "cafe au lait";
 var breakfast = "beignets with " + beverage;
@@ -83,7 +83,7 @@ print mut_foo;
 
 #[test]
 fn run_local() {
-    let mut compiler = Compiler::new();
+    let mut compiler = Parser::new();
     let source = r#"
 var global = "globalized";
 var con = "";
@@ -107,7 +107,7 @@ var con = "";
 
 #[test]
 fn run_if() {
-    let mut compiler = Compiler::new();
+    let mut compiler = Parser::new();
     let source = r#"
 var global = "globalized";
 var falsy = false;
@@ -135,7 +135,7 @@ if (global != "localized") {
 }
 #[test]
 fn run_logical_operators() {
-    let mut compiler = Compiler::new();
+    let mut compiler = Parser::new();
     let source = r#"
 var global = "globalized";
 var local = "localized";
@@ -162,7 +162,7 @@ var or_exp_false = ( global != "globalized" or local != "localized" );
 
 #[test]
 fn run_while() {
-    let mut compiler = Compiler::new();
+    let mut compiler = Parser::new();
     let source = r#"
 var retries = 5;
 var cnt = 0;
@@ -182,7 +182,7 @@ while (cnt < retries) {
 
 #[test]
 fn run_for() {
-    let mut compiler = Compiler::new();
+    let mut compiler = Parser::new();
     let source = r#"
 var a = 0;
 for (var cnt = 0; cnt < 5; cnt = cnt + 1) {
