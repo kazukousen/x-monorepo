@@ -1,4 +1,5 @@
 use crate::chunk::{Chunk, Debug, OpCode};
+use crate::function::{Function, FunctionType};
 use crate::scanner::Scanner;
 use crate::token::{Token, TokenType};
 use crate::value::Value;
@@ -71,17 +72,19 @@ impl<'r> ParseRule<'r> {
 }
 
 pub struct Compiler<'a> {
-    chunk: Chunk,
     locals: Vec<Local<'a>>,
     scope_depth: usize,
+    function: Function,
+    func_type: FunctionType,
 }
 
 impl<'a> Compiler<'a> {
     pub fn new() -> Self {
         Self {
-            chunk: Chunk::new(),
             locals: Vec::new(),
             scope_depth: 0,
+            function: Function::new(),
+            func_type: FunctionType::Script,
         }
     }
 }
@@ -150,7 +153,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn compile(&mut self, source: &'a str) -> Result<Chunk, String> {
+    pub fn compile(&mut self, source: &'a str) -> Result<Function, String> {
         match Scanner::new(source).scan_tokens() {
             Ok(tokens) => {
                 self.tokens = tokens;
@@ -163,8 +166,8 @@ impl<'a> Parser<'a> {
         }
         self.end_compiler();
 
-        let chunk = std::mem::replace(&mut self.compiler.chunk, Chunk::new());
-        Ok(chunk)
+        let function = std::mem::replace(&mut self.compiler.function, Function::new());
+        Ok(function)
     }
 
     fn advance_if_matched(&mut self, typ: TokenType) -> bool {
@@ -237,7 +240,11 @@ impl<'a> Parser<'a> {
 
     fn identifier_constant(&mut self, name: &'a str) -> usize {
         let name = name.to_string();
-        let idx = self.compiler.chunk.add_constant(Value::new_string(name));
+        let idx = self
+            .compiler
+            .function
+            .chunk
+            .add_constant(Value::new_string(name));
         return idx;
     }
 
@@ -297,7 +304,7 @@ impl<'a> Parser<'a> {
     }
 
     fn while_statement(&mut self) -> Result<(), String> {
-        let start_pos = self.compiler.chunk.instructions.len() - 1;
+        let start_pos = self.compiler.function.chunk.instructions.len() - 1;
         self.consume(TokenType::LeftParen, "Expect '(' after 'while'.")?;
         self.expression()?;
         self.consume(
@@ -338,7 +345,7 @@ impl<'a> Parser<'a> {
             self.expression_statement()?;
         }
 
-        let cond_pos = self.compiler.chunk.instructions.len() - 1;
+        let cond_pos = self.compiler.function.chunk.instructions.len() - 1;
 
         // condition expression
         let maybe_exit_pos = match self.advance_if_matched(TokenType::SemiColon) {
@@ -367,7 +374,7 @@ impl<'a> Parser<'a> {
                     /* set a placeholder for now, patch it later. */
                     OpCode::Jump(0),
                 );
-                let increment_pos = self.compiler.chunk.instructions.len() - 1;
+                let increment_pos = self.compiler.function.chunk.instructions.len() - 1;
 
                 self.expression()?;
                 self.emit(OpCode::Pop);
@@ -396,7 +403,7 @@ impl<'a> Parser<'a> {
 
     // back to a start position
     fn emit_loop(&mut self, start_pos: usize) {
-        let offset = self.compiler.chunk.instructions.len() - start_pos;
+        let offset = self.compiler.function.chunk.instructions.len() - start_pos;
         self.emit(OpCode::Loop(offset));
     }
 
@@ -448,11 +455,11 @@ impl<'a> Parser<'a> {
 
     fn end_compiler(&mut self) {
         self.emit_return();
-        self.compiler.chunk.disassemble("code");
+        self.compiler.function.chunk.disassemble("code");
     }
 
     fn emit_constant(&mut self, v: Value) {
-        let idx = self.compiler.chunk.add_constant(v);
+        let idx = self.compiler.function.chunk.add_constant(v);
         self.emit(OpCode::Constant(idx));
     }
 
@@ -462,24 +469,25 @@ impl<'a> Parser<'a> {
 
     fn emit(&mut self, op: OpCode) {
         self.compiler
+            .function
             .chunk
             .add_instruction(op, self.previous().line)
     }
 
     fn emit_jump(&mut self, op: OpCode) -> usize {
         self.emit(op);
-        self.compiler.chunk.instructions.len() - 1
+        self.compiler.function.chunk.instructions.len() - 1
     }
 
     // patches the instruction at 'pos' to replace the offset value for the jump
     fn patch_jump(&mut self, pos: usize) {
-        let offset = self.compiler.chunk.instructions.len() - 1 - pos;
-        match self.compiler.chunk.instructions.get(pos).unwrap() {
+        let offset = self.compiler.function.chunk.instructions.len() - 1 - pos;
+        match self.compiler.function.chunk.instructions.get(pos).unwrap() {
             OpCode::JumpIfFalse(_) => {
-                self.compiler.chunk.instructions[pos] = OpCode::JumpIfFalse(offset);
+                self.compiler.function.chunk.instructions[pos] = OpCode::JumpIfFalse(offset);
             }
             OpCode::Jump(_) => {
-                self.compiler.chunk.instructions[pos] = OpCode::Jump(offset);
+                self.compiler.function.chunk.instructions[pos] = OpCode::Jump(offset);
             }
             _ => unreachable!(),
         }

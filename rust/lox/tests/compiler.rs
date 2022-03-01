@@ -7,11 +7,11 @@ fn run_arithmetic() {
     let source = r#"
 -5 + (6 - 2);
 "#;
-    let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_ok());
+    let function = compiler.compile(source);
+    assert_eq!(true, function.is_ok());
 
-    let chunk = chunk.unwrap();
-    let mut vm = VM::new(&chunk);
+    let function = function.unwrap();
+    let mut vm = VM::new(&function.chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
 }
 
@@ -21,11 +21,11 @@ fn run_comparison() {
     let source = r#"
 !(5 - 4 > 3 * 2 == !nil);
 "#;
-    let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_ok());
+    let function = compiler.compile(source);
+    assert_eq!(true, function.is_ok());
 
-    let chunk = chunk.unwrap();
-    let mut vm = VM::new(&chunk);
+    let function = function.unwrap();
+    let mut vm = VM::new(&function.chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
 }
 
@@ -35,11 +35,11 @@ fn run_string() {
     let source = r#"
 "foo" + "bar" == "foobar";
 "#;
-    let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_ok());
+    let function = compiler.compile(source);
+    assert_eq!(true, function.is_ok());
 
-    let chunk = chunk.unwrap();
-    let mut vm = VM::new(&chunk);
+    let function = function.unwrap();
+    let mut vm = VM::new(&function.chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
 }
 
@@ -49,11 +49,11 @@ fn run_print() {
     let source = r#"
 print "foobar";
 "#;
-    let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_ok());
+    let function = compiler.compile(source);
+    assert_eq!(true, function.is_ok());
 
-    let chunk = chunk.unwrap();
-    let mut vm = VM::new(&chunk);
+    let function = function.unwrap();
+    let mut vm = VM::new(&function.chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
 }
 
@@ -69,11 +69,11 @@ var mut_foo = "foo";
 mut_foo = "updated foo!";
 print mut_foo;
 "#;
-    let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_ok());
+    let function = compiler.compile(source);
+    assert_eq!(true, function.is_ok());
 
-    let chunk = chunk.unwrap();
-    let mut vm = VM::new(&chunk);
+    let function = function.unwrap();
+    let mut vm = VM::new(&function.chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!(
         "beignets with cafe au lait",
@@ -105,11 +105,11 @@ var con = "";
     print con;
 }
 "#;
-    let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_ok());
+    let function = compiler.compile(source);
+    assert_eq!(true, function.is_ok());
 
-    let chunk = chunk.unwrap();
-    let mut vm = VM::new(&chunk);
+    let function = function.unwrap();
+    let mut vm = VM::new(&function.chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!(
         "globalized",
@@ -146,11 +146,11 @@ if (global != "localized") {
     falsy = true;
 }
 "#;
-    let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_ok());
+    let function = compiler.compile(source);
+    assert_eq!(true, function.is_ok());
 
-    let chunk = chunk.unwrap();
-    let mut vm = VM::new(&chunk);
+    let function = function.unwrap();
+    let mut vm = VM::new(&function.chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!(
         "localized",
@@ -180,11 +180,11 @@ var and_exp_false = ( global != "globalized" and local == "localized" );
 var or_exp_true = ( global == "globalized" or local != "localized" );
 var or_exp_false = ( global != "globalized" or local != "localized" );
 "#;
-    let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_ok());
+    let function = compiler.compile(source);
+    assert_eq!(true, function.is_ok());
 
-    let chunk = chunk.unwrap();
-    let mut vm = VM::new(&chunk);
+    let function = function.unwrap();
+    let mut vm = VM::new(&function.chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!(
         true,
@@ -230,11 +230,11 @@ while (cnt < retries) {
     cnt = cnt + 1;
 }
 "#;
-    let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_ok());
+    let function = compiler.compile(source);
+    assert_eq!(true, function.is_ok());
 
-    let chunk = chunk.unwrap();
-    let mut vm = VM::new(&chunk);
+    let function = function.unwrap();
+    let mut vm = VM::new(&function.chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!(
         5_f64,
@@ -266,11 +266,11 @@ for (;d < 5;) {
     d = d + 1;
 }
 "#;
-    let chunk = compiler.compile(source);
-    assert_eq!(true, chunk.is_ok());
+    let function = compiler.compile(source);
+    assert_eq!(true, function.is_ok());
 
-    let chunk = chunk.unwrap();
-    let mut vm = VM::new(&chunk);
+    let function = function.unwrap();
+    let mut vm = VM::new(&function.chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!(
         5_f64,
