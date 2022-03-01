@@ -42,27 +42,30 @@ impl CallFrame {
 }
 
 pub struct VM {
-    function: Function,
-    pc: usize,
+    frames: Vec<CallFrame>,
     pub stack: Vec<Value>,
     pub globals: HashMap<String, Value>,
 }
 
 impl VM {
     pub fn new(function: Function) -> Self {
-        Self {
-            function,
-            pc: 0,
+        let mut ret = Self {
+            frames: vec![],
             stack: vec![],
             globals: Default::default(),
-        }
+        };
+
+        ret.frames.push(CallFrame::new(function));
+
+        ret
     }
 
     // dispatch instructions
     pub fn run(&mut self) -> InterpretResult {
+        let mut frame = self.frames.pop().unwrap();
         loop {
-            let instruction = &self.function.chunk.instructions[self.pc];
-            self.pc = self.pc + 1;
+            let instruction = &frame.function.chunk.instructions[frame.ip];
+            frame.ip += 1;
 
             match instruction {
                 OpCode::Return => return InterpretResult::Ok,
@@ -71,20 +74,20 @@ impl VM {
                 }
                 OpCode::JumpIfFalse(offset) => {
                     if self.peek(0).is_falsy() {
-                        self.pc += *offset;
+                        frame.ip += *offset;
                     }
                 }
                 OpCode::Jump(offset) => {
-                    self.pc += *offset;
+                    frame.ip += *offset;
                 }
                 OpCode::Loop(offset) => {
-                    self.pc -= *offset;
+                    frame.ip -= *offset;
                 }
                 OpCode::Pop => {
                     self.pop(); // discard the result
                 }
                 OpCode::GetGlobal(index) => {
-                    let name = self.function.chunk.values[*index].as_string().clone();
+                    let name = frame.function.chunk.values[*index].as_string().clone();
                     match self.globals.get(&name) {
                         Some(v) => {
                             self.push(v.clone());
@@ -96,7 +99,7 @@ impl VM {
                     }
                 }
                 OpCode::SetGlobal(index) => {
-                    let name = self.function.chunk.values[*index].as_string().clone();
+                    let name = frame.function.chunk.values[*index].as_string().clone();
                     match self.globals.get(&name) {
                         Some(_) => {
                             self.globals.insert(name, self.peek(0).clone());
@@ -109,7 +112,7 @@ impl VM {
                     }
                 }
                 OpCode::DefineGlobal(index) => {
-                    let name = self.function.chunk.values[*index].as_string().clone();
+                    let name = frame.function.chunk.values[*index].as_string().clone();
                     self.globals.insert(name, self.peek(0).clone());
                     self.pop();
                 }
@@ -121,7 +124,7 @@ impl VM {
                         eprintln!(
                             "Undefined local variable at: '{}'. pc: {}",
                             index,
-                            self.pc - 1
+                            frame.ip - 1,
                         );
                         return InterpretResult::RuntimeError;
                     }
@@ -130,7 +133,7 @@ impl VM {
                     self.stack.insert(*index, self.peek(0).clone());
                 }
                 OpCode::Constant(index) => {
-                    let v = self.function.chunk.values[*index].clone();
+                    let v = frame.function.chunk.values[*index].clone();
                     self.push(v);
                 }
                 OpCode::Nil => self.push(Value::new_nil()),
