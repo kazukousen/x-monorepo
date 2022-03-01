@@ -66,13 +66,27 @@ impl<'r> ParseRule<'r> {
     }
 }
 
+pub struct Compiler<'a> {
+    chunk: Chunk,
+    locals: Vec<Local<'a>>,
+    scope_depth: usize,
+}
+
+impl<'a> Compiler<'a> {
+    pub fn new() -> Self {
+        Self {
+            chunk: Chunk::new(),
+            locals: Vec::new(),
+            scope_depth: 0,
+        }
+    }
+}
+
 pub struct Parser<'a> {
-    compiling_chunk: Chunk,
+    compiler: Compiler<'a>,
     tokens: Vec<Token<'a>>,
     token_pos: usize,
     parse_rules: HashMap<TokenType, ParseRule<'a>>,
-    locals: Vec<Local<'a>>,
-    scope_depth: usize,
 }
 
 #[derive(Default)]
@@ -99,7 +113,7 @@ macro_rules! parse_rules {
 impl<'a> Parser<'a> {
     pub fn new() -> Self {
         Self {
-            compiling_chunk: Chunk::new(),
+            compiler: Compiler::new(),
             tokens: Vec::new(),
             token_pos: 0,
             parse_rules: parse_rules![
@@ -129,8 +143,6 @@ impl<'a> Parser<'a> {
                 LessEqual => None, Some(Parser::binary), Comparison;
                 Eof => None, None, None;
             ],
-            locals: Vec::new(),
-            scope_depth: 0
         }
     }
 
@@ -151,7 +163,7 @@ impl<'a> Parser<'a> {
         }
         self.end_compiler();
 
-        let chunk = std::mem::replace(&mut self.compiling_chunk, Chunk::new());
+        let chunk = std::mem::replace(&mut self.compiler.chunk, Chunk::new());
         Ok(chunk)
     }
 
@@ -196,8 +208,8 @@ impl<'a> Parser<'a> {
     fn var_declaration(&mut self) -> Result<(), String> {
         self.consume(TokenType::Identifier, "Expect variable name")?;
         let name = self.previous().source;
-        if self.scope_depth > 0 {
-            self.locals.push(Local{ name, depth: 0 });
+        if self.compiler.scope_depth > 0 {
+            self.compiler.locals.push(Local{ name, depth: 0 });
         }
 
         if self.advance_if_matched(TokenType::Equal) {
@@ -208,8 +220,8 @@ impl<'a> Parser<'a> {
 
         self.consume(TokenType::SemiColon, "Expect ';' after value declaration.")?;
 
-        if self.scope_depth > 0 {
-            self.locals.last_mut().expect("Expect locals exist one more").depth = self.scope_depth;
+        if self.compiler.scope_depth > 0 {
+            self.compiler.locals.last_mut().expect("Expect locals exist one more").depth = self.compiler.scope_depth;
             return Ok(());
         }
 
@@ -221,7 +233,7 @@ impl<'a> Parser<'a> {
 
     fn identifier_constant(&mut self, name: &'a str) -> usize {
         let name = name.to_string();
-        let idx = self.compiling_chunk.add_constant(Value::new_string(name));
+        let idx = self.compiler.chunk.add_constant(Value::new_string(name));
         return idx;
     }
 
@@ -281,7 +293,7 @@ impl<'a> Parser<'a> {
     }
 
     fn while_statement(&mut self) -> Result<(), String> {
-        let start_pos = self.compiling_chunk.instructions.len() - 1;
+        let start_pos = self.compiler.chunk.instructions.len() - 1;
         self.consume(TokenType::LeftParen, "Expect '(' after 'while'.")?;
         self.expression()?;
         self.consume(TokenType::RightParen, "Expect ')' after condition of 'while'.")?;
@@ -319,7 +331,7 @@ impl<'a> Parser<'a> {
             self.expression_statement()?;
         }
 
-        let cond_pos = self.compiling_chunk.instructions.len() - 1;
+        let cond_pos = self.compiler.chunk.instructions.len() - 1;
 
         // condition expression
         let maybe_exit_pos = match self.advance_if_matched(TokenType::SemiColon) {
@@ -348,7 +360,7 @@ impl<'a> Parser<'a> {
                     /* set a placeholder for now, patch it later. */
                     OpCode::Jump(0)
                 );
-                let increment_pos = self.compiling_chunk.instructions.len() - 1;
+                let increment_pos = self.compiler.chunk.instructions.len() - 1;
 
                 self.expression()?;
                 self.emit(OpCode::Pop);
@@ -377,7 +389,7 @@ impl<'a> Parser<'a> {
 
     // back to a start position
     fn emit_loop(&mut self, start_pos: usize) {
-        let offset = self.compiling_chunk.instructions.len() - start_pos;
+        let offset = self.compiler.chunk.instructions.len() - start_pos;
         self.emit(OpCode::Loop(offset));
     }
 
@@ -398,14 +410,14 @@ impl<'a> Parser<'a> {
     }
 
     fn begin_scope(&mut self) {
-        self.scope_depth += 1;
+        self.compiler.scope_depth += 1;
     }
 
     fn end_scope(&mut self) {
-        self.scope_depth -= 1;
-        while self.locals.len() > 0 && self.locals.last().unwrap().depth > self.scope_depth {
+        self.compiler.scope_depth -= 1;
+        while self.compiler.locals.len() > 0 && self.compiler.locals.last().unwrap().depth > self.compiler.scope_depth {
             // discard local variables.
-            self.locals.pop();
+            self.compiler.locals.pop();
             self.emit(OpCode::Pop);
         }
     }
@@ -424,11 +436,11 @@ impl<'a> Parser<'a> {
 
     fn end_compiler(&mut self) {
         self.emit_return();
-        self.compiling_chunk.disassemble("code");
+        self.compiler.chunk.disassemble("code");
     }
 
     fn emit_constant(&mut self, v: Value) {
-        let idx = self.compiling_chunk.add_constant(v);
+        let idx = self.compiler.chunk.add_constant(v);
         self.emit(OpCode::Constant(idx));
     }
 
@@ -437,23 +449,23 @@ impl<'a> Parser<'a> {
     }
 
     fn emit(&mut self, op: OpCode) {
-        self.compiling_chunk.add_instruction(op, self.previous().line)
+        self.compiler.chunk.add_instruction(op, self.previous().line)
     }
 
     fn emit_jump(&mut self, op: OpCode) -> usize {
         self.emit(op);
-        self.compiling_chunk.instructions.len() - 1
+        self.compiler.chunk.instructions.len() - 1
     }
 
     // patches the instruction at 'pos' to replace the offset value for the jump
     fn patch_jump(&mut self, pos: usize) {
-        let offset = self.compiling_chunk.instructions.len() - 1 - pos;
-        match self.compiling_chunk.instructions.get(pos).unwrap() {
+        let offset = self.compiler.chunk.instructions.len() - 1 - pos;
+        match self.compiler.chunk.instructions.get(pos).unwrap() {
             OpCode::JumpIfFalse(_) => {
-                self.compiling_chunk.instructions[pos] = OpCode::JumpIfFalse(offset);
+                self.compiler.chunk.instructions[pos] = OpCode::JumpIfFalse(offset);
             }
             OpCode::Jump(_) => {
-                self.compiling_chunk.instructions[pos] = OpCode::Jump(offset);
+                self.compiler.chunk.instructions[pos] = OpCode::Jump(offset);
             }
             _ => unreachable!()
         }
@@ -619,12 +631,12 @@ impl<'a> Parser<'a> {
     }
 
     fn resolve_local(&mut self, name: &'a str) -> Result<Option<usize>, String> {
-        for (i, local) in self.locals.iter().enumerate() {
+        for (i, local) in self.compiler.locals.iter().enumerate() {
             if local.name == name {
                 if local.depth == 0 {
                     return Err("Can't read local variable in its own initializer.".to_string());
                 }
-                return Ok(Some(self.locals.len() - 1 - i))
+                return Ok(Some(self.compiler.locals.len() - 1 - i))
             }
         }
         Ok(None)
