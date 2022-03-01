@@ -48,7 +48,7 @@ impl Add<i32> for &Precedence {
     }
 }
 
-type ParseFn<'r> = fn(&mut Compiler<'r>, can_assign: bool) -> Result<(), String>;
+type ParseFn<'r> = fn(&mut Parser<'r>, can_assign: bool) -> Result<(), String>;
 
 struct ParseRule<'r> {
     prefix: Option<ParseFn<'r>>,
@@ -67,12 +67,26 @@ impl<'r> ParseRule<'r> {
 }
 
 pub struct Compiler<'a> {
-    compiling_chunk: Chunk,
+    chunk: Chunk,
+    locals: Vec<Local<'a>>,
+    scope_depth: usize,
+}
+
+impl<'a> Compiler<'a> {
+    pub fn new() -> Self {
+        Self {
+            chunk: Chunk::new(),
+            locals: Vec::new(),
+            scope_depth: 0,
+        }
+    }
+}
+
+pub struct Parser<'a> {
+    compiler: Compiler<'a>,
     tokens: Vec<Token<'a>>,
     token_pos: usize,
     parse_rules: HashMap<TokenType, ParseRule<'a>>,
-    locals: Vec<Local<'a>>,
-    scope_depth: usize,
 }
 
 #[derive(Default)]
@@ -96,41 +110,39 @@ macro_rules! parse_rules {
     }
 }
 
-impl<'a> Compiler<'a> {
+impl<'a> Parser<'a> {
     pub fn new() -> Self {
         Self {
-            compiling_chunk: Chunk::new(),
+            compiler: Compiler::new(),
             tokens: Vec::new(),
             token_pos: 0,
             parse_rules: parse_rules![
-                LeftParen => Some(Compiler::grouping), None, None;
+                LeftParen => Some(Parser::grouping), None, None;
                 RightParen => None, None, None;
-                Plus => None, Some(Compiler::binary), Term;
-                Minus => Some(Compiler::unary), Some(Compiler::binary), Term;
-                Star => None, Some(Compiler::binary), Term;
-                Slash => None, Some(Compiler::binary), Term;
+                Plus => None, Some(Parser::binary), Term;
+                Minus => Some(Parser::unary), Some(Parser::binary), Term;
+                Star => None, Some(Parser::binary), Term;
+                Slash => None, Some(Parser::binary), Term;
                 SemiColon => None, None, None;
-                Identifier => Some(Compiler::variable), None, None;
-                String => Some(Compiler::string), None, None;
-                Number => Some(Compiler::number), None, None;
-                And => None, Some(Compiler::and), And;
-                Or => None, Some(Compiler::or), Or;
-                True => Some(Compiler::literal), None, None;
-                False => Some(Compiler::literal), None, None;
-                Nil => Some(Compiler::literal), None, None;
+                Identifier => Some(Parser::variable), None, None;
+                String => Some(Parser::string), None, None;
+                Number => Some(Parser::number), None, None;
+                And => None, Some(Parser::and), And;
+                Or => None, Some(Parser::or), Or;
+                True => Some(Parser::literal), None, None;
+                False => Some(Parser::literal), None, None;
+                Nil => Some(Parser::literal), None, None;
                 Print => None, None, None;
-                Bang => Some(Compiler::unary), None, None;
-                BangEqual => None, Some(Compiler::binary), Equality;
+                Bang => Some(Parser::unary), None, None;
+                BangEqual => None, Some(Parser::binary), Equality;
                 Equal => None, None, None;
-                EqualEqual => None, Some(Compiler::binary), Equality;
-                Greater => None, Some(Compiler::binary), Comparison;
-                GreaterEqual => None, Some(Compiler::binary), Comparison;
-                Less => None, Some(Compiler::binary), Comparison;
-                LessEqual => None, Some(Compiler::binary), Comparison;
+                EqualEqual => None, Some(Parser::binary), Equality;
+                Greater => None, Some(Parser::binary), Comparison;
+                GreaterEqual => None, Some(Parser::binary), Comparison;
+                Less => None, Some(Parser::binary), Comparison;
+                LessEqual => None, Some(Parser::binary), Comparison;
                 Eof => None, None, None;
             ],
-            locals: Vec::new(),
-            scope_depth: 0
         }
     }
 
@@ -151,7 +163,7 @@ impl<'a> Compiler<'a> {
         }
         self.end_compiler();
 
-        let chunk = std::mem::replace(&mut self.compiling_chunk, Chunk::new());
+        let chunk = std::mem::replace(&mut self.compiler.chunk, Chunk::new());
         Ok(chunk)
     }
 
@@ -196,8 +208,8 @@ impl<'a> Compiler<'a> {
     fn var_declaration(&mut self) -> Result<(), String> {
         self.consume(TokenType::Identifier, "Expect variable name")?;
         let name = self.previous().source;
-        if self.scope_depth > 0 {
-            self.locals.push(Local{ name, depth: 0 });
+        if self.compiler.scope_depth > 0 {
+            self.compiler.locals.push(Local{ name, depth: 0 });
         }
 
         if self.advance_if_matched(TokenType::Equal) {
@@ -208,8 +220,8 @@ impl<'a> Compiler<'a> {
 
         self.consume(TokenType::SemiColon, "Expect ';' after value declaration.")?;
 
-        if self.scope_depth > 0 {
-            self.locals.last_mut().expect("Expect locals exist one more").depth = self.scope_depth;
+        if self.compiler.scope_depth > 0 {
+            self.compiler.locals.last_mut().expect("Expect locals exist one more").depth = self.compiler.scope_depth;
             return Ok(());
         }
 
@@ -221,7 +233,7 @@ impl<'a> Compiler<'a> {
 
     fn identifier_constant(&mut self, name: &'a str) -> usize {
         let name = name.to_string();
-        let idx = self.compiling_chunk.add_constant(Value::new_string(name));
+        let idx = self.compiler.chunk.add_constant(Value::new_string(name));
         return idx;
     }
 
@@ -281,7 +293,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn while_statement(&mut self) -> Result<(), String> {
-        let start_pos = self.compiling_chunk.instructions.len() - 1;
+        let start_pos = self.compiler.chunk.instructions.len() - 1;
         self.consume(TokenType::LeftParen, "Expect '(' after 'while'.")?;
         self.expression()?;
         self.consume(TokenType::RightParen, "Expect ')' after condition of 'while'.")?;
@@ -319,7 +331,7 @@ impl<'a> Compiler<'a> {
             self.expression_statement()?;
         }
 
-        let cond_pos = self.compiling_chunk.instructions.len() - 1;
+        let cond_pos = self.compiler.chunk.instructions.len() - 1;
 
         // condition expression
         let maybe_exit_pos = match self.advance_if_matched(TokenType::SemiColon) {
@@ -348,7 +360,7 @@ impl<'a> Compiler<'a> {
                     /* set a placeholder for now, patch it later. */
                     OpCode::Jump(0)
                 );
-                let increment_pos = self.compiling_chunk.instructions.len() - 1;
+                let increment_pos = self.compiler.chunk.instructions.len() - 1;
 
                 self.expression()?;
                 self.emit(OpCode::Pop);
@@ -377,7 +389,7 @@ impl<'a> Compiler<'a> {
 
     // back to a start position
     fn emit_loop(&mut self, start_pos: usize) {
-        let offset = self.compiling_chunk.instructions.len() - start_pos;
+        let offset = self.compiler.chunk.instructions.len() - start_pos;
         self.emit(OpCode::Loop(offset));
     }
 
@@ -398,14 +410,14 @@ impl<'a> Compiler<'a> {
     }
 
     fn begin_scope(&mut self) {
-        self.scope_depth += 1;
+        self.compiler.scope_depth += 1;
     }
 
     fn end_scope(&mut self) {
-        self.scope_depth -= 1;
-        while self.locals.len() > 0 && self.locals.last().unwrap().depth > self.scope_depth {
+        self.compiler.scope_depth -= 1;
+        while self.compiler.locals.len() > 0 && self.compiler.locals.last().unwrap().depth > self.compiler.scope_depth {
             // discard local variables.
-            self.locals.pop();
+            self.compiler.locals.pop();
             self.emit(OpCode::Pop);
         }
     }
@@ -424,11 +436,11 @@ impl<'a> Compiler<'a> {
 
     fn end_compiler(&mut self) {
         self.emit_return();
-        self.compiling_chunk.disassemble("code");
+        self.compiler.chunk.disassemble("code");
     }
 
     fn emit_constant(&mut self, v: Value) {
-        let idx = self.compiling_chunk.add_constant(v);
+        let idx = self.compiler.chunk.add_constant(v);
         self.emit(OpCode::Constant(idx));
     }
 
@@ -437,23 +449,23 @@ impl<'a> Compiler<'a> {
     }
 
     fn emit(&mut self, op: OpCode) {
-        self.compiling_chunk.add_instruction(op, self.previous().line)
+        self.compiler.chunk.add_instruction(op, self.previous().line)
     }
 
     fn emit_jump(&mut self, op: OpCode) -> usize {
         self.emit(op);
-        self.compiling_chunk.instructions.len() - 1
+        self.compiler.chunk.instructions.len() - 1
     }
 
     // patches the instruction at 'pos' to replace the offset value for the jump
     fn patch_jump(&mut self, pos: usize) {
-        let offset = self.compiling_chunk.instructions.len() - 1 - pos;
-        match self.compiling_chunk.instructions.get(pos).unwrap() {
+        let offset = self.compiler.chunk.instructions.len() - 1 - pos;
+        match self.compiler.chunk.instructions.get(pos).unwrap() {
             OpCode::JumpIfFalse(_) => {
-                self.compiling_chunk.instructions[pos] = OpCode::JumpIfFalse(offset);
+                self.compiler.chunk.instructions[pos] = OpCode::JumpIfFalse(offset);
             }
             OpCode::Jump(_) => {
-                self.compiling_chunk.instructions[pos] = OpCode::Jump(offset);
+                self.compiler.chunk.instructions[pos] = OpCode::Jump(offset);
             }
             _ => unreachable!()
         }
@@ -619,12 +631,12 @@ impl<'a> Compiler<'a> {
     }
 
     fn resolve_local(&mut self, name: &'a str) -> Result<Option<usize>, String> {
-        for (i, local) in self.locals.iter().enumerate() {
+        for (i, local) in self.compiler.locals.iter().enumerate() {
             if local.name == name {
                 if local.depth == 0 {
                     return Err("Can't read local variable in its own initializer.".to_string());
                 }
-                return Ok(Some(self.locals.len() - 1 - i))
+                return Ok(Some(self.compiler.locals.len() - 1 - i))
             }
         }
         Ok(None)
