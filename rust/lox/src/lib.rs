@@ -12,4 +12,4 @@ pub use function::Function;
 pub use scanner::Scanner;
 pub use token::TokenType;
 pub use value::Value;
-pub use vm::{InterpretResult, VM};
+pub use vm::{InterpretResult, Store, VM};

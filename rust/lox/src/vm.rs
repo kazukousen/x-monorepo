@@ -27,15 +27,15 @@ macro_rules! binary_op {
 }
 
 struct CallFrame {
-    function: Function,
+    func_id: usize,
     ip: usize,
     slot: usize,
 }
 
 impl CallFrame {
-    pub fn new(function: Function) -> Self {
+    pub fn new(func_id: usize) -> Self {
         Self {
-            function,
+            func_id,
             ip: 0,
             slot: 0,
         }
@@ -46,7 +46,6 @@ pub struct VM {
     frames: Vec<CallFrame>,
     pub stack: Vec<Value>,
     pub globals: HashMap<String, Value>,
-    functions: Functions,
 }
 
 impl VM {
@@ -55,142 +54,6 @@ impl VM {
             frames: vec![],
             stack: vec![],
             globals: Default::default(),
-            functions: Default::default(),
-        }
-    }
-
-    pub fn interpret(&mut self, src: &str) -> InterpretResult {
-        let mut parser = Parser::new(&mut self.functions);
-        let function = match parser.compile(src) {
-            Ok(function) => function,
-            _ => return InterpretResult::CompileError,
-        };
-        self.frames.push(CallFrame::new(function));
-        self.run()
-    }
-
-    // dispatch instructions
-    fn run(&mut self) -> InterpretResult {
-        let mut frame = self.frames.pop().unwrap();
-        loop {
-            let instruction = &frame.function.chunk.instructions[frame.ip];
-            frame.ip += 1;
-
-            match instruction {
-                OpCode::Return => return InterpretResult::Ok,
-                OpCode::Print => {
-                    print!("{}\n", self.pop());
-                }
-                OpCode::JumpIfFalse(offset) => {
-                    if self.peek(0).is_falsy() {
-                        frame.ip += *offset;
-                    }
-                }
-                OpCode::Jump(offset) => {
-                    frame.ip += *offset;
-                }
-                OpCode::Loop(offset) => {
-                    frame.ip -= *offset;
-                }
-                OpCode::Pop => {
-                    self.pop(); // discard the result
-                }
-                OpCode::GetGlobal(index) => {
-                    let name = frame.function.chunk.values[*index].as_string().clone();
-                    match self.globals.get(&name) {
-                        Some(v) => {
-                            self.push(v.clone());
-                        }
-                        None => {
-                            eprintln!("Undefined global variable: '{}'.", name);
-                            return InterpretResult::RuntimeError;
-                        }
-                    }
-                }
-                OpCode::SetGlobal(index) => {
-                    let name = frame.function.chunk.values[*index].as_string().clone();
-                    match self.globals.get(&name) {
-                        Some(_) => {
-                            self.globals.insert(name, self.peek(0).clone());
-                        }
-                        None => {
-                            self.globals.remove(&name);
-                            eprintln!("Undefined global variable: '{}'.", name);
-                            return InterpretResult::RuntimeError;
-                        }
-                    }
-                }
-                OpCode::DefineGlobal(index) => {
-                    let name = frame.function.chunk.values[*index].as_string().clone();
-                    self.globals.insert(name, self.peek(0).clone());
-                    self.pop();
-                }
-                OpCode::GetLocal(index) => match self.stack.get(*index + frame.slot) {
-                    Some(v) => {
-                        self.push(v.clone());
-                    }
-                    None => {
-                        eprintln!(
-                            "Undefined local variable at: '{}'. pc: {}",
-                            index,
-                            frame.ip - 1,
-                        );
-                        return InterpretResult::RuntimeError;
-                    }
-                },
-                OpCode::SetLocal(index) => {
-                    self.stack.insert(*index + frame.slot, self.peek(0).clone());
-                }
-                OpCode::Constant(index) => {
-                    let v = frame.function.chunk.values[*index].clone();
-                    self.push(v);
-                }
-                OpCode::Nil => self.push(Value::new_nil()),
-                OpCode::True => self.push(Value::new_bool(true)),
-                OpCode::False => self.push(Value::new_bool(false)),
-                OpCode::Equal => {
-                    let (b, a) = (self.pop(), self.pop());
-                    self.push(Value::new_bool(b == a));
-                }
-                OpCode::Greater => binary_op!(self, Value::new_bool, >),
-                OpCode::Less => binary_op!(self, Value::new_bool, <),
-                OpCode::Add => {
-                    if self.peek(0).is_number() && self.peek(1).is_number() {
-                        // numerical
-
-                        let (b, a) = (self.pop().as_number(), self.pop().as_number());
-                        self.push(Value::new_number(a + b));
-                    } else if self.peek(0).is_string() && self.peek(1).is_string() {
-                        // string
-
-                        let (b, a) = (self.pop(), self.pop());
-                        let (b, a) = (b.as_string(), a.as_string());
-                        self.push(Value::new_string(format!("{}{}", a, b)));
-                    } else {
-                        eprintln!("Operand must be numbers or strings.");
-                        return InterpretResult::RuntimeError;
-                    }
-                }
-                OpCode::Subtract => binary_op!(self, Value::new_number, -),
-                OpCode::Multiply => binary_op!(self, Value::new_number, *),
-                OpCode::Divide => binary_op!(self, Value::new_number, /),
-                OpCode::Negate => {
-                    if !self.peek(0).is_number() {
-                        eprintln!("Operand must be a number.");
-                        return InterpretResult::RuntimeError;
-                    }
-                    let v = self.pop();
-                    self.push(Value::new_number(-v.as_number()));
-                }
-                OpCode::Not => {
-                    if !self.peek(0).is_bool() && !self.peek(0).is_nil() {
-                        eprintln!("Operand must be a bool or nil.");
-                        return InterpretResult::RuntimeError;
-                    }
-                    let v = self.pop();
-                    self.push(Value::new_bool(v.is_falsy()));
-                }
-            }
         }
     }
 
@@ -206,9 +69,152 @@ impl VM {
     }
 
     fn peek(&self, distance: usize) -> &Value {
-        match self.stack.get(self.stack.len() - (distance + 1)) {
+        self.get(self.stack.len() - (distance + 1))
+    }
+
+    fn get(&self, index: usize) -> &Value {
+        match self.stack.get(index) {
             Some(v) => v,
             None => panic!("VM tried to peek value out of bounds stack"),
+        }
+    }
+}
+
+pub struct Store {
+    functions: Functions,
+}
+
+impl Store {
+    pub fn new() -> Self {
+        Self {
+            functions: Default::default(),
+        }
+    }
+
+    pub fn interpret(&mut self, src: &str, vm: &mut VM) -> InterpretResult {
+        let mut parser = Parser::new(&mut self.functions);
+        let func_id = match parser.compile(src) {
+            Ok(func_id) => func_id,
+            _ => return InterpretResult::CompileError,
+        };
+        vm.frames.push(CallFrame::new(func_id));
+        self.run(vm)
+    }
+
+    // dispatch instructions
+    fn run(&mut self, vm: &mut VM) -> InterpretResult {
+        let mut frame = vm.frames.pop().unwrap();
+        let chunk = &self.functions.lookup(frame.func_id).chunk;
+        loop {
+            let instruction = &chunk.instructions[frame.ip];
+            frame.ip += 1;
+
+            match instruction {
+                OpCode::Return => return InterpretResult::Ok,
+                OpCode::Print => {
+                    print!("{}\n", vm.pop());
+                }
+                OpCode::JumpIfFalse(offset) => {
+                    if vm.peek(0).is_falsy() {
+                        frame.ip += *offset;
+                    }
+                }
+                OpCode::Jump(offset) => {
+                    frame.ip += *offset;
+                }
+                OpCode::Loop(offset) => {
+                    frame.ip -= *offset;
+                }
+                OpCode::Pop => {
+                    vm.pop(); // discard the result
+                }
+                OpCode::GetGlobal(index) => {
+                    let name = chunk.values[*index].as_string().clone();
+                    match vm.globals.get(&name) {
+                        Some(v) => {
+                            vm.push(v.clone());
+                        }
+                        None => {
+                            eprintln!("Undefined global variable: '{}'.", name);
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
+                OpCode::SetGlobal(index) => {
+                    let name = chunk.values[*index].as_string().clone();
+                    match vm.globals.get(&name) {
+                        Some(_) => {
+                            vm.globals.insert(name, vm.peek(0).clone());
+                        }
+                        None => {
+                            vm.globals.remove(&name);
+                            eprintln!("Undefined global variable: '{}'.", name);
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
+                OpCode::DefineGlobal(index) => {
+                    let name = chunk.values[*index].as_string().clone();
+                    vm.globals.insert(name, vm.peek(0).clone());
+                    vm.pop();
+                }
+                OpCode::GetLocal(index) => {
+                    let v = vm.get(*index + frame.slot);
+                    vm.push(v.clone());
+                }
+                OpCode::SetLocal(index) => {
+                    vm.stack.insert(*index + frame.slot, vm.peek(0).clone());
+                }
+                OpCode::Constant(index) => {
+                    let v = chunk.values[*index].clone();
+                    vm.push(v);
+                }
+                OpCode::Nil => vm.push(Value::new_nil()),
+                OpCode::True => vm.push(Value::new_bool(true)),
+                OpCode::False => vm.push(Value::new_bool(false)),
+                OpCode::Equal => {
+                    let (b, a) = (vm.pop(), vm.pop());
+                    vm.push(Value::new_bool(b == a));
+                }
+                OpCode::Greater => binary_op!(vm, Value::new_bool, >),
+                OpCode::Less => binary_op!(vm, Value::new_bool, <),
+                OpCode::Add => {
+                    if vm.peek(0).is_number() && vm.peek(1).is_number() {
+                        // numerical
+
+                        let (b, a) = (vm.pop().as_number(), vm.pop().as_number());
+                        vm.push(Value::new_number(a + b));
+                    } else if vm.peek(0).is_string() && vm.peek(1).is_string() {
+                        // string
+
+                        let (b, a) = (vm.pop(), vm.pop());
+                        let (b, a) = (b.as_string(), a.as_string());
+                        vm.push(Value::new_string(format!("{}{}", a, b)));
+                    } else {
+                        eprintln!("Operand must be numbers or strings.");
+                        return InterpretResult::RuntimeError;
+                    }
+                }
+                OpCode::Subtract => binary_op!(vm, Value::new_number, -),
+                OpCode::Multiply => binary_op!(vm, Value::new_number, *),
+                OpCode::Divide => binary_op!(vm, Value::new_number, /),
+                OpCode::Negate => {
+                    if !vm.peek(0).is_number() {
+                        eprintln!("Operand must be a number.");
+                        return InterpretResult::RuntimeError;
+                    }
+                    let v = vm.pop();
+                    vm.push(Value::new_number(-v.as_number()));
+                }
+                OpCode::Not => {
+                    if !vm.peek(0).is_bool() && !vm.peek(0).is_nil() {
+                        eprintln!("Operand must be a bool or nil.");
+                        return InterpretResult::RuntimeError;
+                    }
+                    let v = vm.pop();
+                    vm.push(Value::new_bool(v.is_falsy()));
+                }
+            }
         }
     }
 }

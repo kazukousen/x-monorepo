@@ -6,8 +6,9 @@ fn run_arithmetic() {
     let source = r#"
 -5 + (6 - 2);
 "#;
+    let mut store = Store::new();
     let mut vm = VM::new();
-    assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
 }
 
 #[test]
@@ -15,8 +16,9 @@ fn run_comparison() {
     let source = r#"
 !(5 - 4 > 3 * 2 == !nil);
 "#;
+    let mut store = Store::new();
     let mut vm = VM::new();
-    assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
 }
 
 #[test]
@@ -24,8 +26,9 @@ fn run_string() {
     let source = r#"
 "foo" + "bar" == "foobar";
 "#;
+    let mut store = Store::new();
     let mut vm = VM::new();
-    assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
 }
 
 #[test]
@@ -33,8 +36,9 @@ fn run_print() {
     let source = r#"
 print "foobar";
 "#;
+    let mut store = Store::new();
     let mut vm = VM::new();
-    assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
 }
 
 #[test]
@@ -48,8 +52,9 @@ var mut_foo = "foo";
 mut_foo = "updated foo!";
 print mut_foo;
 "#;
+    let mut store = Store::new();
     let mut vm = VM::new();
-    assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         "beignets with cafe au lait",
         vm.globals
@@ -79,8 +84,9 @@ var con = "";
     print con;
 }
 "#;
+    let mut store = Store::new();
     let mut vm = VM::new();
-    assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         "globalized",
         vm.globals
@@ -115,8 +121,9 @@ if (global != "localized") {
     falsy = true;
 }
 "#;
+    let mut store = Store::new();
     let mut vm = VM::new();
-    assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         "localized",
         vm.globals
@@ -144,8 +151,9 @@ var and_exp_false = ( global != "globalized" and local == "localized" );
 var or_exp_true = ( global == "globalized" or local != "localized" );
 var or_exp_false = ( global != "globalized" or local != "localized" );
 "#;
+    let mut store = Store::new();
     let mut vm = VM::new();
-    assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         true,
         vm.globals
@@ -189,8 +197,9 @@ while (cnt < retries) {
     cnt = cnt + 1;
 }
 "#;
+    let mut store = Store::new();
     let mut vm = VM::new();
-    assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         5_f64,
         vm.globals
@@ -220,8 +229,9 @@ for (;d < 5;) {
     d = d + 1;
 }
 "#;
+    let mut store = Store::new();
     let mut vm = VM::new();
-    assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         5_f64,
         vm.globals
@@ -264,8 +274,9 @@ fun foo() {
     b = 2;
 }
 "#;
+    let mut store = Store::new();
     let mut vm = VM::new();
-    assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         0,
         vm.globals.get("foo").expect("no such key").as_fun().clone()

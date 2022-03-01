@@ -158,7 +158,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn compile(&mut self, source: &'a str) -> Result<Function, String> {
+    pub fn compile(&mut self, source: &'a str) -> Result<usize, String> {
         match Scanner::new(source).scan_tokens() {
             Ok(tokens) => {
                 self.tokens = tokens;
@@ -172,7 +172,8 @@ impl<'a> Parser<'a> {
         self.end_compiler();
 
         let function = std::mem::replace(&mut self.compiler.function, Function::new());
-        Ok(function)
+        let func_id = self.functions.store(function);
+        Ok(func_id)
     }
 
     fn advance_if_matched(&mut self, typ: TokenType) -> bool {
