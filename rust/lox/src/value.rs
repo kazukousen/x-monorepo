@@ -130,7 +130,7 @@ impl std::fmt::Display for Value {
             ValueType::Obj(v) => match &v.typ {
                 ObjType::String(v) => write!(f, "{}", v),
             },
-            ValueType::Function(id)=> write!(f, "<fn {}>", id),
+            ValueType::Function(id) => write!(f, "<fn {}>", id),
         }
     }
 }

@@ -268,10 +268,6 @@ fun foo() {
     assert_eq!(InterpretResult::Ok, vm.interpret(source));
     assert_eq!(
         0,
-        vm.globals
-            .get("foo")
-            .expect("no such key")
-            .as_fun()
-            .clone()
+        vm.globals.get("foo").expect("no such key").as_fun().clone()
     );
 }
