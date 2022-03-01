@@ -9,6 +9,7 @@ pub enum ValueType {
     Nil,
     Number(f64),
     Obj(Obj),
+    Function(usize),
 }
 
 impl Value {
@@ -35,6 +36,12 @@ impl Value {
             typ: ValueType::Obj(Obj {
                 typ: ObjType::String(s),
             }),
+        }
+    }
+
+    pub fn new_function(id: usize) -> Self {
+        Self {
+            typ: ValueType::Function(id),
         }
     }
 
@@ -105,6 +112,13 @@ impl Value {
             _ => unreachable!(),
         }
     }
+
+    pub fn as_fun(&self) -> &usize {
+        match &self.typ {
+            ValueType::Function(id) => id,
+            _ => unreachable!(),
+        }
+    }
 }
 
 impl std::fmt::Display for Value {
@@ -116,6 +130,7 @@ impl std::fmt::Display for Value {
             ValueType::Obj(v) => match &v.typ {
                 ObjType::String(v) => write!(f, "{}", v),
             },
+            ValueType::Function(id)=> write!(f, "<fn {}>", id),
         }
     }
 }

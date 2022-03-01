@@ -1,6 +1,7 @@
 use crate::chunk::{Chunk, OpCode};
-use crate::function::Function;
+use crate::function::{Function, Functions};
 use crate::value::Value;
+use crate::Parser;
 use std::collections::HashMap;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -45,23 +46,31 @@ pub struct VM {
     frames: Vec<CallFrame>,
     pub stack: Vec<Value>,
     pub globals: HashMap<String, Value>,
+    functions: Functions,
 }
 
 impl VM {
-    pub fn new(function: Function) -> Self {
-        let mut ret = Self {
+    pub fn new() -> Self {
+        Self {
             frames: vec![],
             stack: vec![],
             globals: Default::default(),
+            functions: Default::default(),
+        }
+    }
+
+    pub fn interpret(&mut self, src: &str) -> InterpretResult {
+        let mut parser = Parser::new(&mut self.functions);
+        let function = match parser.compile(src) {
+            Ok(function) => function,
+            _ => return InterpretResult::CompileError,
         };
-
-        ret.frames.push(CallFrame::new(function));
-
-        ret
+        self.frames.push(CallFrame::new(function));
+        self.run()
     }
 
     // dispatch instructions
-    pub fn run(&mut self) -> InterpretResult {
+    fn run(&mut self) -> InterpretResult {
         let mut frame = self.frames.pop().unwrap();
         loop {
             let instruction = &frame.function.chunk.instructions[frame.ip];
@@ -116,7 +125,7 @@ impl VM {
                     self.globals.insert(name, self.peek(0).clone());
                     self.pop();
                 }
-                OpCode::GetLocal(index) => match self.stack.get(*index) {
+                OpCode::GetLocal(index) => match self.stack.get(*index + frame.slot) {
                     Some(v) => {
                         self.push(v.clone());
                     }
@@ -130,7 +139,7 @@ impl VM {
                     }
                 },
                 OpCode::SetLocal(index) => {
-                    self.stack.insert(*index, self.peek(0).clone());
+                    self.stack.insert(*index + frame.slot, self.peek(0).clone());
                 }
                 OpCode::Constant(index) => {
                     let v = frame.function.chunk.values[*index].clone();

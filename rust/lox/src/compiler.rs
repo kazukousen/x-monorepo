@@ -1,10 +1,11 @@
 use crate::chunk::{Chunk, Debug, OpCode};
-use crate::function::{Function, FunctionType};
+use crate::function::{Function, FunctionType, Functions};
 use crate::scanner::Scanner;
 use crate::token::{Token, TokenType};
 use crate::value::Value;
 
 use std::collections::HashMap;
+use std::mem;
 use std::ops::Add;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -76,22 +77,25 @@ pub struct Compiler<'a> {
     scope_depth: usize,
     function: Function,
     func_type: FunctionType,
+    enclosing: Option<Box<Compiler<'a>>>,
 }
 
 impl<'a> Compiler<'a> {
-    pub fn new() -> Self {
-        Self {
+    pub fn new(kind: FunctionType) -> Box<Self> {
+        Box::new(Self {
             locals: Vec::new(),
             scope_depth: 0,
             function: Function::new(),
-            func_type: FunctionType::Script,
-        }
+            func_type: kind,
+            enclosing: None,
+        })
     }
 }
 
 pub struct Parser<'a> {
-    compiler: Compiler<'a>,
+    compiler: Box<Compiler<'a>>,
     tokens: Vec<Token<'a>>,
+    functions: &'a mut Functions,
     token_pos: usize,
     parse_rules: HashMap<TokenType, ParseRule<'a>>,
 }
@@ -118,9 +122,10 @@ macro_rules! parse_rules {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new() -> Self {
+    pub fn new(functions: &'a mut Functions) -> Self {
         Self {
-            compiler: Compiler::new(),
+            compiler: Compiler::new(FunctionType::Script),
+            functions,
             tokens: Vec::new(),
             token_pos: 0,
             parse_rules: parse_rules![
@@ -198,11 +203,79 @@ impl<'a> Parser<'a> {
      */
 
     fn declaration(&mut self) -> Result<(), String> {
-        if self.advance_if_matched(TokenType::Var) {
+        if self.advance_if_matched(TokenType::Fun) {
+            self.fun_declaration()
+        } else if self.advance_if_matched(TokenType::Var) {
             self.var_declaration()
         } else {
             self.statement()
         }
+    }
+
+    // ```
+    // "fun" IDENTIFIER "(" ")" "{" blockStmt
+    // ```
+    fn fun_declaration(&mut self) -> Result<(), String> {
+        self.consume(TokenType::Identifier, "Expect function name")?;
+        let name = self.previous().source;
+        if self.compiler.scope_depth > 0 {
+            self.compiler.locals.push(Local { name, depth: 0 });
+        }
+
+        self.function(name, FunctionType::Function);
+
+        if self.compiler.scope_depth > 0 {
+            self.compiler
+                .locals
+                .last_mut()
+                .expect("Expect locals exist one more")
+                .depth = self.compiler.scope_depth;
+            return Ok(());
+        }
+
+        let global = self.identifier_constant(name);
+        self.emit(OpCode::DefineGlobal(global));
+
+        Ok(())
+    }
+
+    fn push_compiler(&mut self, name: &str, kind: FunctionType) {
+        let new_compiler = Compiler::new(kind);
+        let old_compiler = mem::replace(&mut self.compiler, new_compiler);
+        self.compiler.enclosing = Some(old_compiler);
+        self.compiler.function.name = Some(name.to_string());
+    }
+
+    fn pop_compiler(&mut self) -> Function {
+        self.end_compiler();
+
+        let function = match self.compiler.enclosing.take() {
+            Some(enclosing) => {
+                let compiler = mem::replace(&mut self.compiler, enclosing);
+                compiler.function
+            }
+            None => panic!("Cannot find an enclosing compiler."),
+        };
+
+        function
+    }
+
+    fn function(&mut self, name: &str, kind: FunctionType) {
+        self.push_compiler(name, kind);
+        self.begin_scope();
+
+        self.consume(TokenType::LeftParen, "Expect '(' after function name.");
+
+        self.consume(
+            TokenType::RightParen,
+            "Expect ')' after function parameters.",
+        );
+        self.consume(TokenType::LeftBrace, "Expect '{' before function body.");
+        self.block();
+
+        let function = self.pop_compiler();
+        let func_id = self.functions.store(function);
+        self.emit_constant(Value::new_function(func_id));
     }
 
     // ```

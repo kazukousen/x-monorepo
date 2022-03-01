@@ -3,63 +3,42 @@ use lox::*;
 
 #[test]
 fn run_arithmetic() {
-    let mut compiler = Parser::new();
     let source = r#"
 -5 + (6 - 2);
 "#;
-    let function = compiler.compile(source);
-    assert_eq!(true, function.is_ok());
-
-    let function = function.unwrap();
-    let mut vm = VM::new(function);
-    assert_eq!(InterpretResult::Ok, vm.run());
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, vm.interpret(source));
 }
 
 #[test]
 fn run_comparison() {
-    let mut compiler = Parser::new();
     let source = r#"
 !(5 - 4 > 3 * 2 == !nil);
 "#;
-    let function = compiler.compile(source);
-    assert_eq!(true, function.is_ok());
-
-    let function = function.unwrap();
-    let mut vm = VM::new(function);
-    assert_eq!(InterpretResult::Ok, vm.run());
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, vm.interpret(source));
 }
 
 #[test]
 fn run_string() {
-    let mut compiler = Parser::new();
     let source = r#"
 "foo" + "bar" == "foobar";
 "#;
-    let function = compiler.compile(source);
-    assert_eq!(true, function.is_ok());
-
-    let function = function.unwrap();
-    let mut vm = VM::new(function);
-    assert_eq!(InterpretResult::Ok, vm.run());
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, vm.interpret(source));
 }
 
 #[test]
 fn run_print() {
-    let mut compiler = Parser::new();
     let source = r#"
 print "foobar";
 "#;
-    let function = compiler.compile(source);
-    assert_eq!(true, function.is_ok());
-
-    let function = function.unwrap();
-    let mut vm = VM::new(function);
-    assert_eq!(InterpretResult::Ok, vm.run());
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, vm.interpret(source));
 }
 
 #[test]
 fn run_global() {
-    let mut compiler = Parser::new();
     let source = r#"
 var beverage = "cafe au lait";
 var breakfast = "beignets with " + beverage;
@@ -69,12 +48,8 @@ var mut_foo = "foo";
 mut_foo = "updated foo!";
 print mut_foo;
 "#;
-    let function = compiler.compile(source);
-    assert_eq!(true, function.is_ok());
-
-    let function = function.unwrap();
-    let mut vm = VM::new(function);
-    assert_eq!(InterpretResult::Ok, vm.run());
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, vm.interpret(source));
     assert_eq!(
         "beignets with cafe au lait",
         vm.globals
@@ -95,7 +70,6 @@ print mut_foo;
 
 #[test]
 fn run_local() {
-    let mut compiler = Parser::new();
     let source = r#"
 var global = "globalized";
 var con = "";
@@ -105,12 +79,8 @@ var con = "";
     print con;
 }
 "#;
-    let function = compiler.compile(source);
-    assert_eq!(true, function.is_ok());
-
-    let function = function.unwrap();
-    let mut vm = VM::new(function);
-    assert_eq!(InterpretResult::Ok, vm.run());
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, vm.interpret(source));
     assert_eq!(
         "globalized",
         vm.globals
@@ -131,7 +101,6 @@ var con = "";
 
 #[test]
 fn run_if() {
-    let mut compiler = Parser::new();
     let source = r#"
 var global = "globalized";
 var falsy = false;
@@ -146,12 +115,8 @@ if (global != "localized") {
     falsy = true;
 }
 "#;
-    let function = compiler.compile(source);
-    assert_eq!(true, function.is_ok());
-
-    let function = function.unwrap();
-    let mut vm = VM::new(function);
-    assert_eq!(InterpretResult::Ok, vm.run());
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, vm.interpret(source));
     assert_eq!(
         "localized",
         vm.globals
@@ -171,7 +136,6 @@ if (global != "localized") {
 }
 #[test]
 fn run_logical_operators() {
-    let mut compiler = Parser::new();
     let source = r#"
 var global = "globalized";
 var local = "localized";
@@ -180,12 +144,8 @@ var and_exp_false = ( global != "globalized" and local == "localized" );
 var or_exp_true = ( global == "globalized" or local != "localized" );
 var or_exp_false = ( global != "globalized" or local != "localized" );
 "#;
-    let function = compiler.compile(source);
-    assert_eq!(true, function.is_ok());
-
-    let function = function.unwrap();
-    let mut vm = VM::new(function);
-    assert_eq!(InterpretResult::Ok, vm.run());
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, vm.interpret(source));
     assert_eq!(
         true,
         vm.globals
@@ -222,7 +182,6 @@ var or_exp_false = ( global != "globalized" or local != "localized" );
 
 #[test]
 fn run_while() {
-    let mut compiler = Parser::new();
     let source = r#"
 var retries = 5;
 var cnt = 0;
@@ -230,12 +189,8 @@ while (cnt < retries) {
     cnt = cnt + 1;
 }
 "#;
-    let function = compiler.compile(source);
-    assert_eq!(true, function.is_ok());
-
-    let function = function.unwrap();
-    let mut vm = VM::new(function);
-    assert_eq!(InterpretResult::Ok, vm.run());
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, vm.interpret(source));
     assert_eq!(
         5_f64,
         vm.globals
@@ -248,7 +203,6 @@ while (cnt < retries) {
 
 #[test]
 fn run_for() {
-    let mut compiler = Parser::new();
     let source = r#"
 var a = 0;
 for (var cnt = 0; cnt < 5; cnt = cnt + 1) {
@@ -266,12 +220,8 @@ for (;d < 5;) {
     d = d + 1;
 }
 "#;
-    let function = compiler.compile(source);
-    assert_eq!(true, function.is_ok());
-
-    let function = function.unwrap();
-    let mut vm = VM::new(function);
-    assert_eq!(InterpretResult::Ok, vm.run());
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, vm.interpret(source));
     assert_eq!(
         5_f64,
         vm.globals
@@ -302,6 +252,26 @@ for (;d < 5;) {
             .get("d")
             .expect("no such key")
             .as_number()
+            .clone()
+    );
+}
+
+#[test]
+fn run_fun_decl() {
+    let source = r#"
+fun foo() {
+    a = 1;
+    b = 2;
+}
+"#;
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    assert_eq!(
+        0,
+        vm.globals
+            .get("foo")
+            .expect("no such key")
+            .as_fun()
             .clone()
     );
 }
