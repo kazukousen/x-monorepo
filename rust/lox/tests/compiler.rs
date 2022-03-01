@@ -11,7 +11,7 @@ fn run_arithmetic() {
     assert_eq!(true, function.is_ok());
 
     let function = function.unwrap();
-    let mut vm = VM::new(&function.chunk);
+    let mut vm = VM::new(function);
     assert_eq!(InterpretResult::Ok, vm.run());
 }
 
@@ -25,7 +25,7 @@ fn run_comparison() {
     assert_eq!(true, function.is_ok());
 
     let function = function.unwrap();
-    let mut vm = VM::new(&function.chunk);
+    let mut vm = VM::new(function);
     assert_eq!(InterpretResult::Ok, vm.run());
 }
 
@@ -39,7 +39,7 @@ fn run_string() {
     assert_eq!(true, function.is_ok());
 
     let function = function.unwrap();
-    let mut vm = VM::new(&function.chunk);
+    let mut vm = VM::new(function);
     assert_eq!(InterpretResult::Ok, vm.run());
 }
 
@@ -53,7 +53,7 @@ print "foobar";
     assert_eq!(true, function.is_ok());
 
     let function = function.unwrap();
-    let mut vm = VM::new(&function.chunk);
+    let mut vm = VM::new(function);
     assert_eq!(InterpretResult::Ok, vm.run());
 }
 
@@ -73,7 +73,7 @@ print mut_foo;
     assert_eq!(true, function.is_ok());
 
     let function = function.unwrap();
-    let mut vm = VM::new(&function.chunk);
+    let mut vm = VM::new(function);
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!(
         "beignets with cafe au lait",
@@ -109,7 +109,7 @@ var con = "";
     assert_eq!(true, function.is_ok());
 
     let function = function.unwrap();
-    let mut vm = VM::new(&function.chunk);
+    let mut vm = VM::new(function);
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!(
         "globalized",
@@ -150,7 +150,7 @@ if (global != "localized") {
     assert_eq!(true, function.is_ok());
 
     let function = function.unwrap();
-    let mut vm = VM::new(&function.chunk);
+    let mut vm = VM::new(function);
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!(
         "localized",
@@ -184,7 +184,7 @@ var or_exp_false = ( global != "globalized" or local != "localized" );
     assert_eq!(true, function.is_ok());
 
     let function = function.unwrap();
-    let mut vm = VM::new(&function.chunk);
+    let mut vm = VM::new(function);
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!(
         true,
@@ -234,7 +234,7 @@ while (cnt < retries) {
     assert_eq!(true, function.is_ok());
 
     let function = function.unwrap();
-    let mut vm = VM::new(&function.chunk);
+    let mut vm = VM::new(function);
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!(
         5_f64,
@@ -270,7 +270,7 @@ for (;d < 5;) {
     assert_eq!(true, function.is_ok());
 
     let function = function.unwrap();
-    let mut vm = VM::new(&function.chunk);
+    let mut vm = VM::new(function);
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!(
         5_f64,

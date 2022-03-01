@@ -8,6 +8,7 @@ mod vm;
 
 pub use chunk::{Chunk, OpCode};
 pub use compiler::Parser;
+pub use function::Function;
 pub use scanner::Scanner;
 pub use token::TokenType;
 pub use value::Value;

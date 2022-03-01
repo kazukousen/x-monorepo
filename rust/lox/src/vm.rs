@@ -1,4 +1,5 @@
 use crate::chunk::{Chunk, OpCode};
+use crate::function::Function;
 use crate::value::Value;
 use std::collections::HashMap;
 
@@ -7,13 +8,6 @@ pub enum InterpretResult {
     Ok,
     CompileError,
     RuntimeError,
-}
-
-pub struct VM<'a> {
-    chunk: &'a Chunk,
-    pc: usize,
-    pub stack: Vec<Value>,
-    pub globals: HashMap<String, Value>,
 }
 
 macro_rules! binary_op {
@@ -31,10 +25,33 @@ macro_rules! binary_op {
     };
 }
 
-impl<'a> VM<'a> {
-    pub fn new(chunk: &'a Chunk) -> Self {
+struct CallFrame {
+    function: Function,
+    ip: usize,
+    slot: usize,
+}
+
+impl CallFrame {
+    pub fn new(function: Function) -> Self {
         Self {
-            chunk,
+            function,
+            ip: 0,
+            slot: 0,
+        }
+    }
+}
+
+pub struct VM {
+    function: Function,
+    pc: usize,
+    pub stack: Vec<Value>,
+    pub globals: HashMap<String, Value>,
+}
+
+impl VM {
+    pub fn new(function: Function) -> Self {
+        Self {
+            function,
             pc: 0,
             stack: vec![],
             globals: Default::default(),
@@ -44,7 +61,7 @@ impl<'a> VM<'a> {
     // dispatch instructions
     pub fn run(&mut self) -> InterpretResult {
         loop {
-            let instruction = &self.chunk.instructions[self.pc];
+            let instruction = &self.function.chunk.instructions[self.pc];
             self.pc = self.pc + 1;
 
             match instruction {
@@ -67,7 +84,7 @@ impl<'a> VM<'a> {
                     self.pop(); // discard the result
                 }
                 OpCode::GetGlobal(index) => {
-                    let name = self.chunk.values[*index].as_string().clone();
+                    let name = self.function.chunk.values[*index].as_string().clone();
                     match self.globals.get(&name) {
                         Some(v) => {
                             self.push(v.clone());
@@ -79,7 +96,7 @@ impl<'a> VM<'a> {
                     }
                 }
                 OpCode::SetGlobal(index) => {
-                    let name = self.chunk.values[*index].as_string().clone();
+                    let name = self.function.chunk.values[*index].as_string().clone();
                     match self.globals.get(&name) {
                         Some(_) => {
                             self.globals.insert(name, self.peek(0).clone());
@@ -92,7 +109,7 @@ impl<'a> VM<'a> {
                     }
                 }
                 OpCode::DefineGlobal(index) => {
-                    let name = self.chunk.values[*index].as_string().clone();
+                    let name = self.function.chunk.values[*index].as_string().clone();
                     self.globals.insert(name, self.peek(0).clone());
                     self.pop();
                 }
@@ -113,7 +130,7 @@ impl<'a> VM<'a> {
                     self.stack.insert(*index, self.peek(0).clone());
                 }
                 OpCode::Constant(index) => {
-                    let v = self.chunk.values[*index].clone();
+                    let v = self.function.chunk.values[*index].clone();
                     self.push(v);
                 }
                 OpCode::Nil => self.push(Value::new_nil()),
