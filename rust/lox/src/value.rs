@@ -1,4 +1,3 @@
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct Value {
     typ: ValueType,
@@ -13,7 +12,6 @@ pub enum ValueType {
 }
 
 impl Value {
-
     pub fn new_bool(v: bool) -> Self {
         Self {
             typ: ValueType::Bool(v),
@@ -31,10 +29,12 @@ impl Value {
             typ: ValueType::Number(v),
         }
     }
-    
+
     pub fn new_string(s: String) -> Self {
         Self {
-            typ: ValueType::Obj(Obj{ typ: ObjType::String(s) })
+            typ: ValueType::Obj(Obj {
+                typ: ObjType::String(s),
+            }),
         }
     }
 
@@ -101,7 +101,7 @@ impl Value {
         match &self.typ {
             ValueType::Obj(v) => match &v.typ {
                 ObjType::String(v) => v,
-            }
+            },
             _ => unreachable!(),
         }
     }
@@ -115,7 +115,7 @@ impl std::fmt::Display for Value {
             ValueType::Number(v) => write!(f, "{}", v),
             ValueType::Obj(v) => match &v.typ {
                 ObjType::String(v) => write!(f, "{}", v),
-            }
+            },
         }
     }
 }

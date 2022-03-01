@@ -71,7 +71,7 @@ impl<'a> VM<'a> {
                     match self.globals.get(&name) {
                         Some(v) => {
                             self.push(v.clone());
-                        },
+                        }
                         None => {
                             eprintln!("Undefined global variable: '{}'.", name);
                             return InterpretResult::RuntimeError;
@@ -96,17 +96,19 @@ impl<'a> VM<'a> {
                     self.globals.insert(name, self.peek(0).clone());
                     self.pop();
                 }
-                OpCode::GetLocal(index) => {
-                    match self.stack.get(*index) {
-                        Some(v) => {
-                            self.push(v.clone());
-                        }
-                        None => {
-                            eprintln!("Undefined local variable at: '{}'. pc: {}", index, self.pc-1);
-                            return InterpretResult::RuntimeError;
-                        }
+                OpCode::GetLocal(index) => match self.stack.get(*index) {
+                    Some(v) => {
+                        self.push(v.clone());
                     }
-                }
+                    None => {
+                        eprintln!(
+                            "Undefined local variable at: '{}'. pc: {}",
+                            index,
+                            self.pc - 1
+                        );
+                        return InterpretResult::RuntimeError;
+                    }
+                },
                 OpCode::SetLocal(index) => {
                     self.stack.insert(*index, self.peek(0).clone());
                 }
@@ -129,7 +131,6 @@ impl<'a> VM<'a> {
 
                         let (b, a) = (self.pop().as_number(), self.pop().as_number());
                         self.push(Value::new_number(a + b));
-
                     } else if self.peek(0).is_string() && self.peek(1).is_string() {
                         // string
 
@@ -140,7 +141,7 @@ impl<'a> VM<'a> {
                         eprintln!("Operand must be numbers or strings.");
                         return InterpretResult::RuntimeError;
                     }
-                },
+                }
                 OpCode::Subtract => binary_op!(self, Value::new_number, -),
                 OpCode::Multiply => binary_op!(self, Value::new_number, *),
                 OpCode::Divide => binary_op!(self, Value::new_number, /),
@@ -153,8 +154,7 @@ impl<'a> VM<'a> {
                     self.push(Value::new_number(-v.as_number()));
                 }
                 OpCode::Not => {
-                    if !self.peek(0).is_bool()
-                        && !self.peek(0).is_nil() {
+                    if !self.peek(0).is_bool() && !self.peek(0).is_nil() {
                         eprintln!("Operand must be a bool or nil.");
                         return InterpretResult::RuntimeError;
                     }
@@ -183,7 +183,3 @@ impl<'a> VM<'a> {
         }
     }
 }
-
-
-
-

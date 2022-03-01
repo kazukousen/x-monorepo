@@ -20,4 +20,3 @@ fn run_arithmetic() {
     assert_eq!(InterpretResult::Ok, vm.run());
     assert_eq!(-1_f64, vm.stack[0].as_number()); // - (1.2 + 3.4) / 4.6
 }
-

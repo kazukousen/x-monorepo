@@ -1,5 +1,5 @@
+use crate::chunk::{Chunk, Debug, OpCode};
 use crate::scanner::Scanner;
-use crate::chunk::{Chunk, OpCode, Debug};
 use crate::token::{Token, TokenType};
 use crate::value::Value;
 
@@ -57,7 +57,11 @@ struct ParseRule<'r> {
 }
 
 impl<'r> ParseRule<'r> {
-    fn new(prefix: Option<ParseFn<'r>>, infix: Option<ParseFn<'r>>, precedence: Precedence) -> Self {
+    fn new(
+        prefix: Option<ParseFn<'r>>,
+        infix: Option<ParseFn<'r>>,
+        precedence: Precedence,
+    ) -> Self {
         Self {
             prefix,
             infix,
@@ -146,16 +150,12 @@ impl<'a> Parser<'a> {
         }
     }
 
-
     pub fn compile(&mut self, source: &'a str) -> Result<Chunk, String> {
-
         match Scanner::new(source).scan_tokens() {
             Ok(tokens) => {
                 self.tokens = tokens;
             }
-            Err(e) => {
-                return Err(e)
-            },
+            Err(e) => return Err(e),
         }
 
         while !self.advance_if_matched(TokenType::Eof) {
@@ -209,7 +209,7 @@ impl<'a> Parser<'a> {
         self.consume(TokenType::Identifier, "Expect variable name")?;
         let name = self.previous().source;
         if self.compiler.scope_depth > 0 {
-            self.compiler.locals.push(Local{ name, depth: 0 });
+            self.compiler.locals.push(Local { name, depth: 0 });
         }
 
         if self.advance_if_matched(TokenType::Equal) {
@@ -221,7 +221,11 @@ impl<'a> Parser<'a> {
         self.consume(TokenType::SemiColon, "Expect ';' after value declaration.")?;
 
         if self.compiler.scope_depth > 0 {
-            self.compiler.locals.last_mut().expect("Expect locals exist one more").depth = self.compiler.scope_depth;
+            self.compiler
+                .locals
+                .last_mut()
+                .expect("Expect locals exist one more")
+                .depth = self.compiler.scope_depth;
             return Ok(());
         }
 
@@ -274,13 +278,13 @@ impl<'a> Parser<'a> {
 
         let then_pos = self.emit_jump(
             /* Set a place holder for now, and patch it later */
-            OpCode::JumpIfFalse(0)
+            OpCode::JumpIfFalse(0),
         );
         self.emit(OpCode::Pop);
         self.statement()?;
         let else_pos = self.emit_jump(
             /* Set a place holder for now, and patch it later */
-            OpCode::Jump(0)
+            OpCode::Jump(0),
         );
         self.patch_jump(then_pos);
         self.emit(OpCode::Pop);
@@ -296,11 +300,14 @@ impl<'a> Parser<'a> {
         let start_pos = self.compiler.chunk.instructions.len() - 1;
         self.consume(TokenType::LeftParen, "Expect '(' after 'while'.")?;
         self.expression()?;
-        self.consume(TokenType::RightParen, "Expect ')' after condition of 'while'.")?;
+        self.consume(
+            TokenType::RightParen,
+            "Expect ')' after condition of 'while'.",
+        )?;
 
         let exit_pos = self.emit_jump(
             /* set a placeholder for now, patch it later. */
-            OpCode::JumpIfFalse(0)
+            OpCode::JumpIfFalse(0),
         );
 
         self.emit(OpCode::Pop);
@@ -342,7 +349,7 @@ impl<'a> Parser<'a> {
                 // if the condition is false, jump out of the loop.
                 let pos = self.emit_jump(
                     /* set a placeholder for now, patch it later. */
-                    OpCode::JumpIfFalse(0)
+                    OpCode::JumpIfFalse(0),
                 );
                 self.emit(OpCode::Pop);
                 Some(pos)
@@ -350,7 +357,7 @@ impl<'a> Parser<'a> {
         };
 
         // increment expression
-        let back_pos =  match self.advance_if_matched(TokenType::RightParen) {
+        let back_pos = match self.advance_if_matched(TokenType::RightParen) {
             true => {
                 // if the increment expression is omit
                 cond_pos
@@ -358,7 +365,7 @@ impl<'a> Parser<'a> {
             false => {
                 let body_pos = self.emit_jump(
                     /* set a placeholder for now, patch it later. */
-                    OpCode::Jump(0)
+                    OpCode::Jump(0),
                 );
                 let increment_pos = self.compiler.chunk.instructions.len() - 1;
 
@@ -395,7 +402,10 @@ impl<'a> Parser<'a> {
 
     fn expression_statement(&mut self) -> Result<(), String> {
         self.expression()?;
-        self.consume(TokenType::SemiColon, "Expect ';' after expression statement.")?;
+        self.consume(
+            TokenType::SemiColon,
+            "Expect ';' after expression statement.",
+        )?;
         self.emit(OpCode::Pop);
 
         Ok(())
@@ -415,7 +425,9 @@ impl<'a> Parser<'a> {
 
     fn end_scope(&mut self) {
         self.compiler.scope_depth -= 1;
-        while self.compiler.locals.len() > 0 && self.compiler.locals.last().unwrap().depth > self.compiler.scope_depth {
+        while self.compiler.locals.len() > 0
+            && self.compiler.locals.last().unwrap().depth > self.compiler.scope_depth
+        {
             // discard local variables.
             self.compiler.locals.pop();
             self.emit(OpCode::Pop);
@@ -449,7 +461,9 @@ impl<'a> Parser<'a> {
     }
 
     fn emit(&mut self, op: OpCode) {
-        self.compiler.chunk.add_instruction(op, self.previous().line)
+        self.compiler
+            .chunk
+            .add_instruction(op, self.previous().line)
     }
 
     fn emit_jump(&mut self, op: OpCode) -> usize {
@@ -467,16 +481,19 @@ impl<'a> Parser<'a> {
             OpCode::Jump(_) => {
                 self.compiler.chunk.instructions[pos] = OpCode::Jump(offset);
             }
-            _ => unreachable!()
+            _ => unreachable!(),
         }
-        return
+        return;
     }
 
     // number literals
     // e.g. 123
     fn number(&mut self, _: bool) -> Result<(), String> {
-        let v: f64 = self.previous().source
-            .parse().expect("Compiler tried to parse to number");
+        let v: f64 = self
+            .previous()
+            .source
+            .parse()
+            .expect("Compiler tried to parse to number");
 
         self.emit_constant(Value::new_number(v));
 
@@ -530,18 +547,18 @@ impl<'a> Parser<'a> {
             TokenType::BangEqual => {
                 self.emit(OpCode::Equal);
                 self.emit(OpCode::Not);
-            },
+            }
             TokenType::EqualEqual => self.emit(OpCode::Equal),
             TokenType::Greater => self.emit(OpCode::Greater),
             TokenType::GreaterEqual => {
                 self.emit(OpCode::Less);
                 self.emit(OpCode::Not);
-            },
+            }
             TokenType::Less => self.emit(OpCode::Less),
             TokenType::LessEqual => {
                 self.emit(OpCode::Greater);
                 self.emit(OpCode::Not);
-            },
+            }
             _ => unreachable!(),
         }
 
@@ -563,7 +580,7 @@ impl<'a> Parser<'a> {
 
     fn string(&mut self, _: bool) -> Result<(), String> {
         // trim quotes
-        let s = &self.previous().source[1..=self.previous().source.len()-2];
+        let s = &self.previous().source[1..=self.previous().source.len() - 2];
         let s = s.to_string();
         self.emit_constant(Value::new_string(s));
 
@@ -573,7 +590,7 @@ impl<'a> Parser<'a> {
     fn and(&mut self, _: bool) -> Result<(), String> {
         let pos = self.emit_jump(
             /* set a placeholder for now, and patch it later. */
-            OpCode::JumpIfFalse(0)
+            OpCode::JumpIfFalse(0),
         );
 
         self.emit(OpCode::Pop);
@@ -589,11 +606,11 @@ impl<'a> Parser<'a> {
     fn or(&mut self, _: bool) -> Result<(), String> {
         let else_pos = self.emit_jump(
             /* set a placeholder for now, and patch it later. */
-            OpCode::JumpIfFalse(0)
+            OpCode::JumpIfFalse(0),
         );
         let end_pos = self.emit_jump(
             /* set a placeholder for now, and patch it later. */
-            OpCode::Jump(0)
+            OpCode::Jump(0),
         );
 
         self.patch_jump(else_pos);
@@ -636,7 +653,7 @@ impl<'a> Parser<'a> {
                 if local.depth == 0 {
                     return Err("Can't read local variable in its own initializer.".to_string());
                 }
-                return Ok(Some(self.compiler.locals.len() - 1 - i))
+                return Ok(Some(self.compiler.locals.len() - 1 - i));
             }
         }
         Ok(None)
@@ -647,7 +664,10 @@ impl<'a> Parser<'a> {
     }
 
     fn get_rule(&self, typ: &TokenType) -> &ParseRule<'a> {
-        &self.parse_rules.get(typ).expect(format!("no entry found for key: {}", typ).as_str())
+        &self
+            .parse_rules
+            .get(typ)
+            .expect(format!("no entry found for key: {}", typ).as_str())
     }
 
     fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), String> {
@@ -670,12 +690,18 @@ impl<'a> Parser<'a> {
                 }
 
                 if can_assign && self.advance_if_matched(TokenType::Equal) {
-                    return Err(format!("[line {}] Error: Invalid assignment target.", self.previous().line));
+                    return Err(format!(
+                        "[line {}] Error: Invalid assignment target.",
+                        self.previous().line
+                    ));
                 }
 
                 Ok(())
-            },
-            None => Err(format!("[line {}] Error: Expect expression", self.previous().line))
+            }
+            None => Err(format!(
+                "[line {}] Error: Expect expression",
+                self.previous().line
+            )),
         }
     }
 }

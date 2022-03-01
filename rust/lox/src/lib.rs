@@ -1,13 +1,13 @@
 mod chunk;
-mod vm;
+mod compiler;
 mod scanner;
 mod token;
-mod compiler;
 mod value;
+mod vm;
 
 pub use chunk::{Chunk, OpCode};
-pub use vm::{InterpretResult, VM};
+pub use compiler::Parser;
 pub use scanner::Scanner;
 pub use token::TokenType;
-pub use compiler::Parser;
 pub use value::Value;
+pub use vm::{InterpretResult, VM};

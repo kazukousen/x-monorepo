@@ -27,7 +27,7 @@ impl<'a> Scanner<'a> {
     fn is_alpha(c: char) -> bool {
         match c {
             'a'..='z' | 'A'..='Z' | '_' => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -106,13 +106,13 @@ impl<'a> Scanner<'a> {
                 Ok(self.make_token(TokenType::Less))
             }
             '"' => self.string(),
-            _ => Err(format!(  "Unexpected character at {}", self.line))
+            _ => Err(format!("Unexpected character at {}", self.line)),
         }
     }
 
     fn advance(&mut self) -> char {
         let c = self.source.chars().nth(self.current);
-        self.current = self.current+1;
+        self.current = self.current + 1;
         c.expect("Scanner tried to advance to out of bounds character")
     }
 
@@ -134,7 +134,7 @@ impl<'a> Scanner<'a> {
 
         self.source
             .chars()
-            .nth(self.current+1)
+            .nth(self.current + 1)
             .expect("Scanner tried to advance to out of bounds character")
     }
 
@@ -146,7 +146,7 @@ impl<'a> Scanner<'a> {
                     self.advance();
                 }
                 '\n' => {
-                    self.line = self.line+1;
+                    self.line = self.line + 1;
                     self.advance();
                 }
                 '/' => {
@@ -165,7 +165,6 @@ impl<'a> Scanner<'a> {
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }
-
 
     fn string(&mut self) -> Result<Token<'a>, String> {
         while !self.is_at_end() && self.peek() != '"' {
@@ -202,7 +201,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn identifier(&mut self) -> Token<'a> {
-        while  Self::is_alpha(self.peek()) || Self::is_digit(self.peek()) {
+        while Self::is_alpha(self.peek()) || Self::is_digit(self.peek()) {
             self.advance();
         }
 
@@ -212,46 +211,139 @@ impl<'a> Scanner<'a> {
     }
 
     fn identifier_type(&self) -> TokenType {
-        let c = self.source
+        let c = self
+            .source
             .chars()
             .nth(self.start)
             .expect("Scanner tried to peek identifier out of bounds character");
 
         match c {
-            'a' => if self.check_rest_keyword(1, "nd") { TokenType::And } else { TokenType::Identifier }
-            'c' => if self.check_rest_keyword(1, "lass") { TokenType::Class } else { TokenType::Identifier }
-            'e' => if self.check_rest_keyword(1, "lse") { TokenType::Else } else { TokenType::Identifier }
-            'f' => if self.current - self.start >= 2 {
-                match self.source
-                    .chars()
-                    .nth(self.start + 1)
-                    .expect("Scanner tried to peek identifier out of bounds character") {
-                    'a' => if self.check_rest_keyword(2, "lse") { TokenType::False } else { TokenType::Identifier }
-                    'o' => if self.check_rest_keyword(2, "r") { TokenType::For } else { TokenType::Identifier }
-                    'u' => if self.check_rest_keyword(2, "n") { TokenType::Fun } else { TokenType::Identifier }
-                    _ => TokenType::Identifier
+            'a' => {
+                if self.check_rest_keyword(1, "nd") {
+                    TokenType::And
+                } else {
+                    TokenType::Identifier
                 }
-            } else {
-                TokenType::Identifier
             }
-            'i' => if self.check_rest_keyword(1, "f") { TokenType::If } else { TokenType::Identifier }
-            'n' => if self.check_rest_keyword(1, "il") { TokenType::Nil } else { TokenType::Identifier }
-            'o' => if self.check_rest_keyword(1, "r") { TokenType::Or } else { TokenType::Identifier }
-            'p' => if self.check_rest_keyword(1, "rint") { TokenType::Print } else { TokenType::Identifier }
-            't' => if self.current - self.start >= 2 {
-                match self.source
-                    .chars()
-                    .nth(self.start + 1)
-                    .expect("Scanner tried to peek identifier out of bounds character") {
-                    'h' => if self.check_rest_keyword(2, "is") { TokenType::This } else { TokenType::Identifier }
-                    'r' => if self.check_rest_keyword(2, "ue") { TokenType::True } else { TokenType::Identifier }
-                    _ => TokenType::Identifier
+            'c' => {
+                if self.check_rest_keyword(1, "lass") {
+                    TokenType::Class
+                } else {
+                    TokenType::Identifier
                 }
-            } else {
-                TokenType::Identifier
             }
-            'v' => if self.check_rest_keyword(1, "ar") { TokenType::Var } else { TokenType::Identifier }
-            'w' => if self.check_rest_keyword(1, "hile") { TokenType::While } else { TokenType::Identifier }
+            'e' => {
+                if self.check_rest_keyword(1, "lse") {
+                    TokenType::Else
+                } else {
+                    TokenType::Identifier
+                }
+            }
+            'f' => {
+                if self.current - self.start >= 2 {
+                    match self
+                        .source
+                        .chars()
+                        .nth(self.start + 1)
+                        .expect("Scanner tried to peek identifier out of bounds character")
+                    {
+                        'a' => {
+                            if self.check_rest_keyword(2, "lse") {
+                                TokenType::False
+                            } else {
+                                TokenType::Identifier
+                            }
+                        }
+                        'o' => {
+                            if self.check_rest_keyword(2, "r") {
+                                TokenType::For
+                            } else {
+                                TokenType::Identifier
+                            }
+                        }
+                        'u' => {
+                            if self.check_rest_keyword(2, "n") {
+                                TokenType::Fun
+                            } else {
+                                TokenType::Identifier
+                            }
+                        }
+                        _ => TokenType::Identifier,
+                    }
+                } else {
+                    TokenType::Identifier
+                }
+            }
+            'i' => {
+                if self.check_rest_keyword(1, "f") {
+                    TokenType::If
+                } else {
+                    TokenType::Identifier
+                }
+            }
+            'n' => {
+                if self.check_rest_keyword(1, "il") {
+                    TokenType::Nil
+                } else {
+                    TokenType::Identifier
+                }
+            }
+            'o' => {
+                if self.check_rest_keyword(1, "r") {
+                    TokenType::Or
+                } else {
+                    TokenType::Identifier
+                }
+            }
+            'p' => {
+                if self.check_rest_keyword(1, "rint") {
+                    TokenType::Print
+                } else {
+                    TokenType::Identifier
+                }
+            }
+            't' => {
+                if self.current - self.start >= 2 {
+                    match self
+                        .source
+                        .chars()
+                        .nth(self.start + 1)
+                        .expect("Scanner tried to peek identifier out of bounds character")
+                    {
+                        'h' => {
+                            if self.check_rest_keyword(2, "is") {
+                                TokenType::This
+                            } else {
+                                TokenType::Identifier
+                            }
+                        }
+                        'r' => {
+                            if self.check_rest_keyword(2, "ue") {
+                                TokenType::True
+                            } else {
+                                TokenType::Identifier
+                            }
+                        }
+                        _ => TokenType::Identifier,
+                    }
+                } else {
+                    TokenType::Identifier
+                }
+            }
+            'v' => {
+                if self.check_rest_keyword(1, "ar") {
+                    TokenType::Var
+                } else {
+                    TokenType::Identifier
+                }
+            }
+            'w' => {
+                if self.check_rest_keyword(1, "hile") {
+                    TokenType::While
+                } else {
+                    TokenType::Identifier
+                }
+            }
             _ => TokenType::Identifier,
         }
     }
@@ -262,11 +354,11 @@ impl<'a> Scanner<'a> {
             return false;
         }
 
-        return &self.source[self.start+offset..self.current] == rest;
+        return &self.source[self.start + offset..self.current] == rest;
     }
 
     fn make_token(&self, typ: TokenType) -> Token<'a> {
-        Token{
+        Token {
             typ,
             line: self.line,
             source: &self.source[self.start..self.current],

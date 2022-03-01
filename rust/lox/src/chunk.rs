@@ -88,7 +88,7 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) {
             OpCode::DefineGlobal(index) => constant_instruction("OP_DEFINE_GLOBAL", chunk, *index),
             OpCode::GetLocal(index) => byte_instruction("OP_GET_LOCAL", *index),
             OpCode::SetLocal(index) => byte_instruction("OP_SET_LOCAL", *index),
-            OpCode::Constant(index) => constant_instruction( "OP_CONSTANT", chunk, *index),
+            OpCode::Constant(index) => constant_instruction("OP_CONSTANT", chunk, *index),
             OpCode::Negate => simple_instruction("OP_NEGATE"),
             OpCode::Add => simple_instruction("OP_ADD"),
             OpCode::Subtract => simple_instruction("OP_SUBTRACT"),

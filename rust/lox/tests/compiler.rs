@@ -75,10 +75,22 @@ print mut_foo;
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
-    assert_eq!("beignets with cafe au lait", vm.globals.get("breakfast")
-        .expect("no such key").as_string().clone());
-    assert_eq!("updated foo!", vm.globals.get("mut_foo")
-        .expect("no such key").as_string().clone());
+    assert_eq!(
+        "beignets with cafe au lait",
+        vm.globals
+            .get("breakfast")
+            .expect("no such key")
+            .as_string()
+            .clone()
+    );
+    assert_eq!(
+        "updated foo!",
+        vm.globals
+            .get("mut_foo")
+            .expect("no such key")
+            .as_string()
+            .clone()
+    );
 }
 
 #[test]
@@ -99,10 +111,22 @@ var con = "";
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
-    assert_eq!("globalized", vm.globals.get("global")
-        .expect("no such key").as_string().clone());
-    assert_eq!("localized and globalized", vm.globals.get("con")
-        .expect("no such key").as_string().clone());
+    assert_eq!(
+        "globalized",
+        vm.globals
+            .get("global")
+            .expect("no such key")
+            .as_string()
+            .clone()
+    );
+    assert_eq!(
+        "localized and globalized",
+        vm.globals
+            .get("con")
+            .expect("no such key")
+            .as_string()
+            .clone()
+    );
 }
 
 #[test]
@@ -128,10 +152,22 @@ if (global != "localized") {
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
-    assert_eq!("localized", vm.globals.get("global")
-        .expect("no such key").as_string().clone());
-    assert_eq!(true, vm.globals.get("falsy")
-        .expect("no such key").as_bool().clone());
+    assert_eq!(
+        "localized",
+        vm.globals
+            .get("global")
+            .expect("no such key")
+            .as_string()
+            .clone()
+    );
+    assert_eq!(
+        true,
+        vm.globals
+            .get("falsy")
+            .expect("no such key")
+            .as_bool()
+            .clone()
+    );
 }
 #[test]
 fn run_logical_operators() {
@@ -150,14 +186,38 @@ var or_exp_false = ( global != "globalized" or local != "localized" );
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
-    assert_eq!(true, vm.globals.get("and_exp_true")
-        .expect("no such key").as_bool().clone());
-    assert_eq!(false, vm.globals.get("and_exp_false")
-        .expect("no such key").as_bool().clone());
-    assert_eq!(true, vm.globals.get("or_exp_true")
-        .expect("no such key").as_bool().clone());
-    assert_eq!(false, vm.globals.get("or_exp_false")
-        .expect("no such key").as_bool().clone());
+    assert_eq!(
+        true,
+        vm.globals
+            .get("and_exp_true")
+            .expect("no such key")
+            .as_bool()
+            .clone()
+    );
+    assert_eq!(
+        false,
+        vm.globals
+            .get("and_exp_false")
+            .expect("no such key")
+            .as_bool()
+            .clone()
+    );
+    assert_eq!(
+        true,
+        vm.globals
+            .get("or_exp_true")
+            .expect("no such key")
+            .as_bool()
+            .clone()
+    );
+    assert_eq!(
+        false,
+        vm.globals
+            .get("or_exp_false")
+            .expect("no such key")
+            .as_bool()
+            .clone()
+    );
 }
 
 #[test]
@@ -176,8 +236,14 @@ while (cnt < retries) {
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
-    assert_eq!(5_f64, vm.globals.get("cnt")
-        .expect("no such key").as_number().clone());
+    assert_eq!(
+        5_f64,
+        vm.globals
+            .get("cnt")
+            .expect("no such key")
+            .as_number()
+            .clone()
+    );
 }
 
 #[test]
@@ -206,12 +272,36 @@ for (;d < 5;) {
     let chunk = chunk.unwrap();
     let mut vm = VM::new(&chunk);
     assert_eq!(InterpretResult::Ok, vm.run());
-    assert_eq!(5_f64, vm.globals.get("a")
-        .expect("no such key").as_number().clone());
-    assert_eq!(5_f64, vm.globals.get("b")
-        .expect("no such key").as_number().clone());
-    assert_eq!(5_f64, vm.globals.get("c")
-        .expect("no such key").as_number().clone());
-    assert_eq!(5_f64, vm.globals.get("d")
-        .expect("no such key").as_number().clone());
+    assert_eq!(
+        5_f64,
+        vm.globals
+            .get("a")
+            .expect("no such key")
+            .as_number()
+            .clone()
+    );
+    assert_eq!(
+        5_f64,
+        vm.globals
+            .get("b")
+            .expect("no such key")
+            .as_number()
+            .clone()
+    );
+    assert_eq!(
+        5_f64,
+        vm.globals
+            .get("c")
+            .expect("no such key")
+            .as_number()
+            .clone()
+    );
+    assert_eq!(
+        5_f64,
+        vm.globals
+            .get("d")
+            .expect("no such key")
+            .as_number()
+            .clone()
+    );
 }

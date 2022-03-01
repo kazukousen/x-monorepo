@@ -68,4 +68,3 @@ impl std::default::Default for TokenType {
         TokenType::Eof
     }
 }
-
