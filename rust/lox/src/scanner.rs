@@ -302,6 +302,13 @@ impl<'a> Scanner<'a> {
                     TokenType::Identifier
                 }
             }
+            'r' => {
+                if self.check_rest_keyword(1, "eturn") {
+                    TokenType::Return
+                } else {
+                    TokenType::Identifier
+                }
+            }
             't' => {
                 if self.current - self.start >= 2 {
                     match self

@@ -337,6 +337,8 @@ impl<'a> Parser<'a> {
             self.print_statement()
         } else if self.advance_if_matched(TokenType::If) {
             self.if_statement()
+        } else if self.advance_if_matched(TokenType::Return) {
+            self.return_statement()
         } else if self.advance_if_matched(TokenType::While) {
             self.while_statement()
         } else if self.advance_if_matched(TokenType::For) {
@@ -380,6 +382,19 @@ impl<'a> Parser<'a> {
             self.statement()?;
         }
         self.patch_jump(else_pos);
+
+        Ok(())
+    }
+
+    fn return_statement(&mut self) -> Result<(), String> {
+
+        if self.advance_if_matched(TokenType::SemiColon) {
+            self.emit_return();
+        } else {
+            self.expression()?;
+            self.consume(TokenType::SemiColon, "Expect ';' after return value.");
+            self.emit(OpCode::Return);
+        }
 
         Ok(())
     }
