@@ -75,6 +75,13 @@ impl Value {
         }
     }
 
+    pub fn is_fun(&self) -> bool {
+        match &self.typ {
+            ValueType::Function(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn is_falsy(&self) -> bool {
         match self.typ {
             ValueType::Bool(v) => !v,

@@ -13,6 +13,7 @@ pub enum OpCode {
     GetLocal(usize),
     SetLocal(usize),
     Constant(usize),
+    Call(usize),
     Nil,
     True,
     False,
@@ -61,8 +62,13 @@ impl Debug for Chunk {
     fn disassemble(&self, name: &str) {
         println!("== {} ==", name);
 
+        println!("==== instructions ====");
         for i in 0..self.instructions.len() {
             disassemble_instruction(self, i)
+        }
+        println!("==== values ====");
+        for i in 0..self.values.len() {
+            println!("{}: {:?}", i, &self.values[i]);
         }
     }
 }
@@ -89,6 +95,7 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) {
             OpCode::GetLocal(index) => byte_instruction("OP_GET_LOCAL", *index),
             OpCode::SetLocal(index) => byte_instruction("OP_SET_LOCAL", *index),
             OpCode::Constant(index) => constant_instruction("OP_CONSTANT", chunk, *index),
+            OpCode::Call(arg_num) => byte_instruction("OP_CALL", *arg_num),
             OpCode::Negate => simple_instruction("OP_NEGATE"),
             OpCode::Add => simple_instruction("OP_ADD"),
             OpCode::Subtract => simple_instruction("OP_SUBTRACT"),

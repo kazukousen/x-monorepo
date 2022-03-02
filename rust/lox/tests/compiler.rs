@@ -270,8 +270,12 @@ for (;d < 5;) {
 fn run_fun_decl() {
     let source = r#"
 fun foo() {
-    a = 1;
-    b = 2;
+    var a = 1;
+    var b = 2;
+}
+fun bar() {
+    var a = 1;
+    var b = 2;
 }
 "#;
     let mut store = Store::new();
@@ -280,5 +284,64 @@ fun foo() {
     assert_eq!(
         0,
         vm.globals.get("foo").expect("no such key").as_fun().clone()
+    );
+    assert_eq!(
+        1,
+        vm.globals.get("bar").expect("no such key").as_fun().clone()
+    );
+}
+
+#[test]
+fn run_call_function() {
+    let source = r#"
+var c = 5;
+fun foo() {
+    var a = 1;
+    var b = 2;
+
+    c = a + b;
+}
+foo();
+"#;
+    let mut store = Store::new();
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
+    assert_eq!(
+        0,
+        vm.globals.get("foo").expect("no such key").as_fun().clone()
+    );
+    assert_eq!(
+        3_f64,
+        vm.globals
+            .get("c")
+            .expect("no such key")
+            .as_number()
+            .clone()
+    );
+}
+
+#[test]
+fn run_call_function_with_args() {
+    let source = r#"
+var c = 5;
+fun foo(a, b) {
+    c = a + b;
+}
+foo(1, 2);
+"#;
+    let mut store = Store::new();
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
+    assert_eq!(
+        0,
+        vm.globals.get("foo").expect("no such key").as_fun().clone()
+    );
+    assert_eq!(
+        3_f64,
+        vm.globals
+            .get("c")
+            .expect("no such key")
+            .as_number()
+            .clone()
     );
 }

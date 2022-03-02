@@ -129,13 +129,14 @@ impl<'a> Parser<'a> {
             tokens: Vec::new(),
             token_pos: 0,
             parse_rules: parse_rules![
-                LeftParen => Some(Parser::grouping), None, None;
+                LeftParen => Some(Parser::grouping), Some(Parser::call), Call;
                 RightParen => None, None, None;
                 Plus => None, Some(Parser::binary), Term;
                 Minus => Some(Parser::unary), Some(Parser::binary), Term;
                 Star => None, Some(Parser::binary), Term;
                 Slash => None, Some(Parser::binary), Term;
                 SemiColon => None, None, None;
+                Comma => None, None, None;
                 Identifier => Some(Parser::variable), None, None;
                 String => Some(Parser::string), None, None;
                 Number => Some(Parser::number), None, None;
@@ -213,29 +214,38 @@ impl<'a> Parser<'a> {
         }
     }
 
-    // ```
-    // "fun" IDENTIFIER "(" ")" "{" blockStmt
-    // ```
-    fn fun_declaration(&mut self) -> Result<(), String> {
-        self.consume(TokenType::Identifier, "Expect function name")?;
+    fn parse_identifier(&mut self) -> &'a str {
         let name = self.previous().source;
         if self.compiler.scope_depth > 0 {
             self.compiler.locals.push(Local { name, depth: 0 });
         }
+        name
+    }
 
-        self.function(name, FunctionType::Function);
-
+    fn define_variable(&mut self, name: &'a str) {
         if self.compiler.scope_depth > 0 {
             self.compiler
                 .locals
                 .last_mut()
                 .expect("Expect locals exist one more")
                 .depth = self.compiler.scope_depth;
-            return Ok(());
+            return;
         }
 
         let global = self.identifier_constant(name);
         self.emit(OpCode::DefineGlobal(global));
+    }
+
+    // ```
+    // "fun" IDENTIFIER "(" ")" "{" blockStmt
+    // ```
+    fn fun_declaration(&mut self) -> Result<(), String> {
+        self.consume(TokenType::Identifier, "Expect function name")?;
+        let name = self.parse_identifier();
+
+        self.function(name, FunctionType::Function)?;
+
+        self.define_variable(name);
 
         Ok(())
     }
@@ -261,22 +271,32 @@ impl<'a> Parser<'a> {
         function
     }
 
-    fn function(&mut self, name: &str, kind: FunctionType) {
+    fn function(&mut self, name: &str, kind: FunctionType) -> Result<(), String> {
         self.push_compiler(name, kind);
         self.begin_scope();
 
-        self.consume(TokenType::LeftParen, "Expect '(' after function name.");
+        self.consume(TokenType::LeftParen, "Expect '(' after function name.")?;
 
-        self.consume(
-            TokenType::RightParen,
-            "Expect ')' after function parameters.",
-        );
-        self.consume(TokenType::LeftBrace, "Expect '{' before function body.");
-        self.block();
+        if !self.advance_if_matched(TokenType::RightParen) {
+            loop {
+                self.advance();
+                let param = self.parse_identifier();
+                self.define_variable(param);
+
+                if !self.advance_if_matched(TokenType::Comma) {
+                    break;
+                }
+            }
+            self.consume(TokenType::RightParen, "Expect ')' after parameters.")?;
+        }
+        self.consume(TokenType::LeftBrace, "Expect '{' before function body.")?;
+        self.block()?;
 
         let function = self.pop_compiler();
         let func_id = self.functions.store(function);
         self.emit_constant(Value::new_function(func_id));
+
+        Ok(())
     }
 
     // ```
@@ -284,10 +304,7 @@ impl<'a> Parser<'a> {
     // ```
     fn var_declaration(&mut self) -> Result<(), String> {
         self.consume(TokenType::Identifier, "Expect variable name")?;
-        let name = self.previous().source;
-        if self.compiler.scope_depth > 0 {
-            self.compiler.locals.push(Local { name, depth: 0 });
-        }
+        let name = self.parse_identifier();
 
         if self.advance_if_matched(TokenType::Equal) {
             self.expression()?;
@@ -297,17 +314,7 @@ impl<'a> Parser<'a> {
 
         self.consume(TokenType::SemiColon, "Expect ';' after value declaration.")?;
 
-        if self.compiler.scope_depth > 0 {
-            self.compiler
-                .locals
-                .last_mut()
-                .expect("Expect locals exist one more")
-                .depth = self.compiler.scope_depth;
-            return Ok(());
-        }
-
-        let global = self.identifier_constant(name);
-        self.emit(OpCode::DefineGlobal(global));
+        self.define_variable(name);
 
         Ok(())
     }
@@ -529,7 +536,11 @@ impl<'a> Parser<'a> {
 
     fn end_compiler(&mut self) {
         self.emit_return();
-        self.compiler.function.chunk.disassemble("code");
+        let name = match &self.compiler.function.name {
+            Some(name) => name.to_string(),
+            None => "code".to_string(),
+        };
+        self.compiler.function.chunk.disassemble(&name);
     }
 
     fn emit_constant(&mut self, v: Value) {
@@ -538,7 +549,8 @@ impl<'a> Parser<'a> {
     }
 
     fn emit_return(&mut self) {
-        self.emit(OpCode::Return)
+        self.emit(OpCode::Nil);
+        self.emit(OpCode::Return);
     }
 
     fn emit(&mut self, op: OpCode) {
@@ -705,6 +717,24 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    fn call(&mut self, _: bool) -> Result<(), String> {
+        let mut arg_count = 0;
+        if !self.advance_if_matched(TokenType::RightParen) {
+            loop {
+                self.expression()?;
+                arg_count += 1;
+                if !self.advance_if_matched(TokenType::Comma) {
+                    break;
+                }
+            }
+            self.consume(TokenType::RightParen, "Expect ')' after arguments.")?;
+        }
+
+        self.emit(OpCode::Call(arg_count));
+
+        Ok(())
+    }
+
     fn variable(&mut self, can_assign: bool) -> Result<(), String> {
         let name = self.previous().source;
         let (set_op, get_op) = match self.resolve_local(name)? {
@@ -730,12 +760,12 @@ impl<'a> Parser<'a> {
     }
 
     fn resolve_local(&mut self, name: &'a str) -> Result<Option<usize>, String> {
-        for (i, local) in self.compiler.locals.iter().enumerate() {
+        for (i, local) in self.compiler.locals.iter().enumerate().rev() {
             if local.name == name {
                 if local.depth == 0 {
                     return Err("Can't read local variable in its own initializer.".to_string());
                 }
-                return Ok(Some(self.compiler.locals.len() - 1 - i));
+                return Ok(Some(i));
             }
         }
         Ok(None)

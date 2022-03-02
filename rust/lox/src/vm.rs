@@ -7,7 +7,7 @@ use std::collections::HashMap;
 #[derive(Debug, Eq, PartialEq)]
 pub enum InterpretResult {
     Ok,
-    CompileError,
+    CompileError(String),
     RuntimeError,
 }
 
@@ -26,6 +26,7 @@ macro_rules! binary_op {
     };
 }
 
+#[derive(Copy, Clone)]
 struct CallFrame {
     func_id: usize,
     ip: usize,
@@ -95,22 +96,47 @@ impl Store {
         let mut parser = Parser::new(&mut self.functions);
         let func_id = match parser.compile(src) {
             Ok(func_id) => func_id,
-            _ => return InterpretResult::CompileError,
+            Err(msg) => return InterpretResult::CompileError(msg),
         };
         vm.frames.push(CallFrame::new(func_id));
-        self.run(vm)
+        let ret = self.run(vm);
+        println!("== VM ==");
+        println!("== globals ==");
+        for (k, v) in &vm.globals {
+            println!("{:?}: {:?}", k, v);
+        }
+        ret
     }
 
     // dispatch instructions
     fn run(&mut self, vm: &mut VM) -> InterpretResult {
         let mut frame = vm.frames.pop().unwrap();
-        let chunk = &self.functions.lookup(frame.func_id).chunk;
+        let mut chunk = &self.functions.lookup(frame.func_id).chunk;
         loop {
             let instruction = &chunk.instructions[frame.ip];
+            {
+                for value in vm.stack.iter() {
+                    print!("[{}]", value);
+                }
+                println!();
+            }
             frame.ip += 1;
 
             match instruction {
-                OpCode::Return => return InterpretResult::Ok,
+                OpCode::Return => {
+                    let value = vm.pop();
+                    match vm.frames.pop() {
+                        Some(f) => {
+                            vm.stack.truncate(frame.slot);
+                            vm.push(value);
+                            frame = f;
+                            chunk = &self.functions.lookup(frame.func_id).chunk;
+                        }
+                        None => {
+                            return InterpretResult::Ok;
+                        }
+                    }
+                }
                 OpCode::Print => {
                     print!("{}\n", vm.pop());
                 }
@@ -169,6 +195,18 @@ impl Store {
                     let v = chunk.values[*index].clone();
                     vm.push(v);
                 }
+                OpCode::Call(arg_num) => {
+                    if !vm.peek(*arg_num).is_fun() {
+                        eprintln!("Operand must be a function.");
+                        return InterpretResult::RuntimeError;
+                    }
+                    vm.frames.push(frame.clone());
+                    let callee_id = vm.peek(*arg_num).as_fun();
+                    let mut new_frame = CallFrame::new(*callee_id);
+                    new_frame.slot = vm.stack.len() - *arg_num;
+                    frame = new_frame;
+                    chunk = &self.functions.lookup(frame.func_id).chunk;
+                }
                 OpCode::Nil => vm.push(Value::new_nil()),
                 OpCode::True => vm.push(Value::new_bool(true)),
                 OpCode::False => vm.push(Value::new_bool(false)),
@@ -191,7 +229,10 @@ impl Store {
                         let (b, a) = (b.as_string(), a.as_string());
                         vm.push(Value::new_string(format!("{}{}", a, b)));
                     } else {
-                        eprintln!("Operand must be numbers or strings.");
+                        eprintln!(
+                            "L:{:?}: Operand must be numbers or strings.",
+                            chunk.lines[frame.ip - 1]
+                        );
                         return InterpretResult::RuntimeError;
                     }
                 }
