@@ -371,3 +371,31 @@ c = foo(1, 2);
             .clone()
     );
 }
+
+#[test]
+fn run_call_function_early_return() {
+    let source = r#"
+var c = 5;
+fun foo(a, b) {
+    c = a + b;
+    return;
+    c = 1;
+}
+foo(1, 2);
+"#;
+    let mut store = Store::new();
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
+    assert_eq!(
+        0,
+        vm.globals.get("foo").expect("no such key").as_fun().clone()
+    );
+    assert_eq!(
+        3_f64,
+        vm.globals
+            .get("c")
+            .expect("no such key")
+            .as_number()
+            .clone()
+    );
+}
