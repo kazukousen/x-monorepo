@@ -12,6 +12,7 @@ pub enum ValueType {
     Number(f64),
     Obj(Obj),
     Function(usize),
+    Closure(usize),
     NativeFn(NativeFn),
 }
 
@@ -45,6 +46,12 @@ impl Value {
     pub fn new_function(id: usize) -> Self {
         Self {
             typ: ValueType::Function(id),
+        }
+    }
+
+    pub fn new_closure(id: usize) -> Self {
+        Self {
+            typ: ValueType::Closure(id),
         }
     }
 
@@ -87,6 +94,13 @@ impl Value {
     pub fn is_fun(&self) -> bool {
         match &self.typ {
             ValueType::Function(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_closure(&self) -> bool {
+        match &self.typ {
+            ValueType::Closure(_) => true,
             _ => false,
         }
     }
@@ -143,6 +157,13 @@ impl Value {
         }
     }
 
+    pub fn as_closure(&self) -> &usize {
+        match &self.typ {
+            ValueType::Closure(id) => id,
+            _ => unreachable!(),
+        }
+    }
+
     pub fn as_native_fn(&self) -> &NativeFn {
         match &self.typ {
             ValueType::NativeFn(f) => f,
@@ -161,6 +182,7 @@ impl std::fmt::Display for Value {
                 ObjType::String(v) => write!(f, "{}", v),
             },
             ValueType::Function(id) => write!(f, "<fn {}>", id),
+            ValueType::Closure(id) => write!(f, "<fn {}>", id),
             ValueType::NativeFn(_) => write!(f, "<native fn>"),
         }
     }

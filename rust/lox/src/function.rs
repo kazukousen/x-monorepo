@@ -22,6 +22,34 @@ impl PartialEq for NativeFn {
     }
 }
 
+pub struct Closure {
+    pub func_id: usize,
+}
+
+impl Closure {
+    pub fn new(func_id: usize) -> Self {
+        Self {
+            func_id,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct Closures {
+    closures: Vec<Closure>,
+}
+
+impl Closures {
+    pub fn lookup(&self, id: usize) -> &Closure {
+        &self.closures[id]
+    }
+
+    pub fn store(&mut self, closure: Closure) -> usize {
+        self.closures.push(closure);
+        self.closures.len() - 1
+    }
+}
+
 pub struct Function {
     pub chunk: Chunk,
     pub name: Option<String>,

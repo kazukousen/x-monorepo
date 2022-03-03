@@ -1,5 +1,5 @@
 use crate::chunk::{Chunk, OpCode};
-use crate::function::{Functions, NativeFn};
+use crate::function::{Closure, Closures, Functions, NativeFn};
 use crate::value::Value;
 use crate::Parser;
 use std::collections::HashMap;
@@ -41,14 +41,16 @@ fn native_max(args: &[Value]) -> Value {
 #[derive(Copy, Clone)]
 struct CallFrame {
     func_id: usize,
+    closure_id: usize,
     ip: usize,
     slot: usize,
 }
 
 impl CallFrame {
-    pub fn new(func_id: usize) -> Self {
+    pub fn new(func_id: usize, closure_id: usize) -> Self {
         Self {
             func_id,
+            closure_id,
             ip: 0,
             slot: 0,
         }
@@ -105,22 +107,29 @@ impl VM {
 
 pub struct Store {
     functions: Functions,
+    closures: Closures,
 }
 
 impl Store {
     pub fn new() -> Self {
         Self {
             functions: Default::default(),
+            closures: Default::default(),
         }
     }
 
     pub fn interpret(&mut self, src: &str, vm: &mut VM) -> InterpretResult {
         let mut parser = Parser::new(&mut self.functions);
+
         let func_id = match parser.compile(src) {
             Ok(func_id) => func_id,
             Err(msg) => return InterpretResult::CompileError(msg),
         };
-        vm.frames.push(CallFrame::new(func_id));
+
+        let closure = Closure::new(func_id);
+        let closure_id = self.closures.store(closure);
+
+        vm.frames.push(CallFrame::new(func_id, closure_id));
         let ret = self.run(vm);
         println!("== VM ==");
         println!("== globals ==");
@@ -133,7 +142,8 @@ impl Store {
     // dispatch instructions
     fn run(&mut self, vm: &mut VM) -> InterpretResult {
         let mut frame = vm.frames.pop().unwrap();
-        let mut chunk = &self.functions.lookup(frame.func_id).chunk;
+        let closure = self.closures.lookup(frame.closure_id);
+        let mut chunk = &self.functions.lookup(closure.func_id).chunk;
         loop {
             let instruction = &chunk.instructions[frame.ip];
             {
@@ -219,16 +229,27 @@ impl Store {
                 OpCode::Call(arg_num) => {
                     let callee = vm.peek(*arg_num);
 
-                    if callee.is_fun() {
+                    if callee.is_closure() {
                         vm.frames.push(frame.clone());
                         frame = self.call(vm, arg_num);
                         chunk = &self.functions.lookup(frame.func_id).chunk;
                     } else if callee.is_native_fn() {
                         self.call_native_fn(vm, arg_num);
                     } else {
-                        eprintln!("Operand must be a function.");
+                        eprintln!("Operand must be a closure or native function.");
                         return InterpretResult::RuntimeError;
                     }
+                }
+                OpCode::Closure(index) => {
+                    let v = chunk.values[*index].clone();
+                    if !v.is_fun() {
+                        eprintln!("Value must be a function.");
+                        return InterpretResult::RuntimeError;
+                    }
+
+                    let closure = Closure::new(*v.as_fun());
+                    let closure_id = self.closures.store(closure);
+                    vm.push(Value::new_closure(closure_id));
                 }
                 OpCode::Nil => vm.push(Value::new_nil()),
                 OpCode::True => vm.push(Value::new_bool(true)),
@@ -283,8 +304,9 @@ impl Store {
     }
 
     fn call(&self, vm: &VM, arg_num: &usize) -> CallFrame {
-        let callee_id = vm.peek(*arg_num).as_fun();
-        let mut new_frame = CallFrame::new(*callee_id);
+        let callee_id = vm.peek(*arg_num).as_closure();
+        let callee = self.closures.lookup(*callee_id);
+        let mut new_frame = CallFrame::new(callee.func_id, *callee_id);
         new_frame.slot = vm.stack.len() - *arg_num;
         new_frame
     }

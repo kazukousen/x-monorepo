@@ -294,7 +294,8 @@ impl<'a> Parser<'a> {
 
         let function = self.pop_compiler();
         let func_id = self.functions.store(function);
-        self.emit_constant(Value::new_function(func_id));
+        let index = self.make_constant(Value::new_function(func_id));
+        self.emit(OpCode::Closure(index));
 
         Ok(())
     }
@@ -321,11 +322,7 @@ impl<'a> Parser<'a> {
 
     fn identifier_constant(&mut self, name: &'a str) -> usize {
         let name = name.to_string();
-        let idx = self
-            .compiler
-            .function
-            .chunk
-            .add_constant(Value::new_string(name));
+        let idx = self.make_constant(Value::new_string(name));
         return idx;
     }
 
@@ -564,8 +561,12 @@ impl<'a> Parser<'a> {
         self.compiler.function.chunk.disassemble(&name);
     }
 
+    fn make_constant(&mut self, v: Value) -> usize {
+        self.compiler.function.chunk.add_constant(v)
+    }
+
     fn emit_constant(&mut self, v: Value) {
-        let idx = self.compiler.function.chunk.add_constant(v);
+        let idx = self.make_constant(v);
         self.emit(OpCode::Constant(idx));
     }
 
@@ -758,16 +759,16 @@ impl<'a> Parser<'a> {
 
     fn variable(&mut self, can_assign: bool) -> Result<(), String> {
         let name = self.previous().source;
-        let (set_op, get_op) = match self.resolve_local(name)? {
-            Some(idx) => {
-                // in current scope
-                (OpCode::SetLocal(idx), OpCode::GetLocal(idx))
-            }
-            None => {
-                // global
-                let idx = self.identifier_constant(name);
-                (OpCode::SetGlobal(idx), OpCode::GetGlobal(idx))
-            }
+
+        let (set_op, get_op) = if let Some(idx) = self.resolve_local(&self.compiler, name)? {
+            // in current scope
+            (OpCode::SetLocal(idx), OpCode::GetLocal(idx))
+        // } else if let Some(idx) = self.resolve_upvalue(name) {
+            // (OpCode::SetLocal(idx), OpCode::GetLocal(idx))
+        } else {
+            // global
+            let idx = self.identifier_constant(name);
+            (OpCode::SetGlobal(idx), OpCode::GetGlobal(idx))
         };
 
         if can_assign && self.advance_if_matched(TokenType::Equal) {
@@ -780,8 +781,8 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn resolve_local(&mut self, name: &'a str) -> Result<Option<usize>, String> {
-        for (i, local) in self.compiler.locals.iter().enumerate().rev() {
+    fn resolve_local(&self, compiler: &Box<Compiler<'a>>, name: &'a str) -> Result<Option<usize>, String> {
+        for (i, local) in compiler.locals.iter().enumerate().rev() {
             if local.name == name {
                 if local.depth == 0 {
                     return Err("Can't read local variable in its own initializer.".to_string());
@@ -790,6 +791,17 @@ impl<'a> Parser<'a> {
             }
         }
         Ok(None)
+    }
+
+    fn resolve_upvalue(&mut self, name: &'a str) -> Result<Option<usize>, String> {
+        match &self.compiler.enclosing {
+            Some(enclosing) => {
+                self.resolve_local(enclosing, name)
+            }
+            None => {
+                Ok(None)
+            }
+        }
     }
 
     fn expression(&mut self) -> Result<(), String> {
