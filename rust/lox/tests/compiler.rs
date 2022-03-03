@@ -399,3 +399,18 @@ foo(1, 2);
             .clone()
     );
 }
+
+#[test]
+fn run_native_max_call() {
+    let source = r#"
+var a = 0;
+a = max(1, 2);
+"#;
+    let mut store = Store::new();
+    let mut vm = VM::new();
+    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
+    assert_eq!(
+        2_f64,
+        vm.globals.get("a").expect("no such key").as_number().clone()
+    );
+}

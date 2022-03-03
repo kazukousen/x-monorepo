@@ -1,5 +1,5 @@
 use crate::chunk::{Chunk, OpCode};
-use crate::function::Functions;
+use crate::function::{Functions, NativeFn};
 use crate::value::Value;
 use crate::Parser;
 use std::collections::HashMap;
@@ -24,6 +24,18 @@ macro_rules! binary_op {
             $vm.push($constructor(a $op b));
         }
     };
+}
+
+fn native_clock(_args: &[Value]) -> Value {
+    Value::new_number(1234_f64)
+}
+
+fn native_max(args: &[Value]) -> Value {
+    if args[0].as_number() > args[1].as_number() {
+        args[0].clone()
+    } else {
+        args[1].clone()
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -51,11 +63,17 @@ pub struct VM {
 
 impl VM {
     pub fn new() -> Self {
-        Self {
+
+        let mut vm = Self {
             frames: vec![],
             stack: vec![],
             globals: Default::default(),
-        }
+        };
+
+        vm.define_native("clock".to_string(), NativeFn(native_clock));
+        vm.define_native("max".to_string(), NativeFn(native_max));
+
+        vm
     }
 
     fn push(&mut self, v: Value) {
@@ -78,6 +96,10 @@ impl VM {
             Some(v) => v,
             None => panic!("VM tried to peek value out of bounds stack"),
         }
+    }
+
+    fn define_native(&mut self, name: String, native: NativeFn) {
+        self.globals.insert(name, Value::new_native_fn(native));
     }
 }
 
@@ -201,6 +223,8 @@ impl Store {
                         vm.frames.push(frame.clone());
                         frame = self.call(vm, arg_num);
                         chunk = &self.functions.lookup(frame.func_id).chunk;
+                    } else if callee.is_native_fn() {
+                        self.call_native_fn(vm, arg_num);
                     } else {
                         eprintln!("Operand must be a function.");
                         return InterpretResult::RuntimeError;
@@ -263,5 +287,11 @@ impl Store {
         let mut new_frame = CallFrame::new(*callee_id);
         new_frame.slot = vm.stack.len() - *arg_num;
         new_frame
+    }
+
+    fn call_native_fn(&self, vm: &mut VM, arg_num: &usize) {
+        let f = vm.peek(*arg_num).as_native_fn();
+        let result = f.0(&vm.stack[vm.stack.len() - *arg_num..]);
+        vm.push(result);
     }
 }

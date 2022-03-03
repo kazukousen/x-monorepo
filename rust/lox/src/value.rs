@@ -1,3 +1,5 @@
+use crate::function::NativeFn;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Value {
     typ: ValueType,
@@ -10,6 +12,7 @@ pub enum ValueType {
     Number(f64),
     Obj(Obj),
     Function(usize),
+    NativeFn(NativeFn),
 }
 
 impl Value {
@@ -42,6 +45,12 @@ impl Value {
     pub fn new_function(id: usize) -> Self {
         Self {
             typ: ValueType::Function(id),
+        }
+    }
+
+    pub fn new_native_fn(f: NativeFn) -> Self {
+        Self {
+            typ: ValueType::NativeFn(f),
         }
     }
 
@@ -78,6 +87,13 @@ impl Value {
     pub fn is_fun(&self) -> bool {
         match &self.typ {
             ValueType::Function(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_native_fn(&self) -> bool {
+        match &self.typ {
+            ValueType::NativeFn(_) => true,
             _ => false,
         }
     }
@@ -126,6 +142,13 @@ impl Value {
             _ => unreachable!(),
         }
     }
+
+    pub fn as_native_fn(&self) -> &NativeFn {
+        match &self.typ {
+            ValueType::NativeFn(f) => f,
+            _ => unreachable!(),
+        }
+    }
 }
 
 impl std::fmt::Display for Value {
@@ -138,6 +161,7 @@ impl std::fmt::Display for Value {
                 ObjType::String(v) => write!(f, "{}", v),
             },
             ValueType::Function(id) => write!(f, "<fn {}>", id),
+            ValueType::NativeFn(_) => write!(f, "<native fn>"),
         }
     }
 }
