@@ -1,12 +1,12 @@
 use crate::chunk::Chunk;
 
+#[derive(Eq, PartialEq)]
 pub enum FunctionType {
     Function,
     Script,
 }
 
 pub struct Function {
-    params_num: u8,
     pub chunk: Chunk,
     pub name: Option<String>,
 }
@@ -14,7 +14,6 @@ pub struct Function {
 impl Function {
     pub fn new() -> Self {
         Self {
-            params_num: 0,
             chunk: Chunk::new(),
             name: None,
         }

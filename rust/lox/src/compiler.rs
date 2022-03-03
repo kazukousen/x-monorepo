@@ -1,4 +1,4 @@
-use crate::chunk::{Chunk, Debug, OpCode};
+use crate::chunk::{Debug, OpCode};
 use crate::function::{Function, FunctionType, Functions};
 use crate::scanner::Scanner;
 use crate::token::{Token, TokenType};
@@ -387,12 +387,18 @@ impl<'a> Parser<'a> {
     }
 
     fn return_statement(&mut self) -> Result<(), String> {
+        if self.compiler.func_type == FunctionType::Script {
+            return Err(format!(
+                "[Line {}] Error: Cannot return from top-level code.",
+                self.current().line
+            ));
+        }
 
         if self.advance_if_matched(TokenType::SemiColon) {
             self.emit_return();
         } else {
             self.expression()?;
-            self.consume(TokenType::SemiColon, "Expect ';' after return value.");
+            self.consume(TokenType::SemiColon, "Expect ';' after return value.")?;
             self.emit(OpCode::Return);
         }
 

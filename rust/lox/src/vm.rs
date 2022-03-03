@@ -1,5 +1,5 @@
 use crate::chunk::{Chunk, OpCode};
-use crate::function::{Function, Functions};
+use crate::function::Functions;
 use crate::value::Value;
 use crate::Parser;
 use std::collections::HashMap;
@@ -156,15 +156,14 @@ impl Store {
                 }
                 OpCode::GetGlobal(index) => {
                     let name = chunk.values[*index].as_string().clone();
-                    match vm.globals.get(&name) {
-                        Some(v) => {
-                            vm.push(v.clone());
-                        }
+                    let v = match vm.globals.get(&name) {
+                        Some(v) => v.clone(),
                         None => {
                             eprintln!("Undefined global variable: '{}'.", name);
                             return InterpretResult::RuntimeError;
                         }
-                    }
+                    };
+                    vm.push(v);
                 }
                 OpCode::SetGlobal(index) => {
                     let name = chunk.values[*index].as_string().clone();
@@ -185,8 +184,8 @@ impl Store {
                     vm.pop();
                 }
                 OpCode::GetLocal(index) => {
-                    let v = vm.get(*index + frame.slot);
-                    vm.push(v.clone());
+                    let v = vm.get(*index + frame.slot).clone();
+                    vm.push(v);
                 }
                 OpCode::SetLocal(index) => {
                     vm.stack.insert(*index + frame.slot, vm.peek(0).clone());
@@ -196,16 +195,16 @@ impl Store {
                     vm.push(v);
                 }
                 OpCode::Call(arg_num) => {
-                    if !vm.peek(*arg_num).is_fun() {
+                    let callee = vm.peek(*arg_num);
+
+                    if callee.is_fun() {
+                        vm.frames.push(frame.clone());
+                        frame = self.call(vm, arg_num);
+                        chunk = &self.functions.lookup(frame.func_id).chunk;
+                    } else {
                         eprintln!("Operand must be a function.");
                         return InterpretResult::RuntimeError;
                     }
-                    vm.frames.push(frame.clone());
-                    let callee_id = vm.peek(*arg_num).as_fun();
-                    let mut new_frame = CallFrame::new(*callee_id);
-                    new_frame.slot = vm.stack.len() - *arg_num;
-                    frame = new_frame;
-                    chunk = &self.functions.lookup(frame.func_id).chunk;
                 }
                 OpCode::Nil => vm.push(Value::new_nil()),
                 OpCode::True => vm.push(Value::new_bool(true)),
@@ -257,5 +256,12 @@ impl Store {
                 }
             }
         }
+    }
+
+    fn call(&self, vm: &VM, arg_num: &usize) -> CallFrame {
+        let callee_id = vm.peek(*arg_num).as_fun();
+        let mut new_frame = CallFrame::new(*callee_id);
+        new_frame.slot = vm.stack.len() - *arg_num;
+        new_frame
     }
 }
