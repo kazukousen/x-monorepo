@@ -283,11 +283,19 @@ fun bar() {
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         1,
-        vm.globals.get("foo").expect("no such key").as_closure().clone()
+        vm.globals
+            .get("foo")
+            .expect("no such key")
+            .as_closure()
+            .clone()
     );
     assert_eq!(
         2,
-        vm.globals.get("bar").expect("no such key").as_closure().clone()
+        vm.globals
+            .get("bar")
+            .expect("no such key")
+            .as_closure()
+            .clone()
     );
 }
 
@@ -308,7 +316,11 @@ foo();
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         1,
-        vm.globals.get("foo").expect("no such key").as_closure().clone()
+        vm.globals
+            .get("foo")
+            .expect("no such key")
+            .as_closure()
+            .clone()
     );
     assert_eq!(
         3_f64,
@@ -334,7 +346,11 @@ foo(1, 2);
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         1,
-        vm.globals.get("foo").expect("no such key").as_closure().clone()
+        vm.globals
+            .get("foo")
+            .expect("no such key")
+            .as_closure()
+            .clone()
     );
     assert_eq!(
         3_f64,
@@ -360,7 +376,11 @@ c = foo(1, 2);
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         1,
-        vm.globals.get("foo").expect("no such key").as_closure().clone()
+        vm.globals
+            .get("foo")
+            .expect("no such key")
+            .as_closure()
+            .clone()
     );
     assert_eq!(
         3_f64,
@@ -388,7 +408,11 @@ foo(1, 2);
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         1,
-        vm.globals.get("foo").expect("no such key").as_closure().clone()
+        vm.globals
+            .get("foo")
+            .expect("no such key")
+            .as_closure()
+            .clone()
     );
     assert_eq!(
         3_f64,
@@ -411,6 +435,10 @@ a = max(1, 2);
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         2_f64,
-        vm.globals.get("a").expect("no such key").as_number().clone()
+        vm.globals
+            .get("a")
+            .expect("no such key")
+            .as_number()
+            .clone()
     );
 }

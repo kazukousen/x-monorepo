@@ -82,13 +82,17 @@ pub struct Compiler<'a> {
 
 impl<'a> Compiler<'a> {
     pub fn new(kind: FunctionType) -> Box<Self> {
-        Box::new(Self {
+        let mut compiler = Self {
             locals: Vec::new(),
             scope_depth: 0,
             function: Function::new(),
             func_type: kind,
             enclosing: None,
-        })
+        };
+
+        compiler.locals.push(Local { name: "", depth: 0 });
+
+        Box::new(compiler)
     }
 }
 
@@ -764,7 +768,7 @@ impl<'a> Parser<'a> {
             // in current scope
             (OpCode::SetLocal(idx), OpCode::GetLocal(idx))
         // } else if let Some(idx) = self.resolve_upvalue(name) {
-            // (OpCode::SetLocal(idx), OpCode::GetLocal(idx))
+        // (OpCode::SetLocal(idx), OpCode::GetLocal(idx))
         } else {
             // global
             let idx = self.identifier_constant(name);
@@ -781,7 +785,11 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn resolve_local(&self, compiler: &Box<Compiler<'a>>, name: &'a str) -> Result<Option<usize>, String> {
+    fn resolve_local(
+        &self,
+        compiler: &Box<Compiler<'a>>,
+        name: &'a str,
+    ) -> Result<Option<usize>, String> {
         for (i, local) in compiler.locals.iter().enumerate().rev() {
             if local.name == name {
                 if local.depth == 0 {
@@ -795,12 +803,8 @@ impl<'a> Parser<'a> {
 
     fn resolve_upvalue(&mut self, name: &'a str) -> Result<Option<usize>, String> {
         match &self.compiler.enclosing {
-            Some(enclosing) => {
-                self.resolve_local(enclosing, name)
-            }
-            None => {
-                Ok(None)
-            }
+            Some(enclosing) => self.resolve_local(enclosing, name),
+            None => Ok(None),
         }
     }
 

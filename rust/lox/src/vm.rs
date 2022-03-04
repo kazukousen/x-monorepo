@@ -1,4 +1,4 @@
-use crate::chunk::{Chunk, OpCode};
+use crate::chunk::OpCode;
 use crate::function::{Closure, Closures, Functions, NativeFn};
 use crate::value::Value;
 use crate::Parser;
@@ -65,7 +65,6 @@ pub struct VM {
 
 impl VM {
     pub fn new() -> Self {
-
         let mut vm = Self {
             frames: vec![],
             stack: vec![],
@@ -96,7 +95,7 @@ impl VM {
     fn get(&self, index: usize) -> &Value {
         match self.stack.get(index) {
             Some(v) => v,
-            None => panic!("VM tried to peek value out of bounds stack"),
+            None => panic!("VM tried to peek value out of bounds stack: {}", index),
         }
     }
 
@@ -125,6 +124,8 @@ impl Store {
             Ok(func_id) => func_id,
             Err(msg) => return InterpretResult::CompileError(msg),
         };
+
+        vm.push(Value::new_function(func_id));
 
         let closure = Closure::new(func_id);
         let closure_id = self.closures.store(closure);
@@ -307,7 +308,7 @@ impl Store {
         let callee_id = vm.peek(*arg_num).as_closure();
         let callee = self.closures.lookup(*callee_id);
         let mut new_frame = CallFrame::new(callee.func_id, *callee_id);
-        new_frame.slot = vm.stack.len() - *arg_num;
+        new_frame.slot = vm.stack.len() - *arg_num - 1;
         new_frame
     }
 

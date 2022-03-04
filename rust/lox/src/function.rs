@@ -18,7 +18,7 @@ impl std::fmt::Debug for NativeFn {
 
 impl PartialEq for NativeFn {
     fn eq(&self, _other: &Self) -> bool {
-        return false
+        return false;
     }
 }
 
@@ -28,9 +28,7 @@ pub struct Closure {
 
 impl Closure {
     pub fn new(func_id: usize) -> Self {
-        Self {
-            func_id,
-        }
+        Self { func_id }
     }
 }
 

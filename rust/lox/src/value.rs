@@ -182,7 +182,7 @@ impl std::fmt::Display for Value {
                 ObjType::String(v) => write!(f, "{}", v),
             },
             ValueType::Function(id) => write!(f, "<fn {}>", id),
-            ValueType::Closure(id) => write!(f, "<fn {}>", id),
+            ValueType::Closure(id) => write!(f, "<closure {}>", id),
             ValueType::NativeFn(_) => write!(f, "<native fn>"),
         }
     }
