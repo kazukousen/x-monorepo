@@ -10,7 +10,7 @@ pub enum ValueType {
     Bool(bool),
     Nil,
     Number(f64),
-    Obj(Obj),
+    String(usize),
     Function(usize),
     Closure(usize),
     NativeFn(NativeFn),
@@ -35,11 +35,9 @@ impl Value {
         }
     }
 
-    pub fn new_string(s: String) -> Self {
+    pub fn new_string(id: usize) -> Self {
         Self {
-            typ: ValueType::Obj(Obj {
-                typ: ObjType::String(s),
-            }),
+            typ: ValueType::String(id),
         }
     }
 
@@ -84,9 +82,7 @@ impl Value {
 
     pub fn is_string(&self) -> bool {
         match &self.typ {
-            ValueType::Obj(v) => match v.typ {
-                ObjType::String(_) => true,
-            },
+            ValueType::String(_) => true,
             _ => false,
         }
     }
@@ -134,18 +130,9 @@ impl Value {
         }
     }
 
-    pub fn as_obj(&self) -> &Obj {
+    pub fn as_string(&self) -> &usize {
         match &self.typ {
-            ValueType::Obj(v) => v,
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn as_string(&self) -> &String {
-        match &self.typ {
-            ValueType::Obj(v) => match &v.typ {
-                ObjType::String(v) => v,
-            },
+            ValueType::String(id) => id,
             _ => unreachable!(),
         }
     }
@@ -178,9 +165,7 @@ impl std::fmt::Display for Value {
             ValueType::Nil => write!(f, "nil"),
             ValueType::Bool(v) => write!(f, "{}", v),
             ValueType::Number(v) => write!(f, "{}", v),
-            ValueType::Obj(v) => match &v.typ {
-                ObjType::String(v) => write!(f, "{}", v),
-            },
+            ValueType::String(id) => write!(f, "<string {}>", id),
             ValueType::Function(id) => write!(f, "<fn {}>", id),
             ValueType::Closure(id) => write!(f, "<closure {}>", id),
             ValueType::NativeFn(_) => write!(f, "<native fn>"),
@@ -188,12 +173,18 @@ impl std::fmt::Display for Value {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Obj {
-    typ: ObjType,
+#[derive(Default)]
+pub struct Strings {
+    strings: Vec<String>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum ObjType {
-    String(String),
+impl Strings {
+    pub fn lookup(&self, id: usize) -> &String {
+        &self.strings[id]
+    }
+
+    pub fn store(&mut self, s: String) -> usize {
+        self.strings.push(s);
+        self.strings.len() - 1
+    }
 }

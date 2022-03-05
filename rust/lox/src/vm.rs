@@ -1,6 +1,6 @@
 use crate::chunk::OpCode;
 use crate::function::{Closure, Closures, Functions, NativeFn};
-use crate::value::Value;
+use crate::value::{Strings, Value};
 use crate::Parser;
 use std::collections::HashMap;
 
@@ -105,20 +105,22 @@ impl VM {
 }
 
 pub struct Store {
-    functions: Functions,
-    closures: Closures,
+    pub strings: Strings,
+    pub functions: Functions,
+    pub closures: Closures,
 }
 
 impl Store {
     pub fn new() -> Self {
         Self {
+            strings: Default::default(),
             functions: Default::default(),
             closures: Default::default(),
         }
     }
 
     pub fn interpret(&mut self, src: &str, vm: &mut VM) -> InterpretResult {
-        let mut parser = Parser::new(&mut self.functions);
+        let mut parser = Parser::new(&mut self.functions, &mut self.strings);
 
         let func_id = match parser.compile(src) {
             Ok(func_id) => func_id,
@@ -188,8 +190,9 @@ impl Store {
                     vm.pop(); // discard the result
                 }
                 OpCode::GetGlobal(index) => {
-                    let name = chunk.values[*index].as_string().clone();
-                    let v = match vm.globals.get(&name) {
+                    let str_id = chunk.values[*index].as_string();
+                    let name = self.strings.lookup(*str_id);
+                    let v = match vm.globals.get(name) {
                         Some(v) => v.clone(),
                         None => {
                             eprintln!("Undefined global variable: '{}'.", name);
@@ -199,7 +202,8 @@ impl Store {
                     vm.push(v);
                 }
                 OpCode::SetGlobal(index) => {
-                    let name = chunk.values[*index].as_string().clone();
+                    let str_id = chunk.values[*index].as_string();
+                    let name = self.strings.lookup(*str_id).clone();
                     match vm.globals.get(&name) {
                         Some(_) => {
                             vm.globals.insert(name, vm.peek(0).clone());
@@ -212,7 +216,8 @@ impl Store {
                     }
                 }
                 OpCode::DefineGlobal(index) => {
-                    let name = chunk.values[*index].as_string().clone();
+                    let str_id = chunk.values[*index].as_string();
+                    let name = self.strings.lookup(*str_id).clone();
                     vm.globals.insert(name, vm.peek(0).clone());
                     vm.pop();
                 }
@@ -257,7 +262,14 @@ impl Store {
                 OpCode::False => vm.push(Value::new_bool(false)),
                 OpCode::Equal => {
                     let (b, a) = (vm.pop(), vm.pop());
-                    vm.push(Value::new_bool(b == a));
+                    if b.is_string() && a.is_string() {
+                        vm.push(Value::new_bool(
+                            self.strings.lookup(*b.as_string())
+                                == self.strings.lookup(*a.as_string()),
+                        ))
+                    } else {
+                        vm.push(Value::new_bool(b == a));
+                    }
                 }
                 OpCode::Greater => binary_op!(vm, Value::new_bool, >),
                 OpCode::Less => binary_op!(vm, Value::new_bool, <),
@@ -272,7 +284,9 @@ impl Store {
 
                         let (b, a) = (vm.pop(), vm.pop());
                         let (b, a) = (b.as_string(), a.as_string());
-                        vm.push(Value::new_string(format!("{}{}", a, b)));
+                        let (b, a) = (self.strings.lookup(*b), self.strings.lookup(*a));
+                        let concat_str_id = self.strings.store(format!("{}{}", a, b));
+                        vm.push(Value::new_string(concat_str_id));
                     } else {
                         eprintln!(
                             "L:{:?}: Operand must be numbers or strings.",

@@ -57,19 +57,23 @@ print mut_foo;
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         "beignets with cafe au lait",
-        vm.globals
-            .get("breakfast")
-            .expect("no such key")
-            .as_string()
-            .clone()
+        store.strings.lookup(
+            vm.globals
+                .get("breakfast")
+                .expect("no such key")
+                .as_string()
+                .clone()
+        ),
     );
     assert_eq!(
         "updated foo!",
-        vm.globals
-            .get("mut_foo")
-            .expect("no such key")
-            .as_string()
-            .clone()
+        store.strings.lookup(
+            vm.globals
+                .get("mut_foo")
+                .expect("no such key")
+                .as_string()
+                .clone()
+        )
     );
 }
 
@@ -89,19 +93,23 @@ var con = "";
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         "globalized",
-        vm.globals
-            .get("global")
-            .expect("no such key")
-            .as_string()
-            .clone()
+        store.strings.lookup(
+            vm.globals
+                .get("global")
+                .expect("no such key")
+                .as_string()
+                .clone()
+        )
     );
     assert_eq!(
         "localized and globalized",
-        vm.globals
-            .get("con")
-            .expect("no such key")
-            .as_string()
-            .clone()
+        store.strings.lookup(
+            vm.globals
+                .get("con")
+                .expect("no such key")
+                .as_string()
+                .clone()
+        )
     );
 }
 
@@ -126,11 +134,13 @@ if (global != "localized") {
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         "localized",
-        vm.globals
-            .get("global")
-            .expect("no such key")
-            .as_string()
-            .clone()
+        store.strings.lookup(
+            vm.globals
+                .get("global")
+                .expect("no such key")
+                .as_string()
+                .clone()
+        ),
     );
     assert_eq!(
         true,
