@@ -1,5 +1,5 @@
-load("actions.bzl", "go_compile", "go_link")
-load("providers.bzl", "GoLibraryInfo")
+load(":actions.bzl", "go_compile", "go_link")
+load(":providers.bzl", "GoLibraryInfo")
 
 def _go_binary_impl(ctx):
     # Our output files will start with a prefix to avoid conflicting with other rules.
