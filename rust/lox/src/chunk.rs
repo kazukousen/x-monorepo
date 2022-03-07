@@ -1,5 +1,7 @@
 use crate::value::Value;
+use crate::Reference;
 
+#[derive(Copy, Clone)]
 pub enum OpCode {
     Return,
     Print,
@@ -52,6 +54,10 @@ impl Chunk {
     pub fn add_instruction(&mut self, op: OpCode, line: usize) {
         self.instructions.push(op);
         self.lines.push(line);
+    }
+
+    pub fn read_string(&self, index: usize) -> &Reference<String> {
+        self.values[index].as_string()
     }
 }
 

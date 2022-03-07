@@ -1,7 +1,7 @@
 use crate::chunk::OpCode;
 use crate::function::{Closure, NativeFn};
 use crate::value::Value;
-use crate::{Allocator, Chunk, Function, Parser, Reference};
+use crate::{Allocator, Chunk, Parser, Reference};
 use std::collections::HashMap;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -69,6 +69,7 @@ pub struct VM {
     frames: Vec<CallFrame>,
     pub stack: Vec<Value>,
     pub globals: HashMap<String, Value>,
+    pub allocator: Allocator,
 }
 
 impl VM {
@@ -77,6 +78,7 @@ impl VM {
             frames: vec![],
             stack: vec![],
             globals: Default::default(),
+            allocator: Default::default(),
         };
 
         vm.define_native("clock".to_string(), NativeFn(native_clock));
@@ -84,6 +86,195 @@ impl VM {
         vm.define_native("panic".to_string(), NativeFn(native_panic));
 
         vm
+    }
+
+    pub fn interpret(&mut self, src: &str) -> InterpretResult {
+        let mut parser = Parser::new(&mut self.allocator);
+
+        let func_id = match parser.compile(src) {
+            Ok(func_id) => func_id,
+            Err(msg) => return InterpretResult::CompileError(msg),
+        };
+
+        self.push(Value::new_function(func_id));
+        let closure_id = self.allocator.alloc(Closure::new(func_id));
+        self.frames.push(CallFrame::new(closure_id));
+
+        let ret = self.run();
+
+        println!("== VM ==");
+        println!("== globals ==");
+        for (k, v) in &self.globals {
+            println!("{:?}: {:?}", k, v);
+        }
+
+        ret
+    }
+
+    // dispatch instructions
+    fn run(&mut self) -> InterpretResult {
+        loop {
+            let instruction = self.current_chunk().instructions[self.current_frame().ip];
+            {
+                print!("id: {} ", self.current_frame().closure_id);
+                for value in self.stack.iter() {
+                    print!("[{}]", value);
+                }
+                println!();
+            }
+            self.current_frame_mut().ip += 1;
+
+            match instruction {
+                OpCode::Return => {
+                    let value = self.pop();
+                    let frame = self.frames.pop().unwrap();
+
+                    if self.frames.is_empty() {
+                        return InterpretResult::Ok;
+                    }
+
+                    self.stack.truncate(frame.slot);
+                    self.push(value);
+                }
+                OpCode::Print => {
+                    print!("{}\n", self.pop());
+                }
+                OpCode::JumpIfFalse(offset) => {
+                    if self.peek(0).is_falsy() {
+                        self.current_frame_mut().ip += offset;
+                    }
+                }
+                OpCode::Jump(offset) => {
+                    self.current_frame_mut().ip += offset;
+                }
+                OpCode::Loop(offset) => {
+                    self.current_frame_mut().ip -= offset;
+                }
+                OpCode::Pop => {
+                    self.pop(); // discard the result
+                }
+                OpCode::GetGlobal(index) => {
+                    let str_id = self.current_chunk().read_string(index);
+                    let name = self.allocator.deref(str_id);
+                    let v = match self.globals.get(name) {
+                        Some(v) => v.clone(),
+                        None => {
+                            eprintln!("Undefined global variable: '{}'.", name);
+                            return InterpretResult::RuntimeError;
+                        }
+                    };
+                    self.push(v);
+                }
+                OpCode::SetGlobal(index) => {
+                    let str_id = self.current_chunk().read_string(index);
+                    let name = self.allocator.deref(str_id).clone();
+                    match self.globals.get(&name) {
+                        Some(_) => {
+                            self.globals.insert(name, self.peek(0).clone());
+                        }
+                        None => {
+                            self.globals.remove(&name);
+                            eprintln!("Undefined global variable: '{}'.", name);
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
+                OpCode::DefineGlobal(index) => {
+                    let str_id = self.current_chunk().read_string(index);
+                    let name = self.allocator.deref(str_id).clone();
+                    self.globals.insert(name, self.peek(0).clone());
+                    self.pop();
+                }
+                OpCode::GetLocal(index) => {
+                    let v = self.get(index + self.current_frame().slot).clone();
+                    self.push(v);
+                }
+                OpCode::SetLocal(index) => {
+                    self.stack
+                        .insert(index + self.current_frame().slot, self.peek(0).clone());
+                }
+                OpCode::Constant(index) => {
+                    let v = self.current_chunk().values[index].clone();
+                    self.push(v);
+                }
+                OpCode::Call(arg_num) => {
+                    let callee = self.peek(arg_num);
+
+                    if callee.is_closure() {
+                        self.frames.push(self.call(arg_num));
+                    } else if callee.is_native_fn() {
+                        self.call_native_fn(arg_num);
+                    } else {
+                        eprintln!("Operand must be a closure or native function.");
+                        return InterpretResult::RuntimeError;
+                    }
+                }
+                OpCode::Closure(index) => {
+                    let v = self.current_chunk().values[index].clone();
+                    if !v.is_fun() {
+                        eprintln!("Value must be a function.");
+                        return InterpretResult::RuntimeError;
+                    }
+
+                    let closure = Closure::new(*v.as_fun());
+                    let closure_id = self.allocator.alloc(closure);
+                    self.push(Value::new_closure(closure_id));
+                }
+                OpCode::Nil => self.push(Value::new_nil()),
+                OpCode::True => self.push(Value::new_bool(true)),
+                OpCode::False => self.push(Value::new_bool(false)),
+                OpCode::Equal => {
+                    let (b, a) = (self.pop(), self.pop());
+                    self.push(Value::new_bool(b == a));
+                }
+                OpCode::Greater => binary_op!(self, Value::new_bool, >),
+                OpCode::Less => binary_op!(self, Value::new_bool, <),
+                OpCode::Add => {
+                    if self.peek(0).is_number() && self.peek(1).is_number() {
+                        // numerical
+
+                        let (b, a) = (self.pop().as_number(), self.pop().as_number());
+                        self.push(Value::new_number(a + b));
+                    } else if self.peek(0).is_string() && self.peek(1).is_string() {
+                        // string
+
+                        let (b, a) = (self.pop(), self.pop());
+                        let (b, a) = (b.as_string(), a.as_string());
+                        let b = self.allocator.deref(b);
+                        let a = self.allocator.deref(a);
+                        let concat_str_id = self.allocator.new_string(format!("{}{}", a, b));
+                        self.push(Value::new_string(concat_str_id));
+                    } else {
+                        let frame = self.current_frame();
+                        let chunk = self.current_chunk();
+                        eprintln!(
+                            "L:{:?}: Operand must be numbers or strings.",
+                            chunk.lines[frame.ip - 1]
+                        );
+                        return InterpretResult::RuntimeError;
+                    }
+                }
+                OpCode::Subtract => binary_op!(self, Value::new_number, -),
+                OpCode::Multiply => binary_op!(self, Value::new_number, *),
+                OpCode::Divide => binary_op!(self, Value::new_number, /),
+                OpCode::Negate => {
+                    if !self.peek(0).is_number() {
+                        eprintln!("Operand must be a number.");
+                        return InterpretResult::RuntimeError;
+                    }
+                    let v = self.pop();
+                    self.push(Value::new_number(-v.as_number()));
+                }
+                OpCode::Not => {
+                    if !self.peek(0).is_bool() && !self.peek(0).is_nil() {
+                        eprintln!("Operand must be a bool or nil.");
+                        return InterpretResult::RuntimeError;
+                    }
+                    let v = self.pop();
+                    self.push(Value::new_bool(v.is_falsy()));
+                }
+            }
+        }
     }
 
     fn push(&mut self, v: Value) {
@@ -112,222 +303,31 @@ impl VM {
         self.globals.insert(name, Value::new_native_fn(native));
     }
 
-    fn chunk_for<'a>(&self, allocator: &'a Allocator, frame: &CallFrame) -> &'a Chunk {
-        let closure = allocator.deref(&frame.closure_id);
-        let function = allocator.deref(&closure.func_id);
+    fn current_frame_mut(&mut self) -> &mut CallFrame {
+        self.frames.last_mut().unwrap()
+    }
+
+    fn current_frame(&self) -> &CallFrame {
+        self.frames.last().unwrap()
+    }
+
+    fn current_chunk(&self) -> &Chunk {
+        let frame = self.current_frame();
+        let closure = self.allocator.deref(&frame.closure_id);
+        let function = self.allocator.deref(&closure.func_id);
         &function.chunk
     }
-}
 
-pub struct Store {
-    pub allocator: Allocator,
-}
-
-impl Store {
-    pub fn new() -> Self {
-        Self {
-            allocator: Default::default(),
-        }
-    }
-
-    pub fn interpret(&mut self, src: &str, vm: &mut VM) -> InterpretResult {
-        let mut parser = Parser::new(&mut self.allocator);
-
-        let func_id = match parser.compile(src) {
-            Ok(func_id) => func_id,
-            Err(msg) => return InterpretResult::CompileError(msg),
-        };
-
-        vm.push(Value::new_function(func_id));
-
-        let closure = Closure::new(func_id);
-        let closure_id = self.allocator.alloc(closure);
-
-        vm.frames.push(CallFrame::new(closure_id));
-        let ret = self.run(vm);
-        println!("== VM ==");
-        println!("== globals ==");
-        for (k, v) in &vm.globals {
-            println!("{:?}: {:?}", k, v);
-        }
-        ret
-    }
-
-    // dispatch instructions
-    fn run(&mut self, vm: &mut VM) -> InterpretResult {
-        let mut frame = vm.frames.pop().unwrap();
-        loop {
-            let instruction = &vm.chunk_for(&self.allocator, &frame).instructions[frame.ip];
-            {
-                for value in vm.stack.iter() {
-                    print!("[{}]", value);
-                }
-                println!();
-            }
-            frame.ip += 1;
-
-            match instruction {
-                OpCode::Return => {
-                    let value = vm.pop();
-                    match vm.frames.pop() {
-                        Some(f) => {
-                            vm.stack.truncate(frame.slot);
-                            vm.push(value);
-                            frame = f;
-                        }
-                        None => {
-                            return InterpretResult::Ok;
-                        }
-                    }
-                }
-                OpCode::Print => {
-                    print!("{}\n", vm.pop());
-                }
-                OpCode::JumpIfFalse(offset) => {
-                    if vm.peek(0).is_falsy() {
-                        frame.ip += *offset;
-                    }
-                }
-                OpCode::Jump(offset) => {
-                    frame.ip += *offset;
-                }
-                OpCode::Loop(offset) => {
-                    frame.ip -= *offset;
-                }
-                OpCode::Pop => {
-                    vm.pop(); // discard the result
-                }
-                OpCode::GetGlobal(index) => {
-                    let str_id = vm.chunk_for(&self.allocator, &frame).values[*index].as_string();
-                    let name = self.allocator.deref(str_id);
-                    let v = match vm.globals.get(name) {
-                        Some(v) => v.clone(),
-                        None => {
-                            eprintln!("Undefined global variable: '{}'.", name);
-                            return InterpretResult::RuntimeError;
-                        }
-                    };
-                    vm.push(v);
-                }
-                OpCode::SetGlobal(index) => {
-                    let str_id = vm.chunk_for(&self.allocator, &frame).values[*index].as_string();
-                    let name = self.allocator.deref(str_id).clone();
-                    match vm.globals.get(&name) {
-                        Some(_) => {
-                            vm.globals.insert(name, vm.peek(0).clone());
-                        }
-                        None => {
-                            vm.globals.remove(&name);
-                            eprintln!("Undefined global variable: '{}'.", name);
-                            return InterpretResult::RuntimeError;
-                        }
-                    }
-                }
-                OpCode::DefineGlobal(index) => {
-                    let str_id = vm.chunk_for(&self.allocator, &frame).values[*index].as_string();
-                    let name = self.allocator.deref(str_id).clone();
-                    vm.globals.insert(name, vm.peek(0).clone());
-                    vm.pop();
-                }
-                OpCode::GetLocal(index) => {
-                    let v = vm.get(*index + frame.slot).clone();
-                    vm.push(v);
-                }
-                OpCode::SetLocal(index) => {
-                    vm.stack.insert(*index + frame.slot, vm.peek(0).clone());
-                }
-                OpCode::Constant(index) => {
-                    let v = vm.chunk_for(&self.allocator, &frame).values[*index].clone();
-                    vm.push(v);
-                }
-                OpCode::Call(arg_num) => {
-                    let callee = vm.peek(*arg_num);
-
-                    if callee.is_closure() {
-                        vm.frames.push(frame.clone());
-                        frame = self.call(vm, arg_num);
-                    } else if callee.is_native_fn() {
-                        self.call_native_fn(vm, arg_num);
-                    } else {
-                        eprintln!("Operand must be a closure or native function.");
-                        return InterpretResult::RuntimeError;
-                    }
-                }
-                OpCode::Closure(index) => {
-                    let v = vm.chunk_for(&self.allocator, &frame).values[*index].clone();
-                    if !v.is_fun() {
-                        eprintln!("Value must be a function.");
-                        return InterpretResult::RuntimeError;
-                    }
-
-                    let closure = Closure::new(*v.as_fun());
-                    let closure_id = self.allocator.alloc(closure);
-                    vm.push(Value::new_closure(closure_id));
-                }
-                OpCode::Nil => vm.push(Value::new_nil()),
-                OpCode::True => vm.push(Value::new_bool(true)),
-                OpCode::False => vm.push(Value::new_bool(false)),
-                OpCode::Equal => {
-                    let (b, a) = (vm.pop(), vm.pop());
-                    vm.push(Value::new_bool(b == a));
-                }
-                OpCode::Greater => binary_op!(vm, Value::new_bool, >),
-                OpCode::Less => binary_op!(vm, Value::new_bool, <),
-                OpCode::Add => {
-                    if vm.peek(0).is_number() && vm.peek(1).is_number() {
-                        // numerical
-
-                        let (b, a) = (vm.pop().as_number(), vm.pop().as_number());
-                        vm.push(Value::new_number(a + b));
-                    } else if vm.peek(0).is_string() && vm.peek(1).is_string() {
-                        // string
-
-                        let (b, a) = (vm.pop(), vm.pop());
-                        let (b, a) = (b.as_string(), a.as_string());
-                        let (b, a) = (self.allocator.deref(b), self.allocator.deref(a));
-                        let concat_str_id = self.allocator.new_string(format!("{}{}", a, b));
-                        vm.push(Value::new_string(concat_str_id));
-                    } else {
-                        eprintln!(
-                            "L:{:?}: Operand must be numbers or strings.",
-                            vm.chunk_for(&self.allocator, &frame).lines[frame.ip - 1]
-                        );
-                        return InterpretResult::RuntimeError;
-                    }
-                }
-                OpCode::Subtract => binary_op!(vm, Value::new_number, -),
-                OpCode::Multiply => binary_op!(vm, Value::new_number, *),
-                OpCode::Divide => binary_op!(vm, Value::new_number, /),
-                OpCode::Negate => {
-                    if !vm.peek(0).is_number() {
-                        eprintln!("Operand must be a number.");
-                        return InterpretResult::RuntimeError;
-                    }
-                    let v = vm.pop();
-                    vm.push(Value::new_number(-v.as_number()));
-                }
-                OpCode::Not => {
-                    if !vm.peek(0).is_bool() && !vm.peek(0).is_nil() {
-                        eprintln!("Operand must be a bool or nil.");
-                        return InterpretResult::RuntimeError;
-                    }
-                    let v = vm.pop();
-                    vm.push(Value::new_bool(v.is_falsy()));
-                }
-            }
-        }
-    }
-
-    fn call(&self, vm: &VM, arg_num: &usize) -> CallFrame {
-        let callee_id = vm.peek(*arg_num).as_closure();
+    fn call(&self, arg_num: usize) -> CallFrame {
+        let callee_id = self.peek(arg_num).as_closure();
         let mut new_frame = CallFrame::new(*callee_id);
-        new_frame.slot = vm.stack.len() - *arg_num - 1;
+        new_frame.slot = self.stack.len() - arg_num - 1;
         new_frame
     }
 
-    fn call_native_fn(&self, vm: &mut VM, arg_num: &usize) {
-        let f = vm.peek(*arg_num).as_native_fn();
-        let result = f.0(&self.allocator, &vm.stack[vm.stack.len() - *arg_num..]);
-        vm.push(result);
+    fn call_native_fn(&mut self, arg_num: usize) {
+        let f = self.peek(arg_num).as_native_fn();
+        let result = f.0(&self.allocator, &self.stack[self.stack.len() - arg_num..]);
+        self.push(result);
     }
 }

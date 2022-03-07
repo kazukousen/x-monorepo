@@ -25,9 +25,7 @@ impl<T> Copy for Reference<T> {}
 
 impl<T> fmt::Display for Reference<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Reference")
-            .field("index", &self.index)
-            .finish()
+        write!(f, "ref({})", self.index)
     }
 }
 
