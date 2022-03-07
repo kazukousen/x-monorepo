@@ -260,39 +260,6 @@ for (;d < 5;) {
 }
 
 #[test]
-fn run_fun_decl() {
-    let source = r#"
-fun foo() {
-    var a = 1;
-    var b = 2;
-}
-fun bar() {
-    var a = 1;
-    var b = 2;
-}
-"#;
-    let mut store = Store::new();
-    let mut vm = VM::new();
-    assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
-    assert_eq!(
-        1,
-        vm.globals
-            .get("foo")
-            .expect("no such key")
-            .as_closure()
-            .clone()
-    );
-    assert_eq!(
-        2,
-        vm.globals
-            .get("bar")
-            .expect("no such key")
-            .as_closure()
-            .clone()
-    );
-}
-
-#[test]
 fn run_call_function() {
     let source = r#"
 var c = 5;
@@ -307,14 +274,6 @@ foo();
     let mut store = Store::new();
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
-    assert_eq!(
-        1,
-        vm.globals
-            .get("foo")
-            .expect("no such key")
-            .as_closure()
-            .clone()
-    );
     assert_eq!(
         3_f64,
         vm.globals
@@ -338,14 +297,6 @@ foo(1, 2);
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
-        1,
-        vm.globals
-            .get("foo")
-            .expect("no such key")
-            .as_closure()
-            .clone()
-    );
-    assert_eq!(
         3_f64,
         vm.globals
             .get("c")
@@ -367,14 +318,6 @@ c = foo(1, 2);
     let mut store = Store::new();
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
-    assert_eq!(
-        1,
-        vm.globals
-            .get("foo")
-            .expect("no such key")
-            .as_closure()
-            .clone()
-    );
     assert_eq!(
         3_f64,
         vm.globals
@@ -399,14 +342,6 @@ foo(1, 2);
     let mut store = Store::new();
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
-    assert_eq!(
-        1,
-        vm.globals
-            .get("foo")
-            .expect("no such key")
-            .as_closure()
-            .clone()
-    );
     assert_eq!(
         3_f64,
         vm.globals

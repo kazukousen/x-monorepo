@@ -1,5 +1,5 @@
 use crate::allocator::Reference;
-use crate::function::NativeFn;
+use crate::function::{Closure, NativeFn};
 use crate::Function;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -14,7 +14,7 @@ pub enum ValueType {
     Number(f64),
     String(Reference<String>),
     Function(Reference<Function>),
-    Closure(usize),
+    Closure(Reference<Closure>),
     NativeFn(NativeFn),
 }
 
@@ -49,7 +49,7 @@ impl Value {
         }
     }
 
-    pub fn new_closure(id: usize) -> Self {
+    pub fn new_closure(id: Reference<Closure>) -> Self {
         Self {
             typ: ValueType::Closure(id),
         }
@@ -146,7 +146,7 @@ impl Value {
         }
     }
 
-    pub fn as_closure(&self) -> &usize {
+    pub fn as_closure(&self) -> &Reference<Closure> {
         match &self.typ {
             ValueType::Closure(id) => id,
             _ => unreachable!(),

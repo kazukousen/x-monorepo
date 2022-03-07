@@ -26,25 +26,15 @@ pub struct Closure {
     pub func_id: Reference<Function>,
 }
 
+impl std::fmt::Debug for Closure {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "<closure {}>", self.func_id)
+    }
+}
+
 impl Closure {
     pub fn new(func_id: Reference<Function>) -> Self {
         Self { func_id }
-    }
-}
-
-#[derive(Default)]
-pub struct Closures {
-    closures: Vec<Closure>,
-}
-
-impl Closures {
-    pub fn lookup(&self, id: usize) -> &Closure {
-        &self.closures[id]
-    }
-
-    pub fn store(&mut self, closure: Closure) -> usize {
-        self.closures.push(closure);
-        self.closures.len() - 1
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::chunk::OpCode;
-use crate::function::{Closure, Closures, NativeFn};
+use crate::function::{Closure, NativeFn};
 use crate::value::Value;
 use crate::{Allocator, Chunk, Function, Parser, Reference};
 use std::collections::HashMap;
@@ -50,13 +50,13 @@ fn native_panic(allocator: &Allocator, args: &[Value]) -> Value {
 
 #[derive(Copy, Clone)]
 struct CallFrame {
-    closure_id: usize,
+    closure_id: Reference<Closure>,
     ip: usize,
     slot: usize,
 }
 
 impl CallFrame {
-    pub fn new(closure_id: usize) -> Self {
+    pub fn new(closure_id: Reference<Closure>) -> Self {
         Self {
             closure_id,
             ip: 0,
@@ -69,7 +69,6 @@ pub struct VM {
     frames: Vec<CallFrame>,
     pub stack: Vec<Value>,
     pub globals: HashMap<String, Value>,
-    pub closures: Closures,
 }
 
 impl VM {
@@ -78,7 +77,6 @@ impl VM {
             frames: vec![],
             stack: vec![],
             globals: Default::default(),
-            closures: Default::default(),
         };
 
         vm.define_native("clock".to_string(), NativeFn(native_clock));
@@ -115,7 +113,7 @@ impl VM {
     }
 
     fn chunk_for<'a>(&self, allocator: &'a Allocator, frame: &CallFrame) -> &'a Chunk {
-        let closure = self.closures.lookup(frame.closure_id);
+        let closure = allocator.deref(&frame.closure_id);
         let function = allocator.deref(&closure.func_id);
         &function.chunk
     }
@@ -143,7 +141,7 @@ impl Store {
         vm.push(Value::new_function(func_id));
 
         let closure = Closure::new(func_id);
-        let closure_id = vm.closures.store(closure);
+        let closure_id = self.allocator.alloc(closure);
 
         vm.frames.push(CallFrame::new(closure_id));
         let ret = self.run(vm);
@@ -263,7 +261,7 @@ impl Store {
                     }
 
                     let closure = Closure::new(*v.as_fun());
-                    let closure_id = vm.closures.store(closure);
+                    let closure_id = self.allocator.alloc(closure);
                     vm.push(Value::new_closure(closure_id));
                 }
                 OpCode::Nil => vm.push(Value::new_nil()),
@@ -322,7 +320,6 @@ impl Store {
 
     fn call(&self, vm: &VM, arg_num: &usize) -> CallFrame {
         let callee_id = vm.peek(*arg_num).as_closure();
-        let callee = vm.closures.lookup(*callee_id);
         let mut new_frame = CallFrame::new(*callee_id);
         new_frame.slot = vm.stack.len() - *arg_num - 1;
         new_frame
