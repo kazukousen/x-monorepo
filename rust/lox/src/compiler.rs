@@ -1,10 +1,10 @@
 use crate::chunk::{Debug, OpCode};
-use crate::function::{Function, FunctionType, Functions};
+use crate::function::{Function, FunctionType};
 use crate::scanner::Scanner;
 use crate::token::{Token, TokenType};
 use crate::value::Value;
 
-use crate::Allocator;
+use crate::{Allocator, Reference};
 use std::collections::HashMap;
 use std::mem;
 use std::ops::Add;
@@ -100,7 +100,6 @@ impl<'a> Compiler<'a> {
 pub struct Parser<'a> {
     compiler: Box<Compiler<'a>>,
     tokens: Vec<Token<'a>>,
-    functions: &'a mut Functions,
     allocator: &'a mut Allocator,
     token_pos: usize,
     parse_rules: HashMap<TokenType, ParseRule<'a>>,
@@ -128,10 +127,9 @@ macro_rules! parse_rules {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(functions: &'a mut Functions, allocator: &'a mut Allocator) -> Self {
+    pub fn new(allocator: &'a mut Allocator) -> Self {
         Self {
             compiler: Compiler::new(FunctionType::Script),
-            functions,
             allocator,
             tokens: Vec::new(),
             token_pos: 0,
@@ -166,7 +164,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn compile(&mut self, source: &'a str) -> Result<usize, String> {
+    pub fn compile(&mut self, source: &'a str) -> Result<Reference<Function>, String> {
         match Scanner::new(source).scan_tokens() {
             Ok(tokens) => {
                 self.tokens = tokens;
@@ -180,7 +178,7 @@ impl<'a> Parser<'a> {
         self.end_compiler();
 
         let function = std::mem::replace(&mut self.compiler.function, Function::new());
-        let func_id = self.functions.store(function);
+        let func_id = self.allocator.alloc(function);
         Ok(func_id)
     }
 
@@ -300,7 +298,7 @@ impl<'a> Parser<'a> {
         self.block()?;
 
         let function = self.pop_compiler();
-        let func_id = self.functions.store(function);
+        let func_id = self.allocator.alloc(function);
         let index = self.make_constant(Value::new_function(func_id));
         self.emit(OpCode::Closure(index));
 

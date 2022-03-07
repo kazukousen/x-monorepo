@@ -1,5 +1,6 @@
 use crate::allocator::Reference;
 use crate::function::NativeFn;
+use crate::Function;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Value {
@@ -12,7 +13,7 @@ pub enum ValueType {
     Nil,
     Number(f64),
     String(Reference<String>),
-    Function(usize),
+    Function(Reference<Function>),
     Closure(usize),
     NativeFn(NativeFn),
 }
@@ -42,7 +43,7 @@ impl Value {
         }
     }
 
-    pub fn new_function(id: usize) -> Self {
+    pub fn new_function(id: Reference<Function>) -> Self {
         Self {
             typ: ValueType::Function(id),
         }
@@ -138,7 +139,7 @@ impl Value {
         }
     }
 
-    pub fn as_fun(&self) -> &usize {
+    pub fn as_fun(&self) -> &Reference<Function> {
         match &self.typ {
             ValueType::Function(id) => id,
             _ => unreachable!(),
@@ -166,7 +167,7 @@ impl std::fmt::Display for Value {
             ValueType::Nil => write!(f, "nil"),
             ValueType::Bool(v) => write!(f, "{}", v),
             ValueType::Number(v) => write!(f, "{}", v),
-            ValueType::String(v) => write!(f, "<string {}>", v),
+            ValueType::String(id) => write!(f, "<string {}>", id),
             ValueType::Function(id) => write!(f, "<fn {}>", id),
             ValueType::Closure(id) => write!(f, "<closure {}>", id),
             ValueType::NativeFn(_) => write!(f, "<native fn>"),

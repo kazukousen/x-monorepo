@@ -1,7 +1,7 @@
 use crate::chunk::OpCode;
-use crate::function::{Closure, Closures, Functions, NativeFn};
+use crate::function::{Closure, Closures, NativeFn};
 use crate::value::Value;
-use crate::{Allocator, Parser};
+use crate::{Allocator, Chunk, Function, Parser, Reference};
 use std::collections::HashMap;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -40,16 +40,14 @@ fn native_max(args: &[Value]) -> Value {
 
 #[derive(Copy, Clone)]
 struct CallFrame {
-    func_id: usize,
     closure_id: usize,
     ip: usize,
     slot: usize,
 }
 
 impl CallFrame {
-    pub fn new(func_id: usize, closure_id: usize) -> Self {
+    pub fn new(closure_id: usize) -> Self {
         Self {
-            func_id,
             closure_id,
             ip: 0,
             slot: 0,
@@ -61,6 +59,7 @@ pub struct VM {
     frames: Vec<CallFrame>,
     pub stack: Vec<Value>,
     pub globals: HashMap<String, Value>,
+    pub closures: Closures,
 }
 
 impl VM {
@@ -69,6 +68,7 @@ impl VM {
             frames: vec![],
             stack: vec![],
             globals: Default::default(),
+            closures: Default::default(),
         };
 
         vm.define_native("clock".to_string(), NativeFn(native_clock));
@@ -102,25 +102,27 @@ impl VM {
     fn define_native(&mut self, name: String, native: NativeFn) {
         self.globals.insert(name, Value::new_native_fn(native));
     }
+
+    fn chunk_for<'a>(&self, allocator: &'a Allocator, frame: &CallFrame) -> &'a Chunk {
+        let closure = self.closures.lookup(frame.closure_id);
+        let function = allocator.deref(&closure.func_id);
+        &function.chunk
+    }
 }
 
 pub struct Store {
     pub allocator: Allocator,
-    pub functions: Functions,
-    pub closures: Closures,
 }
 
 impl Store {
     pub fn new() -> Self {
         Self {
             allocator: Default::default(),
-            functions: Default::default(),
-            closures: Default::default(),
         }
     }
 
     pub fn interpret(&mut self, src: &str, vm: &mut VM) -> InterpretResult {
-        let mut parser = Parser::new(&mut self.functions, &mut self.allocator);
+        let mut parser = Parser::new(&mut self.allocator);
 
         let func_id = match parser.compile(src) {
             Ok(func_id) => func_id,
@@ -130,9 +132,9 @@ impl Store {
         vm.push(Value::new_function(func_id));
 
         let closure = Closure::new(func_id);
-        let closure_id = self.closures.store(closure);
+        let closure_id = vm.closures.store(closure);
 
-        vm.frames.push(CallFrame::new(func_id, closure_id));
+        vm.frames.push(CallFrame::new(closure_id));
         let ret = self.run(vm);
         println!("== VM ==");
         println!("== globals ==");
@@ -145,10 +147,8 @@ impl Store {
     // dispatch instructions
     fn run(&mut self, vm: &mut VM) -> InterpretResult {
         let mut frame = vm.frames.pop().unwrap();
-        let closure = self.closures.lookup(frame.closure_id);
-        let mut chunk = &self.functions.lookup(closure.func_id).chunk;
         loop {
-            let instruction = &chunk.instructions[frame.ip];
+            let instruction = &vm.chunk_for(&self.allocator, &frame).instructions[frame.ip];
             {
                 for value in vm.stack.iter() {
                     print!("[{}]", value);
@@ -165,7 +165,6 @@ impl Store {
                             vm.stack.truncate(frame.slot);
                             vm.push(value);
                             frame = f;
-                            chunk = &self.functions.lookup(frame.func_id).chunk;
                         }
                         None => {
                             return InterpretResult::Ok;
@@ -190,7 +189,7 @@ impl Store {
                     vm.pop(); // discard the result
                 }
                 OpCode::GetGlobal(index) => {
-                    let str_id = chunk.values[*index].as_string();
+                    let str_id = vm.chunk_for(&self.allocator, &frame).values[*index].as_string();
                     let name = self.allocator.deref(str_id);
                     let v = match vm.globals.get(name) {
                         Some(v) => v.clone(),
@@ -202,7 +201,7 @@ impl Store {
                     vm.push(v);
                 }
                 OpCode::SetGlobal(index) => {
-                    let str_id = chunk.values[*index].as_string();
+                    let str_id = vm.chunk_for(&self.allocator, &frame).values[*index].as_string();
                     let name = self.allocator.deref(str_id).clone();
                     match vm.globals.get(&name) {
                         Some(_) => {
@@ -216,7 +215,7 @@ impl Store {
                     }
                 }
                 OpCode::DefineGlobal(index) => {
-                    let str_id = chunk.values[*index].as_string();
+                    let str_id = vm.chunk_for(&self.allocator, &frame).values[*index].as_string();
                     let name = self.allocator.deref(str_id).clone();
                     vm.globals.insert(name, vm.peek(0).clone());
                     vm.pop();
@@ -229,7 +228,7 @@ impl Store {
                     vm.stack.insert(*index + frame.slot, vm.peek(0).clone());
                 }
                 OpCode::Constant(index) => {
-                    let v = chunk.values[*index].clone();
+                    let v = vm.chunk_for(&self.allocator, &frame).values[*index].clone();
                     vm.push(v);
                 }
                 OpCode::Call(arg_num) => {
@@ -238,7 +237,6 @@ impl Store {
                     if callee.is_closure() {
                         vm.frames.push(frame.clone());
                         frame = self.call(vm, arg_num);
-                        chunk = &self.functions.lookup(frame.func_id).chunk;
                     } else if callee.is_native_fn() {
                         self.call_native_fn(vm, arg_num);
                     } else {
@@ -247,14 +245,14 @@ impl Store {
                     }
                 }
                 OpCode::Closure(index) => {
-                    let v = chunk.values[*index].clone();
+                    let v = vm.chunk_for(&self.allocator, &frame).values[*index].clone();
                     if !v.is_fun() {
                         eprintln!("Value must be a function.");
                         return InterpretResult::RuntimeError;
                     }
 
                     let closure = Closure::new(*v.as_fun());
-                    let closure_id = self.closures.store(closure);
+                    let closure_id = vm.closures.store(closure);
                     vm.push(Value::new_closure(closure_id));
                 }
                 OpCode::Nil => vm.push(Value::new_nil()),
@@ -283,7 +281,7 @@ impl Store {
                     } else {
                         eprintln!(
                             "L:{:?}: Operand must be numbers or strings.",
-                            chunk.lines[frame.ip - 1]
+                            vm.chunk_for(&self.allocator, &frame).lines[frame.ip - 1]
                         );
                         return InterpretResult::RuntimeError;
                     }
@@ -313,8 +311,8 @@ impl Store {
 
     fn call(&self, vm: &VM, arg_num: &usize) -> CallFrame {
         let callee_id = vm.peek(*arg_num).as_closure();
-        let callee = self.closures.lookup(*callee_id);
-        let mut new_frame = CallFrame::new(callee.func_id, *callee_id);
+        let callee = vm.closures.lookup(*callee_id);
+        let mut new_frame = CallFrame::new(*callee_id);
         new_frame.slot = vm.stack.len() - *arg_num - 1;
         new_frame
     }

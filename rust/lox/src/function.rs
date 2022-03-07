@@ -1,5 +1,5 @@
 use crate::chunk::Chunk;
-use crate::Value;
+use crate::{Reference, Value};
 
 #[derive(Eq, PartialEq)]
 pub enum FunctionType {
@@ -23,11 +23,11 @@ impl PartialEq for NativeFn {
 }
 
 pub struct Closure {
-    pub func_id: usize,
+    pub func_id: Reference<Function>,
 }
 
 impl Closure {
-    pub fn new(func_id: usize) -> Self {
+    pub fn new(func_id: Reference<Function>) -> Self {
         Self { func_id }
     }
 }
@@ -53,27 +53,17 @@ pub struct Function {
     pub name: Option<String>,
 }
 
+impl std::fmt::Debug for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "<fn {}>", self.name.as_ref().unwrap())
+    }
+}
+
 impl Function {
     pub fn new() -> Self {
         Self {
             chunk: Chunk::new(),
             name: None,
         }
-    }
-}
-
-#[derive(Default)]
-pub struct Functions {
-    functions: Vec<Function>,
-}
-
-impl Functions {
-    pub fn lookup(&self, id: usize) -> &Function {
-        &self.functions[id]
-    }
-
-    pub fn store(&mut self, function: Function) -> usize {
-        self.functions.push(function);
-        self.functions.len() - 1
     }
 }

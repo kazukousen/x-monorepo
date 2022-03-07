@@ -3,10 +3,16 @@ use std::collections::HashMap;
 use std::fmt;
 use std::marker::PhantomData;
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, Debug)]
 pub struct Reference<T> {
     index: usize,
     _marker: PhantomData<T>,
+}
+
+impl<T> PartialEq for Reference<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.index == other.index
+    }
 }
 
 impl<T> Clone for Reference<T> {
@@ -26,7 +32,7 @@ impl<T> fmt::Display for Reference<T> {
 }
 
 pub struct Allocator {
-    objects: Vec<Option<Box<dyn Any>>>,
+    objects: Vec<Box<dyn Any>>,
     free_slots: Vec<usize>,
     strings: HashMap<String, Reference<String>>,
 }
@@ -41,9 +47,11 @@ impl Default for Allocator {
     }
 }
 
+struct Empty;
+
 impl Allocator {
-    fn alloc<T: Any>(&mut self, obj: T) -> Reference<T> {
-        let entry: Option<Box<dyn Any>> = Some(Box::new(obj));
+    pub fn alloc<T: Any>(&mut self, obj: T) -> Reference<T> {
+        let entry: Box<dyn Any> = Box::new(obj);
 
         let index = match self.free_slots.pop() {
             Some(index) => index,
@@ -71,15 +79,11 @@ impl Allocator {
     }
 
     pub fn deref<T: Any>(&self, reference: &Reference<T>) -> &T {
-        self.objects[reference.index]
-            .as_ref()
-            .unwrap()
-            .downcast_ref()
-            .unwrap()
+        self.objects[reference.index].downcast_ref().unwrap()
     }
 
     fn free<T: Any>(&mut self, reference: &Reference<T>) {
-        self.objects[reference.index] = None;
+        self.objects[reference.index] = Box::new(Empty);
         self.free_slots.push(reference.index);
     }
 }
