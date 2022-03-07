@@ -68,7 +68,7 @@ impl CallFrame {
 pub struct VM {
     frames: Vec<CallFrame>,
     pub stack: Vec<Value>,
-    pub globals: HashMap<String, Value>,
+    pub globals: HashMap<Reference<String>, Value>,
     pub allocator: Allocator,
 }
 
@@ -155,11 +155,10 @@ impl VM {
                 }
                 OpCode::GetGlobal(index) => {
                     let str_id = self.current_chunk().read_string(index);
-                    let name = self.allocator.deref(str_id);
-                    let v = match self.globals.get(name) {
+                    let v = match self.globals.get(str_id) {
                         Some(v) => v.clone(),
                         None => {
-                            eprintln!("Undefined global variable: '{}'.", name);
+                            eprintln!("Undefined global variable: '{}'.", str_id);
                             return InterpretResult::RuntimeError;
                         }
                     };
@@ -167,22 +166,21 @@ impl VM {
                 }
                 OpCode::SetGlobal(index) => {
                     let str_id = self.current_chunk().read_string(index);
-                    let name = self.allocator.deref(str_id).clone();
-                    match self.globals.get(&name) {
+                    match self.globals.get(str_id) {
                         Some(_) => {
-                            self.globals.insert(name, self.peek(0).clone());
+                            self.globals.insert(str_id.clone(), self.peek(0).clone());
                         }
                         None => {
-                            self.globals.remove(&name);
-                            eprintln!("Undefined global variable: '{}'.", name);
+                            let str_id = str_id.clone();
+                            self.globals.remove(&str_id);
+                            eprintln!("Undefined global variable: '{}'.", str_id);
                             return InterpretResult::RuntimeError;
                         }
                     }
                 }
                 OpCode::DefineGlobal(index) => {
                     let str_id = self.current_chunk().read_string(index);
-                    let name = self.allocator.deref(str_id).clone();
-                    self.globals.insert(name, self.peek(0).clone());
+                    self.globals.insert(str_id.clone(), self.peek(0).clone());
                     self.pop();
                 }
                 OpCode::GetLocal(index) => {
@@ -300,6 +298,7 @@ impl VM {
     }
 
     fn define_native(&mut self, name: String, native: NativeFn) {
+        let name = self.allocator.new_string(name);
         self.globals.insert(name, Value::new_native_fn(native));
     }
 

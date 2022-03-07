@@ -1,6 +1,8 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;
+use std::hash;
+use std::hash::Hasher;
 use std::marker::PhantomData;
 
 #[derive(Eq, Debug)]
@@ -26,6 +28,12 @@ impl<T> Copy for Reference<T> {}
 impl<T> fmt::Display for Reference<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ref({})", self.index)
+    }
+}
+
+impl<T> hash::Hash for Reference<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.index.hash(state);
     }
 }
 

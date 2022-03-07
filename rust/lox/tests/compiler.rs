@@ -50,19 +50,21 @@ print mut_foo;
 "#;
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    let k = &vm.allocator.new_string("breakfast".to_owned());
     assert_eq!(
         "beignets with cafe au lait",
         vm.allocator.deref(
             vm.globals
-                .get("breakfast")
+                .get(k)
                 .expect("no such key")
                 .as_string()
         ),
     );
+    let k = &vm.allocator.new_string("mut_foo".to_owned());
     assert_eq!(
         "updated foo!",
         vm.allocator
-            .deref(vm.globals.get("mut_foo").expect("no such key").as_string())
+            .deref(vm.globals.get(k).expect("no such key").as_string())
     );
 }
 
@@ -79,15 +81,17 @@ var con = "";
 "#;
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    let k = &vm.allocator.new_string("global".to_owned());
     assert_eq!(
         "globalized",
         vm.allocator
-            .deref(vm.globals.get("global").expect("no such key").as_string())
+            .deref(vm.globals.get(k).expect("no such key").as_string())
     );
+    let k = &vm.allocator.new_string("con".to_owned());
     assert_eq!(
         "localized and globalized",
         vm.allocator
-            .deref(vm.globals.get("con").expect("no such key").as_string())
+            .deref(vm.globals.get(k).expect("no such key").as_string())
     );
 }
 
@@ -109,20 +113,23 @@ if (global != "localized") {
 "#;
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    let k = &vm.allocator.new_string("global".to_owned());
     assert_eq!(
         "localized",
         vm.allocator
-            .deref(vm.globals.get("global").expect("no such key").as_string()),
+            .deref(vm.globals.get(k).expect("no such key").as_string()),
     );
+    let k = &vm.allocator.new_string("falsy".to_owned());
     assert_eq!(
         true,
         vm.globals
-            .get("falsy")
+            .get(k)
             .expect("no such key")
             .as_bool()
             .clone()
     );
 }
+
 #[test]
 fn run_logical_operators() {
     let source = r#"
@@ -135,34 +142,38 @@ var or_exp_false = ( global != "globalized" or local != "localized" );
 "#;
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    let k = &vm.allocator.new_string("and_exp_true".to_owned());
     assert_eq!(
         true,
         vm.globals
-            .get("and_exp_true")
+            .get(k)
             .expect("no such key")
             .as_bool()
             .clone()
     );
+    let k = &vm.allocator.new_string("and_exp_false".to_owned());
     assert_eq!(
         false,
         vm.globals
-            .get("and_exp_false")
+            .get(k)
             .expect("no such key")
             .as_bool()
             .clone()
     );
+    let k = &vm.allocator.new_string("or_exp_true".to_owned());
     assert_eq!(
         true,
         vm.globals
-            .get("or_exp_true")
+            .get(k)
             .expect("no such key")
             .as_bool()
             .clone()
     );
+    let k = &vm.allocator.new_string("or_exp_false".to_owned());
     assert_eq!(
         false,
         vm.globals
-            .get("or_exp_false")
+            .get(k)
             .expect("no such key")
             .as_bool()
             .clone()
@@ -180,10 +191,11 @@ while (cnt < retries) {
 "#;
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    let k = &vm.allocator.new_string("cnt".to_owned());
     assert_eq!(
         5_f64,
         vm.globals
-            .get("cnt")
+            .get(k)
             .expect("no such key")
             .as_number()
             .clone()
@@ -211,34 +223,38 @@ for (;d < 5;) {
 "#;
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    let k = &vm.allocator.new_string("a".to_owned());
     assert_eq!(
         5_f64,
         vm.globals
-            .get("a")
+            .get(k)
             .expect("no such key")
             .as_number()
             .clone()
     );
+    let k = &vm.allocator.new_string("b".to_owned());
     assert_eq!(
         5_f64,
         vm.globals
-            .get("b")
+            .get(k)
             .expect("no such key")
             .as_number()
             .clone()
     );
+    let k = &vm.allocator.new_string("c".to_owned());
     assert_eq!(
         5_f64,
         vm.globals
-            .get("c")
+            .get(k)
             .expect("no such key")
             .as_number()
             .clone()
     );
+    let k = &vm.allocator.new_string("d".to_owned());
     assert_eq!(
         5_f64,
         vm.globals
-            .get("d")
+            .get(k)
             .expect("no such key")
             .as_number()
             .clone()
@@ -259,10 +275,11 @@ foo();
 "#;
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    let k = &vm.allocator.new_string("c".to_owned());
     assert_eq!(
         3_f64,
         vm.globals
-            .get("c")
+            .get(k)
             .expect("no such key")
             .as_number()
             .clone()
@@ -280,10 +297,11 @@ foo(1, 2);
 "#;
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    let k = &vm.allocator.new_string("c".to_owned());
     assert_eq!(
         3_f64,
         vm.globals
-            .get("c")
+            .get(k)
             .expect("no such key")
             .as_number()
             .clone()
@@ -301,10 +319,11 @@ c = foo(1, 2);
 "#;
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    let k = &vm.allocator.new_string("c".to_owned());
     assert_eq!(
         3_f64,
         vm.globals
-            .get("c")
+            .get(k)
             .expect("no such key")
             .as_number()
             .clone()
@@ -324,10 +343,11 @@ foo(1, 2);
 "#;
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    let k = &vm.allocator.new_string("c".to_owned());
     assert_eq!(
         3_f64,
         vm.globals
-            .get("c")
+            .get(k)
             .expect("no such key")
             .as_number()
             .clone()
@@ -342,10 +362,11 @@ a = max(1, 2);
 "#;
     let mut vm = VM::new();
     assert_eq!(InterpretResult::Ok, vm.interpret(source));
+    let k = &vm.allocator.new_string("a".to_owned());
     assert_eq!(
         2_f64,
         vm.globals
-            .get("a")
+            .get(k)
             .expect("no such key")
             .as_number()
             .clone()
