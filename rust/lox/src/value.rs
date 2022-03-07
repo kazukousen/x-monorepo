@@ -1,3 +1,4 @@
+use crate::allocator::Reference;
 use crate::function::NativeFn;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -10,7 +11,7 @@ pub enum ValueType {
     Bool(bool),
     Nil,
     Number(f64),
-    String(usize),
+    String(Reference<String>),
     Function(usize),
     Closure(usize),
     NativeFn(NativeFn),
@@ -35,9 +36,9 @@ impl Value {
         }
     }
 
-    pub fn new_string(id: usize) -> Self {
+    pub fn new_string(s: Reference<String>) -> Self {
         Self {
-            typ: ValueType::String(id),
+            typ: ValueType::String(s),
         }
     }
 
@@ -130,9 +131,9 @@ impl Value {
         }
     }
 
-    pub fn as_string(&self) -> &usize {
+    pub fn as_string(&self) -> &Reference<String> {
         match &self.typ {
-            ValueType::String(id) => id,
+            ValueType::String(v) => v,
             _ => unreachable!(),
         }
     }
@@ -165,26 +166,10 @@ impl std::fmt::Display for Value {
             ValueType::Nil => write!(f, "nil"),
             ValueType::Bool(v) => write!(f, "{}", v),
             ValueType::Number(v) => write!(f, "{}", v),
-            ValueType::String(id) => write!(f, "<string {}>", id),
+            ValueType::String(v) => write!(f, "<string {}>", v),
             ValueType::Function(id) => write!(f, "<fn {}>", id),
             ValueType::Closure(id) => write!(f, "<closure {}>", id),
             ValueType::NativeFn(_) => write!(f, "<native fn>"),
         }
-    }
-}
-
-#[derive(Default)]
-pub struct Strings {
-    strings: Vec<String>,
-}
-
-impl Strings {
-    pub fn lookup(&self, id: usize) -> &String {
-        &self.strings[id]
-    }
-
-    pub fn store(&mut self, s: String) -> usize {
-        self.strings.push(s);
-        self.strings.len() - 1
     }
 }

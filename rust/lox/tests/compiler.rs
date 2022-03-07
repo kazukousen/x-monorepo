@@ -57,23 +57,18 @@ print mut_foo;
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         "beignets with cafe au lait",
-        store.strings.lookup(
+        store.allocator.deref(
             vm.globals
                 .get("breakfast")
                 .expect("no such key")
                 .as_string()
-                .clone()
         ),
     );
     assert_eq!(
         "updated foo!",
-        store.strings.lookup(
-            vm.globals
-                .get("mut_foo")
-                .expect("no such key")
-                .as_string()
-                .clone()
-        )
+        store
+            .allocator
+            .deref(vm.globals.get("mut_foo").expect("no such key").as_string())
     );
 }
 
@@ -93,23 +88,15 @@ var con = "";
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         "globalized",
-        store.strings.lookup(
-            vm.globals
-                .get("global")
-                .expect("no such key")
-                .as_string()
-                .clone()
-        )
+        store
+            .allocator
+            .deref(vm.globals.get("global").expect("no such key").as_string())
     );
     assert_eq!(
         "localized and globalized",
-        store.strings.lookup(
-            vm.globals
-                .get("con")
-                .expect("no such key")
-                .as_string()
-                .clone()
-        )
+        store
+            .allocator
+            .deref(vm.globals.get("con").expect("no such key").as_string())
     );
 }
 
@@ -134,13 +121,9 @@ if (global != "localized") {
     assert_eq!(InterpretResult::Ok, store.interpret(source, &mut vm));
     assert_eq!(
         "localized",
-        store.strings.lookup(
-            vm.globals
-                .get("global")
-                .expect("no such key")
-                .as_string()
-                .clone()
-        ),
+        store
+            .allocator
+            .deref(vm.globals.get("global").expect("no such key").as_string()),
     );
     assert_eq!(
         true,

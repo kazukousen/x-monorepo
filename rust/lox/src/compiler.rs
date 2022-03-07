@@ -2,8 +2,9 @@ use crate::chunk::{Debug, OpCode};
 use crate::function::{Function, FunctionType, Functions};
 use crate::scanner::Scanner;
 use crate::token::{Token, TokenType};
-use crate::value::{Strings, Value};
+use crate::value::Value;
 
+use crate::Allocator;
 use std::collections::HashMap;
 use std::mem;
 use std::ops::Add;
@@ -100,7 +101,7 @@ pub struct Parser<'a> {
     compiler: Box<Compiler<'a>>,
     tokens: Vec<Token<'a>>,
     functions: &'a mut Functions,
-    strings: &'a mut Strings,
+    allocator: &'a mut Allocator,
     token_pos: usize,
     parse_rules: HashMap<TokenType, ParseRule<'a>>,
 }
@@ -127,11 +128,11 @@ macro_rules! parse_rules {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(functions: &'a mut Functions, strings: &'a mut Strings) -> Self {
+    pub fn new(functions: &'a mut Functions, allocator: &'a mut Allocator) -> Self {
         Self {
             compiler: Compiler::new(FunctionType::Script),
             functions,
-            strings,
+            allocator,
             tokens: Vec::new(),
             token_pos: 0,
             parse_rules: parse_rules![
@@ -328,8 +329,8 @@ impl<'a> Parser<'a> {
 
     fn identifier_constant(&mut self, name: &'a str) -> usize {
         let name = name.to_string();
-        let str_id = self.strings.store(name);
-        let idx = self.make_constant(Value::new_string(str_id));
+        let s = self.allocator.new_string(name);
+        let idx = self.make_constant(Value::new_string(s));
         return idx;
     }
 
@@ -704,9 +705,8 @@ impl<'a> Parser<'a> {
     fn string(&mut self, _: bool) -> Result<(), String> {
         // trim quotes
         let s = &self.previous().source[1..=self.previous().source.len() - 2];
-        let s = s.to_string();
-        let str_id = self.strings.store(s);
-        self.emit_constant(Value::new_string(str_id));
+        let s = self.allocator.new_string(s.to_string());
+        self.emit_constant(Value::new_string(s));
 
         Ok(())
     }

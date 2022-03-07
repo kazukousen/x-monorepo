@@ -1,3 +1,4 @@
+mod allocator;
 mod chunk;
 mod compiler;
 mod function;
@@ -6,6 +7,7 @@ mod token;
 mod value;
 mod vm;
 
+pub use allocator::{Allocator, Reference};
 pub use chunk::{Chunk, OpCode};
 pub use compiler::Parser;
 pub use function::Function;

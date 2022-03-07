@@ -1,7 +1,7 @@
 use crate::chunk::OpCode;
 use crate::function::{Closure, Closures, Functions, NativeFn};
-use crate::value::{Strings, Value};
-use crate::Parser;
+use crate::value::Value;
+use crate::{Allocator, Parser};
 use std::collections::HashMap;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -105,7 +105,7 @@ impl VM {
 }
 
 pub struct Store {
-    pub strings: Strings,
+    pub allocator: Allocator,
     pub functions: Functions,
     pub closures: Closures,
 }
@@ -113,14 +113,14 @@ pub struct Store {
 impl Store {
     pub fn new() -> Self {
         Self {
-            strings: Default::default(),
+            allocator: Default::default(),
             functions: Default::default(),
             closures: Default::default(),
         }
     }
 
     pub fn interpret(&mut self, src: &str, vm: &mut VM) -> InterpretResult {
-        let mut parser = Parser::new(&mut self.functions, &mut self.strings);
+        let mut parser = Parser::new(&mut self.functions, &mut self.allocator);
 
         let func_id = match parser.compile(src) {
             Ok(func_id) => func_id,
@@ -191,7 +191,7 @@ impl Store {
                 }
                 OpCode::GetGlobal(index) => {
                     let str_id = chunk.values[*index].as_string();
-                    let name = self.strings.lookup(*str_id);
+                    let name = self.allocator.deref(str_id);
                     let v = match vm.globals.get(name) {
                         Some(v) => v.clone(),
                         None => {
@@ -203,7 +203,7 @@ impl Store {
                 }
                 OpCode::SetGlobal(index) => {
                     let str_id = chunk.values[*index].as_string();
-                    let name = self.strings.lookup(*str_id).clone();
+                    let name = self.allocator.deref(str_id).clone();
                     match vm.globals.get(&name) {
                         Some(_) => {
                             vm.globals.insert(name, vm.peek(0).clone());
@@ -217,7 +217,7 @@ impl Store {
                 }
                 OpCode::DefineGlobal(index) => {
                     let str_id = chunk.values[*index].as_string();
-                    let name = self.strings.lookup(*str_id).clone();
+                    let name = self.allocator.deref(str_id).clone();
                     vm.globals.insert(name, vm.peek(0).clone());
                     vm.pop();
                 }
@@ -262,14 +262,7 @@ impl Store {
                 OpCode::False => vm.push(Value::new_bool(false)),
                 OpCode::Equal => {
                     let (b, a) = (vm.pop(), vm.pop());
-                    if b.is_string() && a.is_string() {
-                        vm.push(Value::new_bool(
-                            self.strings.lookup(*b.as_string())
-                                == self.strings.lookup(*a.as_string()),
-                        ))
-                    } else {
-                        vm.push(Value::new_bool(b == a));
-                    }
+                    vm.push(Value::new_bool(b == a));
                 }
                 OpCode::Greater => binary_op!(vm, Value::new_bool, >),
                 OpCode::Less => binary_op!(vm, Value::new_bool, <),
@@ -284,8 +277,8 @@ impl Store {
 
                         let (b, a) = (vm.pop(), vm.pop());
                         let (b, a) = (b.as_string(), a.as_string());
-                        let (b, a) = (self.strings.lookup(*b), self.strings.lookup(*a));
-                        let concat_str_id = self.strings.store(format!("{}{}", a, b));
+                        let (b, a) = (self.allocator.deref(b), self.allocator.deref(a));
+                        let concat_str_id = self.allocator.new_string(format!("{}{}", a, b));
                         vm.push(Value::new_string(concat_str_id));
                     } else {
                         eprintln!(
