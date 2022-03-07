@@ -27,6 +27,7 @@ impl<T> fmt::Display for Reference<T> {
 
 pub struct Allocator {
     objects: Vec<Option<Box<dyn Any>>>,
+    free_slots: Vec<usize>,
     strings: HashMap<String, Reference<String>>,
 }
 
@@ -34,6 +35,7 @@ impl Default for Allocator {
     fn default() -> Self {
         Self {
             objects: vec![],
+            free_slots: vec![],
             strings: HashMap::new(),
         }
     }
@@ -42,8 +44,14 @@ impl Default for Allocator {
 impl Allocator {
     fn alloc<T: Any>(&mut self, obj: T) -> Reference<T> {
         let entry: Option<Box<dyn Any>> = Some(Box::new(obj));
-        self.objects.push(entry);
-        let index = self.objects.len() - 1;
+
+        let index = match self.free_slots.pop() {
+            Some(index) => index,
+            None => {
+                self.objects.push(entry);
+                self.objects.len() - 1
+            }
+        };
 
         Reference {
             index,
@@ -72,5 +80,6 @@ impl Allocator {
 
     fn free<T: Any>(&mut self, reference: &Reference<T>) {
         self.objects[reference.index] = None;
+        self.free_slots.push(reference.index);
     }
 }
