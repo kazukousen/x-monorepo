@@ -1,5 +1,5 @@
 use crate::chunk::Chunk;
-use crate::{Reference, Value};
+use crate::{Allocator, Reference, Value};
 
 #[derive(Eq, PartialEq)]
 pub enum FunctionType {
@@ -8,7 +8,7 @@ pub enum FunctionType {
 }
 
 #[derive(Copy, Clone)]
-pub struct NativeFn(pub fn(&[Value]) -> Value);
+pub struct NativeFn(pub fn(&Allocator, &[Value]) -> Value);
 
 impl std::fmt::Debug for NativeFn {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

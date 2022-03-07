@@ -26,16 +26,26 @@ macro_rules! binary_op {
     };
 }
 
-fn native_clock(_args: &[Value]) -> Value {
+fn native_clock(_: &Allocator, _args: &[Value]) -> Value {
     Value::new_number(1234_f64)
 }
 
-fn native_max(args: &[Value]) -> Value {
+fn native_max(_: &Allocator, args: &[Value]) -> Value {
     if args[0].as_number() > args[1].as_number() {
         args[0].clone()
     } else {
         args[1].clone()
     }
+}
+
+fn native_panic(allocator: &Allocator, args: &[Value]) -> Value {
+    let arg = args[0];
+    let s = if arg.is_string() {
+        allocator.deref(arg.as_string())
+    } else {
+        "unknown"
+    };
+    panic!("panic: {}", s)
 }
 
 #[derive(Copy, Clone)]
@@ -73,6 +83,7 @@ impl VM {
 
         vm.define_native("clock".to_string(), NativeFn(native_clock));
         vm.define_native("max".to_string(), NativeFn(native_max));
+        vm.define_native("panic".to_string(), NativeFn(native_panic));
 
         vm
     }
@@ -319,7 +330,7 @@ impl Store {
 
     fn call_native_fn(&self, vm: &mut VM, arg_num: &usize) {
         let f = vm.peek(*arg_num).as_native_fn();
-        let result = f.0(&vm.stack[vm.stack.len() - *arg_num..]);
+        let result = f.0(&self.allocator, &vm.stack[vm.stack.len() - *arg_num..]);
         vm.push(result);
     }
 }

@@ -2,12 +2,12 @@ use crate::allocator::Reference;
 use crate::function::NativeFn;
 use crate::Function;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Value {
     typ: ValueType,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ValueType {
     Bool(bool),
     Nil,
