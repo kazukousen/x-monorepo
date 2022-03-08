@@ -1,3 +1,4 @@
+use crate::allocator::Table;
 use crate::chunk::OpCode;
 use crate::function::{Closure, NativeFn};
 use crate::value::Value;
@@ -57,8 +58,8 @@ fn native_panic(allocator: &Allocator, args: &[Value]) -> Value {
 }
 
 #[derive(Copy, Clone)]
-struct CallFrame {
-    closure_id: Reference<Closure>,
+pub struct CallFrame {
+    pub closure_id: Reference<Closure>,
     ip: usize,
     slot: usize,
 }
@@ -74,9 +75,9 @@ impl CallFrame {
 }
 
 pub struct VM {
-    frames: Vec<CallFrame>,
+    pub frames: Vec<CallFrame>,
     pub stack: Vec<Value>,
-    pub globals: HashMap<Reference<String>, Value>,
+    pub globals: Table,
     pub allocator: Allocator,
 }
 
