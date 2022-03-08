@@ -33,14 +33,13 @@ fn native_clock(_: &Allocator, _args: &[Value]) -> Value {
 }
 
 fn native_max(_: &Allocator, args: &[Value]) -> Value {
-
     if let Value::Number(a) = args[0] {
         if let Value::Number(b) = args[1] {
             return if a > b {
                 args[0].clone()
             } else {
                 args[1].clone()
-            }
+            };
         }
     }
 
@@ -243,7 +242,6 @@ impl VM {
                 OpCode::Greater => binary_op!(self, Value::Bool, >),
                 OpCode::Less => binary_op!(self, Value::Bool, <),
                 OpCode::Add => {
-
                     match (self.pop(), self.pop()) {
                         (Value::Number(b), Value::Number(a)) => {
                             // numerical
@@ -270,17 +268,15 @@ impl VM {
                 OpCode::Subtract => binary_op!(self, Value::Number, -),
                 OpCode::Multiply => binary_op!(self, Value::Number, *),
                 OpCode::Divide => binary_op!(self, Value::Number, /),
-                OpCode::Negate => {
-                    match self.pop() {
-                        Value::Number(v) => {
-                            self.push(Value::Number(-v));
-                        }
-                        _ => {
-                            eprintln!("Operand must be a number.");
-                            return InterpretResult::RuntimeError;
-                        }
+                OpCode::Negate => match self.pop() {
+                    Value::Number(v) => {
+                        self.push(Value::Number(-v));
                     }
-                }
+                    _ => {
+                        eprintln!("Operand must be a number.");
+                        return InterpretResult::RuntimeError;
+                    }
+                },
                 OpCode::Not => {
                     let v = self.pop();
                     match v {
@@ -352,7 +348,7 @@ impl VM {
         if let Value::NativeFn(f) = self.peek(arg_num) {
             let result = f.0(&self.allocator, &self.stack[self.stack.len() - arg_num..]);
             self.push(result);
-            return
+            return;
         }
         panic!("unreachable")
     }

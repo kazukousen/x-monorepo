@@ -82,11 +82,11 @@ pub struct Compiler<'a> {
 }
 
 impl<'a> Compiler<'a> {
-    pub fn new(kind: FunctionType) -> Box<Self> {
+    pub fn new(name: Reference<String>, kind: FunctionType) -> Box<Self> {
         let mut compiler = Self {
             locals: Vec::new(),
             scope_depth: 0,
-            function: Function::new(),
+            function: Function::new(name),
             func_type: kind,
             enclosing: None,
         };
@@ -128,8 +128,10 @@ macro_rules! parse_rules {
 
 impl<'a> Parser<'a> {
     pub fn new(allocator: &'a mut Allocator) -> Self {
+        let func_name = allocator.new_string("script".to_string());
+
         Self {
-            compiler: Compiler::new(FunctionType::Script),
+            compiler: Compiler::new(func_name, FunctionType::Script),
             allocator,
             tokens: Vec::new(),
             token_pos: 0,
@@ -177,7 +179,8 @@ impl<'a> Parser<'a> {
         }
         self.end_compiler();
 
-        let function = std::mem::replace(&mut self.compiler.function, Function::new());
+        let func_name = self.allocator.new_string(self.previous().source.to_owned());
+        let function = std::mem::replace(&mut self.compiler.function, Function::new(func_name));
         let func_id = self.allocator.alloc(function);
         Ok(func_id)
     }
@@ -256,10 +259,12 @@ impl<'a> Parser<'a> {
     }
 
     fn push_compiler(&mut self, name: &str, kind: FunctionType) {
-        let new_compiler = Compiler::new(kind);
+        let func_name = self.allocator.new_string(name.to_owned());
+        let new_compiler = Compiler::new(func_name, kind);
         let old_compiler = mem::replace(&mut self.compiler, new_compiler);
         self.compiler.enclosing = Some(old_compiler);
-        self.compiler.function.name = Some(name.to_string());
+        let func_name = self.allocator.new_string(name.to_string());
+        self.compiler.function.name = func_name;
     }
 
     fn pop_compiler(&mut self) -> Function {
@@ -560,11 +565,11 @@ impl<'a> Parser<'a> {
 
     fn end_compiler(&mut self) {
         self.emit_return();
-        let name = match &self.compiler.function.name {
-            Some(name) => name.to_string(),
-            None => "code".to_string(),
+        let name = match self.compiler.func_type {
+            FunctionType::Script => "code",
+            FunctionType::Function => self.allocator.deref(&self.compiler.function.name),
         };
-        self.compiler.function.chunk.disassemble(&name);
+        self.compiler.function.chunk.disassemble(name);
     }
 
     fn make_constant(&mut self, v: Value) -> usize {

@@ -53,12 +53,8 @@ print mut_foo;
     let k = &vm.allocator.new_string("breakfast".to_owned());
     assert_eq!(
         "beignets with cafe au lait",
-        vm.allocator.deref(
-            vm.globals
-                .get(k)
-                .expect("no such key")
-                .as_string()
-        ),
+        vm.allocator
+            .deref(vm.globals.get(k).expect("no such key").as_string()),
     );
     let k = &vm.allocator.new_string("mut_foo".to_owned());
     assert_eq!(
@@ -122,11 +118,7 @@ if (global != "localized") {
     let k = &vm.allocator.new_string("falsy".to_owned());
     assert_eq!(
         true,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_bool()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_bool().clone()
     );
 }
 
@@ -145,38 +137,22 @@ var or_exp_false = ( global != "globalized" or local != "localized" );
     let k = &vm.allocator.new_string("and_exp_true".to_owned());
     assert_eq!(
         true,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_bool()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_bool().clone()
     );
     let k = &vm.allocator.new_string("and_exp_false".to_owned());
     assert_eq!(
         false,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_bool()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_bool().clone()
     );
     let k = &vm.allocator.new_string("or_exp_true".to_owned());
     assert_eq!(
         true,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_bool()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_bool().clone()
     );
     let k = &vm.allocator.new_string("or_exp_false".to_owned());
     assert_eq!(
         false,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_bool()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_bool().clone()
     );
 }
 
@@ -194,11 +170,7 @@ while (cnt < retries) {
     let k = &vm.allocator.new_string("cnt".to_owned());
     assert_eq!(
         5_f64,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_number()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_number().clone()
     );
 }
 
@@ -226,38 +198,22 @@ for (;d < 5;) {
     let k = &vm.allocator.new_string("a".to_owned());
     assert_eq!(
         5_f64,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_number()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_number().clone()
     );
     let k = &vm.allocator.new_string("b".to_owned());
     assert_eq!(
         5_f64,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_number()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_number().clone()
     );
     let k = &vm.allocator.new_string("c".to_owned());
     assert_eq!(
         5_f64,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_number()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_number().clone()
     );
     let k = &vm.allocator.new_string("d".to_owned());
     assert_eq!(
         5_f64,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_number()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_number().clone()
     );
 }
 
@@ -278,11 +234,7 @@ foo();
     let k = &vm.allocator.new_string("c".to_owned());
     assert_eq!(
         3_f64,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_number()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_number().clone()
     );
 }
 
@@ -300,11 +252,7 @@ foo(1, 2);
     let k = &vm.allocator.new_string("c".to_owned());
     assert_eq!(
         3_f64,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_number()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_number().clone()
     );
 }
 
@@ -322,11 +270,7 @@ c = foo(1, 2);
     let k = &vm.allocator.new_string("c".to_owned());
     assert_eq!(
         3_f64,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_number()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_number().clone()
     );
 }
 
@@ -346,11 +290,7 @@ foo(1, 2);
     let k = &vm.allocator.new_string("c".to_owned());
     assert_eq!(
         3_f64,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_number()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_number().clone()
     );
 }
 
@@ -365,10 +305,6 @@ a = max(1, 2);
     let k = &vm.allocator.new_string("a".to_owned());
     assert_eq!(
         2_f64,
-        vm.globals
-            .get(k)
-            .expect("no such key")
-            .as_number()
-            .clone()
+        vm.globals.get(k).expect("no such key").as_number().clone()
     );
 }

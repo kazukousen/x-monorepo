@@ -40,20 +40,20 @@ impl Closure {
 
 pub struct Function {
     pub chunk: Chunk,
-    pub name: Option<String>,
+    pub name: Reference<String>,
 }
 
 impl std::fmt::Debug for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "<fn {}>", self.name.as_ref().unwrap())
+        write!(f, "<fn {}>", self.name)
     }
 }
 
 impl Function {
-    pub fn new() -> Self {
+    pub fn new(name: Reference<String>) -> Self {
         Self {
             chunk: Chunk::new(),
-            name: None,
+            name,
         }
     }
 }

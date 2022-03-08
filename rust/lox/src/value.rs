@@ -13,7 +13,6 @@ pub enum Value {
     NativeFn(NativeFn),
 }
 
-
 impl Value {
     pub fn is_falsy(&self) -> bool {
         match self {
