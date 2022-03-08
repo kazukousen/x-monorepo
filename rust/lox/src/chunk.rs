@@ -57,7 +57,10 @@ impl Chunk {
     }
 
     pub fn read_string(&self, index: usize) -> &Reference<String> {
-        self.values[index].as_string()
+        if let Value::String(ref v) = self.values[index] {
+            return v;
+        }
+        unreachable!()
     }
 }
 

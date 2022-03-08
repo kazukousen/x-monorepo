@@ -14,38 +14,47 @@ pub enum InterpretResult {
 macro_rules! binary_op {
     ( $vm:ident, $constructor:expr, $op:tt ) => {
         {
-            if !$vm.peek(0).is_number()
-                || !$vm.peek(1).is_number() {
+
+            match ($vm.pop(), $vm.pop()) {
+                (Value::Number(b), Value::Number(a)) => {
+                    $vm.push($constructor(a $op b));
+                }
+                _ => {
                     eprintln!("Operand must be numbers.");
                     return InterpretResult::RuntimeError;
+                }
             }
-
-            let (b, a) = ($vm.pop().as_number(), $vm.pop().as_number());
-            $vm.push($constructor(a $op b));
         }
     };
 }
 
 fn native_clock(_: &Allocator, _args: &[Value]) -> Value {
-    Value::new_number(1234_f64)
+    Value::Number(1234_f64)
 }
 
 fn native_max(_: &Allocator, args: &[Value]) -> Value {
-    if args[0].as_number() > args[1].as_number() {
-        args[0].clone()
-    } else {
-        args[1].clone()
+
+    if let Value::Number(a) = args[0] {
+        if let Value::Number(b) = args[1] {
+            return if a > b {
+                args[0].clone()
+            } else {
+                args[1].clone()
+            }
+        }
     }
+
+    panic!("panic: Operand must be numbers.");
 }
 
 fn native_panic(allocator: &Allocator, args: &[Value]) -> Value {
     let arg = args[0];
-    let s = if arg.is_string() {
-        allocator.deref(arg.as_string())
+    let s = if let Value::String(s) = arg {
+        allocator.deref(&s)
     } else {
         "unknown"
     };
-    panic!("panic: {}", s)
+    panic!("panic: {}", s);
 }
 
 #[derive(Copy, Clone)]
@@ -96,7 +105,7 @@ impl VM {
             Err(msg) => return InterpretResult::CompileError(msg),
         };
 
-        self.push(Value::new_function(func_id));
+        self.push(Value::Function(func_id));
         let closure_id = self.allocator.alloc(Closure::new(func_id));
         self.frames.push(CallFrame::new(closure_id));
 
@@ -198,78 +207,91 @@ impl VM {
                 OpCode::Call(arg_num) => {
                     let callee = self.peek(arg_num);
 
-                    if callee.is_closure() {
-                        self.frames.push(self.call(arg_num));
-                    } else if callee.is_native_fn() {
-                        self.call_native_fn(arg_num);
-                    } else {
-                        eprintln!("Operand must be a closure or native function.");
-                        return InterpretResult::RuntimeError;
+                    match callee {
+                        Value::Closure(_) => {
+                            self.frames.push(self.call(arg_num));
+                        }
+                        Value::NativeFn(_) => {
+                            self.call_native_fn(arg_num);
+                        }
+                        _ => {
+                            eprintln!("Operand must be a closure or native function.");
+                            return InterpretResult::RuntimeError;
+                        }
                     }
                 }
                 OpCode::Closure(index) => {
-                    let v = self.current_chunk().values[index].clone();
-                    if !v.is_fun() {
-                        eprintln!("Value must be a function.");
-                        return InterpretResult::RuntimeError;
-                    }
+                    let func_id = match self.current_chunk().values[index].clone() {
+                        Value::Function(func_id) => func_id,
+                        _ => {
+                            eprintln!("Value must be a function.");
+                            return InterpretResult::RuntimeError;
+                        }
+                    };
 
-                    let closure = Closure::new(*v.as_fun());
+                    let closure = Closure::new(func_id);
                     let closure_id = self.allocator.alloc(closure);
-                    self.push(Value::new_closure(closure_id));
+                    self.push(Value::Closure(closure_id));
                 }
-                OpCode::Nil => self.push(Value::new_nil()),
-                OpCode::True => self.push(Value::new_bool(true)),
-                OpCode::False => self.push(Value::new_bool(false)),
+                OpCode::Nil => self.push(Value::Nil),
+                OpCode::True => self.push(Value::Bool(true)),
+                OpCode::False => self.push(Value::Bool(false)),
                 OpCode::Equal => {
                     let (b, a) = (self.pop(), self.pop());
-                    self.push(Value::new_bool(b == a));
+                    self.push(Value::Bool(b == a));
                 }
-                OpCode::Greater => binary_op!(self, Value::new_bool, >),
-                OpCode::Less => binary_op!(self, Value::new_bool, <),
+                OpCode::Greater => binary_op!(self, Value::Bool, >),
+                OpCode::Less => binary_op!(self, Value::Bool, <),
                 OpCode::Add => {
-                    if self.peek(0).is_number() && self.peek(1).is_number() {
-                        // numerical
 
-                        let (b, a) = (self.pop().as_number(), self.pop().as_number());
-                        self.push(Value::new_number(a + b));
-                    } else if self.peek(0).is_string() && self.peek(1).is_string() {
-                        // string
-
-                        let (b, a) = (self.pop(), self.pop());
-                        let (b, a) = (b.as_string(), a.as_string());
-                        let b = self.allocator.deref(b);
-                        let a = self.allocator.deref(a);
-                        let concat_str_id = self.allocator.new_string(format!("{}{}", a, b));
-                        self.push(Value::new_string(concat_str_id));
-                    } else {
-                        let frame = self.current_frame();
-                        let chunk = self.current_chunk();
-                        eprintln!(
-                            "L:{:?}: Operand must be numbers or strings.",
-                            chunk.lines[frame.ip - 1]
-                        );
-                        return InterpretResult::RuntimeError;
+                    match (self.pop(), self.pop()) {
+                        (Value::Number(b), Value::Number(a)) => {
+                            // numerical
+                            self.push(Value::Number(a + b));
+                        }
+                        (Value::String(ref b), Value::String(ref a)) => {
+                            // string
+                            let b = self.allocator.deref(b);
+                            let a = self.allocator.deref(a);
+                            let concat_str_id = self.allocator.new_string(format!("{}{}", a, b));
+                            self.push(Value::String(concat_str_id));
+                        }
+                        _ => {
+                            let frame = self.current_frame();
+                            let chunk = self.current_chunk();
+                            eprintln!(
+                                "L:{:?}: Operand must be numbers or strings.",
+                                chunk.lines[frame.ip - 1]
+                            );
+                            return InterpretResult::RuntimeError;
+                        }
                     }
                 }
-                OpCode::Subtract => binary_op!(self, Value::new_number, -),
-                OpCode::Multiply => binary_op!(self, Value::new_number, *),
-                OpCode::Divide => binary_op!(self, Value::new_number, /),
+                OpCode::Subtract => binary_op!(self, Value::Number, -),
+                OpCode::Multiply => binary_op!(self, Value::Number, *),
+                OpCode::Divide => binary_op!(self, Value::Number, /),
                 OpCode::Negate => {
-                    if !self.peek(0).is_number() {
-                        eprintln!("Operand must be a number.");
-                        return InterpretResult::RuntimeError;
+                    match self.pop() {
+                        Value::Number(v) => {
+                            self.push(Value::Number(-v));
+                        }
+                        _ => {
+                            eprintln!("Operand must be a number.");
+                            return InterpretResult::RuntimeError;
+                        }
                     }
-                    let v = self.pop();
-                    self.push(Value::new_number(-v.as_number()));
                 }
                 OpCode::Not => {
-                    if !self.peek(0).is_bool() && !self.peek(0).is_nil() {
-                        eprintln!("Operand must be a bool or nil.");
-                        return InterpretResult::RuntimeError;
-                    }
                     let v = self.pop();
-                    self.push(Value::new_bool(v.is_falsy()));
+                    match v {
+                        Value::Bool(_) | Value::Nil => {
+                            self.push(Value::Bool(v.is_falsy()));
+                        }
+                        _ => {
+                            eprintln!("Operand must be a number.");
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
                 }
             }
         }
@@ -299,7 +321,7 @@ impl VM {
 
     fn define_native(&mut self, name: String, native: NativeFn) {
         let name = self.allocator.new_string(name);
-        self.globals.insert(name, Value::new_native_fn(native));
+        self.globals.insert(name, Value::NativeFn(native));
     }
 
     fn current_frame_mut(&mut self) -> &mut CallFrame {
@@ -318,15 +340,20 @@ impl VM {
     }
 
     fn call(&self, arg_num: usize) -> CallFrame {
-        let callee_id = self.peek(arg_num).as_closure();
-        let mut new_frame = CallFrame::new(*callee_id);
-        new_frame.slot = self.stack.len() - arg_num - 1;
-        new_frame
+        if let Value::Closure(callee_id) = self.peek(arg_num) {
+            let mut new_frame = CallFrame::new(*callee_id);
+            new_frame.slot = self.stack.len() - arg_num - 1;
+            return new_frame;
+        }
+        panic!("unreachable")
     }
 
     fn call_native_fn(&mut self, arg_num: usize) {
-        let f = self.peek(arg_num).as_native_fn();
-        let result = f.0(&self.allocator, &self.stack[self.stack.len() - arg_num..]);
-        self.push(result);
+        if let Value::NativeFn(f) = self.peek(arg_num) {
+            let result = f.0(&self.allocator, &self.stack[self.stack.len() - arg_num..]);
+            self.push(result);
+            return
+        }
+        panic!("unreachable")
     }
 }

@@ -299,7 +299,7 @@ impl<'a> Parser<'a> {
 
         let function = self.pop_compiler();
         let func_id = self.allocator.alloc(function);
-        let index = self.make_constant(Value::new_function(func_id));
+        let index = self.make_constant(Value::Function(func_id));
         self.emit(OpCode::Closure(index));
 
         Ok(())
@@ -328,7 +328,7 @@ impl<'a> Parser<'a> {
     fn identifier_constant(&mut self, name: &'a str) -> usize {
         let name = name.to_string();
         let s = self.allocator.new_string(name);
-        let idx = self.make_constant(Value::new_string(s));
+        let idx = self.make_constant(Value::String(s));
         return idx;
     }
 
@@ -617,7 +617,7 @@ impl<'a> Parser<'a> {
             .parse()
             .expect("Compiler tried to parse to number");
 
-        self.emit_constant(Value::new_number(v));
+        self.emit_constant(Value::Number(v));
 
         Ok(())
     }
@@ -704,7 +704,7 @@ impl<'a> Parser<'a> {
         // trim quotes
         let s = &self.previous().source[1..=self.previous().source.len() - 2];
         let s = self.allocator.new_string(s.to_string());
-        self.emit_constant(Value::new_string(s));
+        self.emit_constant(Value::String(s));
 
         Ok(())
     }
