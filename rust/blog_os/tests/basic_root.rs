@@ -4,8 +4,8 @@
 #![test_runner(blog_os::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+use blog_os::{println, test_panic_handler};
 use core::panic::PanicInfo;
-use blog_os::{test_panic_handler, println};
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {

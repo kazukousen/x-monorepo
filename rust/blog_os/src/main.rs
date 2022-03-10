@@ -4,8 +4,8 @@
 #![test_runner(blog_os::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+use blog_os::{println, test_panic_handler};
 use core::panic::PanicInfo;
-use blog_os::{println, test_panic_handler, init};
 
 fn main() {}
 
@@ -22,17 +22,11 @@ fn panic(info: &PanicInfo) -> ! {
     test_panic_handler(info)
 }
 
-
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     println!("Hello World{}", "!");
 
-    init();
-
-    // cause page fault
-    unsafe {
-        *(0xdeadbeef as *mut u64) = 42;
-    }
+    blog_os::init();
 
     #[cfg(test)]
     test_main();
@@ -45,4 +39,3 @@ pub extern "C" fn _start() -> ! {
 fn trivial_assertion() {
     assert_eq!(1, 1);
 }
-
