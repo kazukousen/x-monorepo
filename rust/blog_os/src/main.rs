@@ -4,10 +4,13 @@
 #![test_runner(blog_os::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+extern crate alloc;
+
 use blog_os::{println, test_panic_handler};
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use x86_64::structures::paging::{PageTable, Translate};
+use alloc::boxed::Box;
 
 fn main() {}
 
@@ -45,6 +48,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
     unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
+
+    let x = Box::new(42);
 
     #[cfg(test)]
     test_main();

@@ -2,6 +2,7 @@
 #![cfg_attr(test, no_main)]
 #![feature(custom_test_frameworks)]
 #![feature(abi_x86_interrupt)]
+#![feature(alloc_error_handler)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
@@ -10,6 +11,7 @@ pub mod interrupts;
 pub mod memory;
 pub mod serial;
 pub mod vga_buffer;
+pub mod allocator;
 
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
@@ -50,6 +52,11 @@ pub fn test_runner(tests: &[&dyn Testable]) {
         test.run();
     }
     exit_qemu(QemuExitCode::Success);
+}
+
+#[alloc_error_handler]
+fn alloc_error_handler(layout: core::alloc::Layout) -> ! {
+    panic!("allocation error: {:?}", layout)
 }
 
 pub fn test_panic_handler(info: &PanicInfo) -> ! {
