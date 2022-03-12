@@ -6,11 +6,11 @@
 
 extern crate alloc;
 
-use blog_os::{println, test_panic_handler};
+use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
+use blog_os::{allocator, println, test_panic_handler};
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use x86_64::structures::paging::{PageTable, Translate};
-use alloc::boxed::Box;
 
 fn main() {}
 
@@ -43,13 +43,25 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     let mut frame_allocator =
         unsafe { memory::BootInfoFrameAllocator::init(&boot_info.memory_map) };
 
-    let page = Page::containing_address(VirtAddr::new(0));
-    memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
+    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
 
-    let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
-    unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
+    // allocate a number on the heap
+    let heap_value = Box::new(42);
+    println!("heap_value '{}' at {:p}", heap_value, heap_value);
 
-    let x = Box::new(42);
+    // create a dynamically sized vector
+    let mut xs = Vec::new();
+    for i in 0..500 {
+        xs.push(i);
+    }
+    println!("vec at {:p}", xs.as_slice());
+
+    // create a reference counted vector -> will be freed when count reaches 0
+    let reference_counted = Rc::new(vec![1, 2, 3]);
+    let cloned_reference = reference_counted.clone();
+    println!("current reference count is {}", Rc::strong_count(&cloned_reference));
+    core::mem::drop(reference_counted);
+    println!("reference count is {} now", Rc::strong_count(&cloned_reference));
 
     #[cfg(test)]
     test_main();

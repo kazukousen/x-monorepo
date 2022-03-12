@@ -6,12 +6,12 @@
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+pub mod allocator;
 pub mod gdt;
 pub mod interrupts;
 pub mod memory;
 pub mod serial;
 pub mod vga_buffer;
-pub mod allocator;
 
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
