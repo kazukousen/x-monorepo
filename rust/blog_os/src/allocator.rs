@@ -1,9 +1,11 @@
+mod bump;
+
 use core::alloc::{GlobalAlloc, Layout};
-use core::ptr::null_mut;
 use x86_64::structures::paging::mapper::MapToError;
 use x86_64::structures::paging::{FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB};
 use x86_64::VirtAddr;
 use linked_list_allocator::LockedHeap;
+use crate::allocator::bump::BumpAllocator;
 
 pub const HEAP_START: usize = 0x_4444_4444_0000;
 pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
@@ -35,5 +37,19 @@ pub fn init_heap(
     Ok(())
 }
 
+pub struct Locked<A> {
+    inner: spin::Mutex<A>,
+}
+
+impl<A> Locked<A> {
+    pub const fn new(inner: A) -> Self {
+        Self {inner: spin::Mutex::new(inner)}
+    }
+
+    pub fn lock(&self) -> spin::MutexGuard<A> {
+        self.inner.lock()
+    }
+}
+
 #[global_allocator]
-static ALLOCATOR: LockedHeap = LockedHeap::empty();
+static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
