@@ -1,12 +1,11 @@
-use core::convert::TryInto;
-use core::fmt::Write;
 use core::fmt::Error;
+use core::fmt::Write;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
 lazy_static! {
     pub static ref UART: Mutex<Uart> = {
-      let mut uart = Uart::new(0x1000_0000);
+        let mut uart = Uart::new(0x1000_0000);
         uart.init();
         Mutex::new(uart)
     };
@@ -28,7 +27,6 @@ pub fn _print(args: ::core::fmt::Arguments) {
     UART.lock().write_fmt(args).unwrap();
 }
 
-
 pub struct Uart {
     base_address: usize,
 }
@@ -44,15 +42,12 @@ impl Write for Uart {
 
 impl Uart {
     fn new(base_address: usize) -> Self {
-        Self {
-            base_address
-        }
+        Self { base_address }
     }
 
     fn init(&mut self) {
         let ptr = self.base_address as *mut u8;
-        unsafe {
-        }
+        unsafe {}
     }
 
     fn put(&mut self, c: u8) {
@@ -67,8 +62,7 @@ impl Uart {
         unsafe {
             if ptr.add(5).read_volatile() & 1 == 0 {
                 None
-            }
-            else {
+            } else {
                 Some(ptr.add(0).read_volatile())
             }
         }

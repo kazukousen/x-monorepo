@@ -1,9 +1,3 @@
-
-pub mod mstatus {
-    use core::arch::asm;
-    unsafe fn read() -> usize {
-        let ret: usize;
-        asm!("csrr $0, mstatus":"=r"(ret):::"volatile");
-        ret
-    }
-}
+pub mod mstatus;
+pub mod mepc;
+pub mod satp;
