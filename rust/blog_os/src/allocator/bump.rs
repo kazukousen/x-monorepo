@@ -1,5 +1,5 @@
+use crate::allocator::{align_up, Locked};
 use core::alloc::{GlobalAlloc, Layout};
-use crate::allocator::Locked;
 use core::ptr;
 
 pub struct BumpAllocator {
@@ -32,7 +32,6 @@ impl BumpAllocator {
 
 unsafe impl GlobalAlloc for Locked<BumpAllocator> {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-
         // get a mutable reference
         let mut bump = self.inner.lock();
 
@@ -51,8 +50,7 @@ unsafe impl GlobalAlloc for Locked<BumpAllocator> {
         }
     }
 
-    unsafe fn dealloc(&self, _ptr: *mut u8, layout: Layout) {
-
+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
         // get a mutable reference
         let mut bump = self.inner.lock();
 
@@ -61,8 +59,4 @@ unsafe impl GlobalAlloc for Locked<BumpAllocator> {
             bump.next = bump.heap_start;
         }
     }
-}
-
-fn align_up(addr: usize, align: usize) -> usize {
-    (addr + align - 1) & !(align - 1)
 }
