@@ -2,6 +2,7 @@ mod bump;
 mod linked_list;
 
 use crate::allocator::bump::BumpAllocator;
+use crate::allocator::linked_list::LinkedListAllocator;
 use core::alloc::{GlobalAlloc, Layout};
 use linked_list_allocator::LockedHeap;
 use x86_64::structures::paging::mapper::MapToError;
@@ -55,7 +56,7 @@ impl<A> Locked<A> {
 }
 
 #[global_allocator]
-static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
+static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
 
 pub fn align_up(addr: usize, align: usize) -> usize {
     (addr + align - 1) & !(align - 1)
