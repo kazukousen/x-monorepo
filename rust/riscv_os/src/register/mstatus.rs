@@ -1,5 +1,4 @@
 use core::arch::asm;
-use crate::println;
 
 #[inline]
 unsafe fn read() -> usize {
