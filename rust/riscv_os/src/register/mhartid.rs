@@ -6,4 +6,3 @@ pub unsafe fn read() -> usize {
     asm!("csrr {}, mhartid", out(reg) ret);
     ret
 }
-

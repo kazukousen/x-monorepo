@@ -4,7 +4,6 @@ use core::ptr;
 const CLINT_MTIME: usize = 0x200bff8;
 pub const CLINT_MTIMECMP: usize = 0x2004000;
 
-
 #[inline]
 unsafe fn read_mtime() -> u64 {
     ptr::read_volatile(CLINT_MTIME as *const u64)

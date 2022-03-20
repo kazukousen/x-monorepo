@@ -1,6 +1,5 @@
-
-use crate::rmain;
 use crate::register;
+use crate::rmain;
 use core::arch::asm;
 
 const NCPU: usize = 8;
@@ -9,7 +8,7 @@ const NCPU: usize = 8;
 static STACK0: [u8; 4096 * NCPU] = [0; 4096 * NCPU];
 
 #[no_mangle]
-static TIMER_SCRATCH: [[usize;5]; NCPU] = [[0;5]; NCPU];
+static TIMER_SCRATCH: [[usize; 5]; NCPU] = [[0; 5]; NCPU];
 
 #[no_mangle]
 unsafe fn start() -> ! {
@@ -71,4 +70,3 @@ unsafe fn timerinit() {
     // Enable machine-mode timer interrupt.
     register::mie::enable_machine_timer_interrupt();
 }
-

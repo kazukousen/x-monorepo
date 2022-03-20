@@ -4,4 +4,3 @@ use core::arch::asm;
 pub unsafe fn write(v: u64) {
     asm!("csrw mscratch, {}", in(reg) v);
 }
-

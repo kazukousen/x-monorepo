@@ -2,12 +2,12 @@
 #![no_std]
 
 mod register;
-mod uart;
 mod rmain;
 mod start;
+mod uart;
 
-use core::panic::PanicInfo;
 use core::arch::asm;
+use core::panic::PanicInfo;
 
 #[panic_handler]
 fn panic(info: &PanicInfo<'_>) -> ! {
