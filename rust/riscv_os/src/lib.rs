@@ -1,6 +1,9 @@
 #![no_main]
 #![no_std]
 
+mod kalloc;
+mod param;
+mod process;
 mod register;
 mod rmain;
 mod start;

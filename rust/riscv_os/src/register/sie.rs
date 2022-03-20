@@ -14,8 +14,8 @@ unsafe fn write(v: usize) {
 
 pub unsafe fn enable_supervisor_all() {
     let mut sie = read();
-    sie |= (1 << 1); // Software Interrupt
-    sie |= (1 << 5); // Timer Interrupt
-    sie |= (1 << 9); // External Interrupt
+    sie |= 1 << 1; // Software Interrupt
+    sie |= 1 << 5; // Timer Interrupt
+    sie |= 1 << 9; // External Interrupt
     write(sie);
 }

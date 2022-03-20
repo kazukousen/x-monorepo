@@ -14,6 +14,6 @@ unsafe fn write(v: usize) {
 
 pub unsafe fn enable_machine_timer_interrupt() {
     let mut mie = read();
-    mie |= (1 << 7);
+    mie |= 1 << 7;
     write(mie);
 }
