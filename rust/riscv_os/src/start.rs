@@ -6,6 +6,9 @@ use core::arch::asm;
 const NCPU: usize = 8;
 
 #[no_mangle]
+static STACK0: [u8; 4096 * NCPU] = [0; 4096 * NCPU];
+
+#[no_mangle]
 static TIMER_SCRATCH: [[usize;5]; NCPU] = [[0;5]; NCPU];
 
 #[no_mangle]
