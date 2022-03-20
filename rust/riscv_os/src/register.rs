@@ -8,3 +8,5 @@ pub mod tp;
 pub mod mtvec;
 pub mod clint;
 pub mod mscratch;
+pub mod mie;
+pub mod sie;
