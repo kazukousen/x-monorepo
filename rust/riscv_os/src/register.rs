@@ -5,3 +5,6 @@ pub mod medeleg;
 pub mod mideleg;
 pub mod mhartid;
 pub mod tp;
+pub mod mtvec;
+pub mod clint;
+pub mod mscratch;

@@ -3,6 +3,11 @@ use crate::rmain;
 use crate::register;
 use core::arch::asm;
 
+const NCPU: usize = 8;
+
+#[no_mangle]
+static TIMER_SCRATCH: [[usize;5]; NCPU] = [[0;5]; NCPU];
+
 #[no_mangle]
 unsafe fn start() -> ! {
     // 1. Perform some configurations that is only allowed in machine mode.
@@ -19,7 +24,8 @@ unsafe fn start() -> ! {
     register::mideleg::write(0xffff);
 
     // 5. Enable clock interrupts.
-    // TODO:
+    timerinit();
+
     // 6. Store each CPU's hart id in tp register, for cpuid().
     let id = register::mhartid::read();
     register::tp::write(id);
@@ -28,5 +34,28 @@ unsafe fn start() -> ! {
     asm!("mret");
 
     loop {}
+}
+
+extern "C" {
+    fn timervec();
+}
+
+unsafe fn timerinit() {
+    let id = register::mhartid::read();
+
+    // ask the CLINT for a timer interrupt.
+    let interval = 1000000; // cycles; about 1/10th second in qemu.
+    register::clint::add_mtimecmp(id, interval);
+
+    let mut arr = TIMER_SCRATCH[id];
+    arr[3] = register::clint::CLINT_MTIMECMP + 8 * id;
+    arr[4] = interval as usize;
+    register::mscratch::write(arr.as_ptr() as u64);
+
+    // Set the machine-mode trap handler.
+    register::mtvec::write(timervec as usize);
+
+    // Enable machine interrupt.
+    register::mstatus::enable_interrupt(register::mstatus::MPPMode::Machine);
 }
 
