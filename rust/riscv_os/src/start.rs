@@ -13,8 +13,12 @@ unsafe fn start() -> ! {
     // 1. Perform some configurations that is only allowed in machine mode.
     register::mstatus::set_mpp(register::mstatus::MPPMode::Machine);
 
+    extern "Rust" {
+        fn main();
+    }
+
     // 2. Set a program counter to `main`.
-    register::mepc::write(rmain::rust_main as usize);
+    register::mepc::write(main as usize);
 
     // 3. Disable paging by set `satp` to 0.
     register::satp::write(0);
