@@ -1,3 +1,4 @@
+use crate::param::UART0;
 use core::fmt::Error;
 use core::fmt::Write;
 use lazy_static::lazy_static;
@@ -5,7 +6,7 @@ use spin::Mutex;
 
 lazy_static! {
     pub static ref UART: Mutex<Uart> = {
-        let mut uart = Uart::new(0x1000_0000);
+        let mut uart = Uart::new(UART0);
         uart.init();
         Mutex::new(uart)
     };

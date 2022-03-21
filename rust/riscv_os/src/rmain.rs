@@ -16,11 +16,13 @@ pub unsafe fn main() -> ! {
         // initialize physical memory allocator
         kalloc::heap_init();
         kvm::init();
+        kvm::init_hart();
 
         STARTED.store(true, Ordering::SeqCst);
     } else {
         while !STARTED.load(Ordering::SeqCst) {}
         println!("hart {} starting", cpu_id);
+        kvm::init_hart();
     }
     loop {}
 }
