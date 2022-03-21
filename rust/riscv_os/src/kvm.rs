@@ -13,7 +13,12 @@ pub unsafe fn init() {
         fn _trampoline();
     }
     let trampoline = _trampoline as usize;
-    println!("trampoline={:#x}, etext={:#x}", trampoline, etext);
+    println!(
+        "trampoline={:#x}, etext={:#x}, satp={:#x}",
+        trampoline,
+        etext,
+        KERNEL_PAGE_TABLE.as_satp()
+    );
     // map kernel text executable and read-only.
     kvm_map(
         KERNBASE,

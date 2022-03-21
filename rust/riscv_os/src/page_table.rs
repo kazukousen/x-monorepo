@@ -30,6 +30,10 @@ impl PageTable {
         }
     }
 
+    pub fn as_satp(&self) -> usize {
+        (8 << 60) | ((self as *const PageTable as usize) >> 12)
+    }
+
     pub fn map_pages(
         &mut self,
         va: usize,
@@ -38,7 +42,7 @@ impl PageTable {
         perm: PteFlag,
     ) -> Result<(), &'static str> {
         let mut va_start = align_down(va, PAGESIZE);
-        let mut va_end = align_down(va + size - 1, PAGESIZE);
+        let mut va_end = align_up(va + size, PAGESIZE);
 
         let mut pa = pa;
 
@@ -92,11 +96,11 @@ enum PageTableLevel {
 }
 
 fn get_index(va: usize, level: usize) -> PageTableIndex {
-    PageTableIndex((va >> (12 + level * 9) & 0x1FF) as u16)
+    PageTableIndex(((va >> (12 + level * 9)) & 0x1FF) as u16)
 }
 
 fn as_pte_addr(pa: usize) -> usize {
-    pa >> 12 << 10
+    (pa >> 12) << 10
 }
 
 impl Index<PageTableIndex> for PageTable {
@@ -118,6 +122,7 @@ impl IndexMut<PageTableIndex> for PageTable {
 /// A 9-bits index for page table.
 pub struct PageTableIndex(u16);
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct PageTableEntry {
     data: usize,
