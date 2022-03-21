@@ -89,12 +89,6 @@ impl PageTable {
     }
 }
 
-enum PageTableLevel {
-    Zero,
-    One,
-    Two,
-}
-
 fn get_index(va: usize, level: usize) -> PageTableIndex {
     PageTableIndex(((va >> (12 + level * 9)) & 0x1FF) as u16)
 }
