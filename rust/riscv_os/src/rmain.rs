@@ -12,7 +12,8 @@ pub fn main() -> ! {
     if cpu_id == 0 {
         println!("Hello, World! in Rust {}", cpu_id);
 
-        kalloc::kinit();
+        // initialize physical memory allocator
+        kalloc::heap_init();
 
         STARTED.store(true, Ordering::SeqCst);
     } else {
