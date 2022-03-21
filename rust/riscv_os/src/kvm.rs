@@ -9,6 +9,11 @@ pub unsafe fn init() {
         fn _etext();
     }
     let etext = _etext as usize;
+    extern "C" {
+        fn _trampoline();
+    }
+    let trampoline = _trampoline as usize;
+    println!("trampoline={:#x}, etext={:#x}", trampoline, etext);
     // map kernel text executable and read-only.
     kvm_map(
         KERNBASE,

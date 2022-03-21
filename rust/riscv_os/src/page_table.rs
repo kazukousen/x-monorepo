@@ -1,5 +1,6 @@
 use crate::kalloc::kalloc;
 use crate::param::PAGESIZE;
+use crate::println;
 use bitflags::bitflags;
 use core::ops::{Index, IndexMut};
 
@@ -39,7 +40,10 @@ impl PageTable {
         let mut va_start = align_down(va, PAGESIZE);
         let mut va_end = align_down(va + size - 1, PAGESIZE);
 
+        let mut pa = pa;
+
         while va_start != va_end {
+            // println!("va_start={:#x}, va_end={:#x}, pa={:#x}, size={:#x}", va_start, va_end, pa, size);
             match self.walk(va_start) {
                 Some(pte) => {
                     if pte.is_unused() {
@@ -54,7 +58,7 @@ impl PageTable {
             }
 
             va_start += PAGESIZE;
-            va_end += PAGESIZE;
+            pa += PAGESIZE;
         }
 
         Ok(())
