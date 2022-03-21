@@ -1,12 +1,17 @@
-use alloc::alloc::Layout;
-use alloc::alloc::alloc;
-use core::ptr::write_bytes;
-use crate::param::{PHYSTOP, PAGESIZE};
+use crate::param::{PAGESIZE, PHYSTOP};
 use crate::{print, println};
+use alloc::alloc::alloc;
+use alloc::alloc::Layout;
+use core::ptr::write_bytes;
 use linked_list_allocator::LockedHeap;
 
 #[global_allocator]
 pub static ALLOCATOR: LockedHeap = LockedHeap::empty();
+
+#[alloc_error_handler]
+fn alloc_error_handler(layout: Layout) -> ! {
+    panic!("allocation error: {:?}", layout)
+}
 
 pub fn heap_init() {
     extern "C" {

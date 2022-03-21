@@ -1,5 +1,4 @@
 use crate::register;
-use crate::rmain;
 use core::arch::asm;
 
 const NCPU: usize = 8;

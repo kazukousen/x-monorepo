@@ -1,5 +1,9 @@
 #![no_main]
 #![no_std]
+#![feature(alloc_error_handler)]
+
+#[macro_use]
+extern crate alloc;
 
 mod kalloc;
 mod param;
@@ -10,7 +14,6 @@ mod start;
 mod uart;
 mod vm;
 
-use core::arch::asm;
 use core::panic::PanicInfo;
 
 #[panic_handler]
