@@ -1,5 +1,5 @@
 use crate::param::{PAGESIZE, PHYSTOP};
-use crate::{print, println};
+use crate::println;
 use alloc::alloc::alloc;
 use alloc::alloc::Layout;
 use core::ptr::write_bytes;
@@ -18,8 +18,8 @@ pub fn heap_init() {
         fn end();
     }
     let heap_start: usize = end as usize;
-    print!(
-        "kalloc: available phys memory[{:#x}, {:#x}]\n",
+    println!(
+        "kalloc: available phys memory[{:#x}, {:#x}]",
         heap_start, PHYSTOP
     );
     unsafe {

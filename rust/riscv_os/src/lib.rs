@@ -5,16 +5,17 @@
 #[macro_use]
 extern crate alloc;
 
+use core::panic::PanicInfo;
+
 mod kalloc;
+mod kvm;
+mod page_table;
 mod param;
 mod process;
 mod register;
 mod rmain;
 mod start;
 mod uart;
-mod vm;
-
-use core::panic::PanicInfo;
 
 #[panic_handler]
 fn panic(info: &PanicInfo<'_>) -> ! {

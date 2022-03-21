@@ -16,12 +16,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     Build::new()
         .file("src/entry.S")
         .file("src/kernelvec.S")
+        .file("src/trampoline.S")
         .compile("asm");
 
     // rebuild if `entry.S` changed
     println!("cargo:rerun-if-changed=src/entry.S");
     // rebuild if `kernelvec.S` changed
     println!("cargo:rerun-if-changed=src/kernelvec.S");
+    // rebuild if `trampoline.S` changed
+    println!("cargo:rerun-if-changed=src/trampoline.S");
 
     Ok(())
 }

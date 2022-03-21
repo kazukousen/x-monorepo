@@ -22,7 +22,6 @@ pub struct PageTable {
 }
 
 impl PageTable {
-
     pub const fn empty() -> Self {
         const EMPTY: PageTableEntry = PageTableEntry::new();
         Self {
@@ -33,8 +32,8 @@ impl PageTable {
     pub fn map_pages(
         &mut self,
         va: usize,
-        size: usize,
         pa: usize,
+        size: usize,
         perm: PteFlag,
     ) -> Result<(), &'static str> {
         let mut va_start = align_down(va, PAGESIZE);
@@ -89,7 +88,7 @@ enum PageTableLevel {
 }
 
 fn get_index(va: usize, level: usize) -> PageTableIndex {
-    PageTableIndex((va >> (12 + level * 9)) as u16)
+    PageTableIndex((va >> (12 + level * 9) & 0x1FF) as u16)
 }
 
 fn as_pte_addr(pa: usize) -> usize {
