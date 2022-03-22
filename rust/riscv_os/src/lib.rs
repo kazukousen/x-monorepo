@@ -1,6 +1,8 @@
 #![no_main]
 #![no_std]
 #![feature(alloc_error_handler)]
+#![feature(new_uninit)]
+#![feature(allocator_api)]
 
 #[macro_use]
 extern crate alloc;

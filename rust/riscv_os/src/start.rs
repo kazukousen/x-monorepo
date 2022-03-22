@@ -1,7 +1,6 @@
 use crate::register;
 use core::arch::asm;
-
-const NCPU: usize = 8;
+use crate::param::NCPU;
 
 #[no_mangle]
 static STACK0: [u8; 4096 * NCPU] = [0; 4096 * NCPU];
@@ -44,10 +43,6 @@ unsafe fn start() -> ! {
     loop {}
 }
 
-extern "C" {
-    fn timervec();
-}
-
 unsafe fn timerinit() {
     let id = register::mhartid::read();
 
@@ -61,6 +56,9 @@ unsafe fn timerinit() {
     register::mscratch::write(arr.as_ptr() as u64);
 
     // Set the machine-mode trap handler.
+    extern "C" {
+        fn timervec();
+    }
     register::mtvec::write(timervec as usize);
 
     // Enable machine interrupt.

@@ -1,5 +1,6 @@
-use crate::kalloc::kalloc;
-use crate::param::PAGESIZE;
+use alloc::boxed::Box;
+use core::alloc::AllocError;
+use crate::param::{PAGESIZE, TRAMPOLINE, TRAPFRAME};
 use crate::println;
 use bitflags::bitflags;
 use core::ops::{Index, IndexMut};
@@ -17,10 +18,23 @@ bitflags! {
     }
 }
 
+pub trait Page: Sized {
+    unsafe fn new_zeroed() -> Result<*mut u8, AllocError> {
+        let page = Box::<Self>::try_new_zeroed()?.assume_init();
+        Ok(Box::into_raw(page) as *mut u8)
+    }
+
+    unsafe fn drop(raw: *mut u8) {
+        drop(Box::from_raw(raw as *mut Self))
+    }
+}
+
 #[repr(C, align(4096))]
 pub struct PageTable {
     entries: [PageTableEntry; 512],
 }
+
+impl Page for PageTable {}
 
 impl PageTable {
     pub const fn empty() -> Self {
@@ -28,6 +42,32 @@ impl PageTable {
         Self {
             entries: [EMPTY; 512],
         }
+    }
+
+    // Allocate a new user page table.
+    pub fn alloc_user_page_table(trapframe: usize) -> Option<Box<Self>> {
+        extern "C" {
+            fn _trampoline();
+        }
+        let trampoline = _trampoline as usize;
+
+        let mut pt = unsafe { Box::<Self>::try_new_zeroed().ok()?.assume_init() };
+
+        pt.map_pages(
+            TRAMPOLINE,
+            trampoline,
+            PAGESIZE,
+            PteFlag::Read | PteFlag::Exec,
+        ).ok()?;
+
+        pt.map_pages(
+            TRAPFRAME,
+            trapframe,
+            PAGESIZE,
+            PteFlag::Read | PteFlag::Write,
+        ).ok()?;
+
+        Some(pt)
     }
 
     pub fn as_satp(&self) -> usize {
@@ -42,11 +82,11 @@ impl PageTable {
         perm: PteFlag,
     ) -> Result<(), &'static str> {
         let mut va_start = align_down(va, PAGESIZE);
-        let mut va_end = align_up(va + size, PAGESIZE);
+        let mut va_end = align_down(va + size - 1, PAGESIZE);
 
         let mut pa = pa;
 
-        while va_start != va_end {
+        loop {
             // println!("va_start={:#x}, va_end={:#x}, pa={:#x}, size={:#x}", va_start, va_end, pa, size);
             match self.walk(va_start) {
                 Some(pte) => {
@@ -59,6 +99,10 @@ impl PageTable {
                 None => {
                     return Err("map_pages: not enough memory for new page table");
                 }
+            }
+
+            if va_start == va_end {
+                break;
             }
 
             va_start += PAGESIZE;
@@ -75,10 +119,9 @@ impl PageTable {
             let mut pte = unsafe { &mut page_table.as_mut().unwrap()[get_index(va, level)] };
 
             if pte.is_unused() {
-                let ptr = kalloc();
-                if ptr == 0 as *mut u8 {
-                    return None;
-                }
+
+                let ptr = unsafe { PageTable::new_zeroed().ok()? };
+
                 pte.set_addr(as_pte_addr(ptr as usize), PteFlag::Valid);
             }
 
@@ -86,6 +129,12 @@ impl PageTable {
         }
 
         unsafe { Some(&mut page_table.as_mut().unwrap()[get_index(va, 0)]) }
+    }
+}
+
+impl Drop for PageTable {
+    fn drop(&mut self) {
+        self.entries.iter_mut().for_each(|e| e.free());
     }
 }
 
@@ -119,7 +168,7 @@ pub struct PageTableIndex(u16);
 #[derive(Debug)]
 #[repr(C)]
 pub struct PageTableEntry {
-    data: usize,
+    data: usize, // Reserved (63-56 bit) + Physical Page Number (55-12 bit) + Offset (11-0 bit)
 }
 
 impl PageTableEntry {
@@ -138,13 +187,14 @@ impl PageTableEntry {
     }
 
     #[inline]
-    fn addr(&self) -> usize {
-        self.data >> 10 << 12
-    }
-
-    #[inline]
     fn as_page_table(&self) -> *mut PageTable {
         (self.data >> 10 << 12) as *mut PageTable
+    }
+
+    fn free(&mut self) {
+        if self.is_unused() {
+            drop(unsafe { Box::from_raw(self.as_page_table()) })
+        }
     }
 }
 
