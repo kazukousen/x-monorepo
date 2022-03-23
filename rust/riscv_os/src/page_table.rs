@@ -192,7 +192,7 @@ impl PageTableEntry {
     }
 
     fn free(&mut self) {
-        if self.is_unused() {
+        if !self.is_unused() {
             drop(unsafe { Box::from_raw(self.as_page_table()) })
         }
     }
