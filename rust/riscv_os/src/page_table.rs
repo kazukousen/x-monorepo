@@ -90,7 +90,7 @@ impl PageTable {
             // println!("va_start={:#x}, va_end={:#x}, pa={:#x}, size={:#x}", va_start, va_end, pa, size);
             match self.walk(va_start) {
                 Some(pte) => {
-                    if pte.is_unused() {
+                    if !pte.is_valid() {
                         pte.set_addr(as_pte_addr(pa), perm);
                     } else {
                         return Err("map_pages: remap");
@@ -118,7 +118,7 @@ impl PageTable {
         for level in (1..=2).rev() {
             let mut pte = unsafe { &mut page_table.as_mut().unwrap()[get_index(va, level)] };
 
-            if pte.is_unused() {
+            if !pte.is_valid() {
 
                 // the ptr is leaked but kept in the page entry that can calculate later
                 let ptr = unsafe { PageTable::new_zeroed().ok()? };
@@ -179,12 +179,17 @@ impl PageTableEntry {
     }
 
     #[inline]
-    pub fn is_unused(&self) -> bool {
-        self.data == 0
+    pub fn is_valid(&self) -> bool {
+        (self.data & PteFlag::Valid.bits()) > 0
+    }
+
+    #[inline]
+    pub fn is_leaf(&self) -> bool {
+        (self.data & (PteFlag::Read | PteFlag::Write | PteFlag::Exec).bits()) > 0
     }
 
     pub fn set_addr(&mut self, addr: usize, perm: PteFlag) {
-        self.data = addr | perm.bits();
+        self.data = addr | (perm | PteFlag::Valid).bits();
     }
 
     #[inline]
@@ -194,7 +199,10 @@ impl PageTableEntry {
     }
 
     fn free(&mut self) {
-        if !self.is_unused() {
+        if self.is_valid() {
+            if self.is_leaf() {
+                panic!("freeing a PTE leaf")
+            }
             drop(unsafe { Box::from_raw(self.as_page_table()) })
         }
     }
