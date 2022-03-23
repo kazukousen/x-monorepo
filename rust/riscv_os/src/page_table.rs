@@ -82,13 +82,13 @@ impl PageTable {
         perm: PteFlag,
     ) -> Result<(), &'static str> {
         let mut va_start = align_down(va, PAGESIZE);
-        let mut va_end = align_down(va + size - 1, PAGESIZE);
+        let mut va_end = align_up(va + size, PAGESIZE);
 
         let mut pa = pa;
 
-        loop {
-            // println!("va_start={:#x}, va_end={:#x}, pa={:#x}, size={:#x}", va_start, va_end, pa, size);
-            match self.walk(va_start) {
+        for va in (va_start..va_end).step_by(PAGESIZE) {
+            // println!("va_start={:#x}, va_end={:#x}, pa={:#x}, size={:#x}", va, va_end, pa, size);
+            match self.walk(va) {
                 Some(pte) => {
                     if !pte.is_valid() {
                         pte.set_addr(as_pte_addr(pa), perm);
@@ -101,11 +101,6 @@ impl PageTable {
                 }
             }
 
-            if va_start == va_end {
-                break;
-            }
-
-            va_start += PAGESIZE;
             pa += PAGESIZE;
         }
 
