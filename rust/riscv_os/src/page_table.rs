@@ -120,6 +120,7 @@ impl PageTable {
 
             if pte.is_unused() {
 
+                // the ptr is leaked but kept in the page entry that can calculate later
                 let ptr = unsafe { PageTable::new_zeroed().ok()? };
 
                 pte.set_addr(as_pte_addr(ptr as usize), PteFlag::Valid);
@@ -168,7 +169,7 @@ pub struct PageTableIndex(u16);
 #[derive(Debug)]
 #[repr(C)]
 pub struct PageTableEntry {
-    data: usize, // Reserved (63-56 bit) + Physical Page Number (55-12 bit) + Offset (11-0 bit)
+    data: usize, // Physical Page Number (44 bit) + Flags (10 bit)
 }
 
 impl PageTableEntry {
@@ -188,6 +189,7 @@ impl PageTableEntry {
 
     #[inline]
     fn as_page_table(&self) -> *mut PageTable {
+        // Physical Page Number (44 bit) + Offset (12 bit)
         (self.data >> 10 << 12) as *mut PageTable
     }
 
