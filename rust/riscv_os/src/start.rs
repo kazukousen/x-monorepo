@@ -1,6 +1,6 @@
+use crate::param::NCPU;
 use crate::register;
 use core::arch::asm;
-use crate::param::NCPU;
 
 #[no_mangle]
 static STACK0: [u8; 4096 * NCPU] = [0; 4096 * NCPU];

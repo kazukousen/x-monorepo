@@ -1,8 +1,8 @@
-use alloc::boxed::Box;
-use core::alloc::AllocError;
 use crate::param::{PAGESIZE, TRAMPOLINE, TRAPFRAME};
 use crate::println;
+use alloc::boxed::Box;
 use bitflags::bitflags;
+use core::alloc::AllocError;
 use core::ops::{Index, IndexMut};
 
 bitflags! {
@@ -58,14 +58,16 @@ impl PageTable {
             trampoline,
             PAGESIZE,
             PteFlag::Read | PteFlag::Exec,
-        ).ok()?;
+        )
+        .ok()?;
 
         pt.map_pages(
             TRAPFRAME,
             trapframe,
             PAGESIZE,
             PteFlag::Read | PteFlag::Write,
-        ).ok()?;
+        )
+        .ok()?;
 
         Some(pt)
     }
@@ -81,8 +83,8 @@ impl PageTable {
         size: usize,
         perm: PteFlag,
     ) -> Result<(), &'static str> {
-        let mut va_start = align_down(va, PAGESIZE);
-        let mut va_end = align_up(va + size, PAGESIZE);
+        let va_start = align_down(va, PAGESIZE);
+        let va_end = align_up(va + size, PAGESIZE);
 
         let mut pa = pa;
 
@@ -90,10 +92,10 @@ impl PageTable {
             // println!("va_start={:#x}, va_end={:#x}, pa={:#x}, size={:#x}", va, va_end, pa, size);
             match self.walk(va) {
                 Some(pte) => {
-                    if !pte.is_valid() {
-                        pte.set_addr(as_pte_addr(pa), perm);
-                    } else {
+                    if pte.is_valid() {
                         return Err("map_pages: remap");
+                    } else {
+                        pte.set_addr(as_pte_addr(pa), perm);
                     }
                 }
                 None => {
@@ -111,14 +113,13 @@ impl PageTable {
         let mut page_table = self as *mut PageTable;
 
         for level in (1..=2).rev() {
-            let mut pte = unsafe { &mut page_table.as_mut().unwrap()[get_index(va, level)] };
+            let pte = unsafe { &mut page_table.as_mut().unwrap()[get_index(va, level)] };
 
             if !pte.is_valid() {
+                // The raw page_table pointer is leaked but kept in the page table entry that can calculate later.
+                let page_table_ptr = unsafe { PageTable::new_zeroed().ok()? };
 
-                // the ptr is leaked but kept in the page entry that can calculate later
-                let ptr = unsafe { PageTable::new_zeroed().ok()? };
-
-                pte.set_addr(as_pte_addr(ptr as usize), PteFlag::Valid);
+                pte.set_addr(as_pte_addr(page_table_ptr as usize), PteFlag::Valid);
             }
 
             page_table = pte.as_page_table();
