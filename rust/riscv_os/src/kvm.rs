@@ -66,7 +66,7 @@ pub unsafe fn init() {
     );
 }
 
-unsafe fn kvm_map(va: usize, pa: usize, size: usize, perm: PteFlag) {
+pub unsafe fn kvm_map(va: usize, pa: usize, size: usize, perm: PteFlag) {
     println!("kvm_map: va={:#x}, pa={:#x}, size={:#x}", va, pa, size);
 
     if let Err(err) = KERNEL_PAGE_TABLE.map_pages(va, pa, size, perm) {

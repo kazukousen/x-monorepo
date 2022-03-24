@@ -13,6 +13,7 @@ mod kalloc;
 mod kvm;
 mod page_table;
 mod param;
+mod proc;
 mod process;
 mod register;
 mod rmain;

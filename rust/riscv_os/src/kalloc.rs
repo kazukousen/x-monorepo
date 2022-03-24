@@ -1,9 +1,6 @@
-use crate::param::{PAGESIZE, PHYSTOP};
+use crate::param::PHYSTOP;
 use crate::println;
-use alloc::alloc::alloc;
 use alloc::alloc::Layout;
-use alloc::boxed::Box;
-use core::ptr::write_bytes;
 use linked_list_allocator::LockedHeap;
 
 #[global_allocator]

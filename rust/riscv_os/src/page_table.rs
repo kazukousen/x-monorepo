@@ -30,6 +30,13 @@ pub trait Page: Sized {
 }
 
 #[repr(C, align(4096))]
+pub struct SinglePage {
+    data: [u8; PAGESIZE],
+}
+
+impl Page for SinglePage {}
+
+#[repr(C, align(4096))]
 pub struct PageTable {
     entries: [PageTableEntry; 512],
 }
