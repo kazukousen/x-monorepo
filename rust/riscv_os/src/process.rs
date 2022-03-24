@@ -1,9 +1,7 @@
 use crate::kvm::kvm_map;
-use crate::page_table::{Page, PageTable, SinglePage, PteFlag};
+use crate::page_table::{Page, PageTable, PteFlag, SinglePage};
 use crate::param::{kstack, NPROC, PAGESIZE};
 use crate::proc::Proc;
-use crate::register::tp;
-use alloc::boxed::Box;
 use array_macro::array;
 
 pub struct ProcessTable {

@@ -17,6 +17,7 @@ mod proc;
 mod process;
 mod register;
 mod rmain;
+mod spinlock;
 mod start;
 mod uart;
 
