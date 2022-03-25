@@ -111,7 +111,6 @@ impl ProcessData {
     }
 
     pub fn init_context(&mut self) {
-
         extern "Rust" {
             fn forkret();
         }
@@ -164,6 +163,4 @@ impl Proc {
 }
 
 #[no_mangle]
-fn forkret() {
-
-}
+fn forkret() {}

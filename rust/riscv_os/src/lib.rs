@@ -9,6 +9,7 @@ extern crate alloc;
 
 use core::panic::PanicInfo;
 
+mod cpu;
 mod kalloc;
 mod kvm;
 mod page_table;
@@ -20,7 +21,6 @@ mod rmain;
 mod spinlock;
 mod start;
 mod uart;
-mod cpu;
 
 #[panic_handler]
 fn panic(info: &PanicInfo<'_>) -> ! {

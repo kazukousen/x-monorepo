@@ -136,9 +136,13 @@ impl PageTable {
     }
 
     pub fn uvm_init(&mut self, sz: usize) -> Result<(), &'static str> {
-
         let mem = unsafe { SinglePage::new_zeroed().or(Err("insufficient memory"))? };
-        self.map_pages(0, mem as usize, sz, PteFlag::Read | PteFlag::Write | PteFlag::Exec | PteFlag::User)?;
+        self.map_pages(
+            0,
+            mem as usize,
+            sz,
+            PteFlag::Read | PteFlag::Write | PteFlag::Exec | PteFlag::User,
+        )?;
 
         Ok(())
     }

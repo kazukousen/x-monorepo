@@ -17,6 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .file("src/entry.S")
         .file("src/kernelvec.S")
         .file("src/trampoline.S")
+        .file("src/swtch.S")
         .compile("asm");
 
     // rebuild if `entry.S` changed
@@ -25,6 +26,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=src/kernelvec.S");
     // rebuild if `trampoline.S` changed
     println!("cargo:rerun-if-changed=src/trampoline.S");
+    // rebuild if `swtch.S` changed
+    println!("cargo:rerun-if-changed=src/swtch.S");
 
     Ok(())
 }

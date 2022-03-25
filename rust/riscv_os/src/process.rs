@@ -36,15 +36,14 @@ impl ProcessTable {
     }
 
     pub fn find_runnable(&mut self) -> Option<&mut Proc> {
-
         for p in self.table.iter_mut() {
             let locked = p.inner.lock();
             match locked.state {
                 ProcState::Runnable => {
                     drop(locked);
                     return Some(p);
-                },
-                _ => {},
+                }
+                _ => {}
             }
             drop(locked)
         }
@@ -61,7 +60,6 @@ impl ProcessTable {
     }
 
     fn alloc_proc(&mut self) -> Option<&mut Proc> {
-
         let pid = self.alloc_pid();
 
         for p in self.table.iter_mut() {
@@ -69,7 +67,6 @@ impl ProcessTable {
 
             match locked.state {
                 ProcState::Unused => {
-
                     // found an unused process
 
                     locked.pid = pid;
@@ -105,7 +102,8 @@ impl ProcessTable {
     pub fn user_init(&mut self) {
         let p = self.alloc_proc().expect("user_init: no free procs");
 
-        p.user_init().expect("user_init: failed process's initilization");
+        p.user_init()
+            .expect("user_init: failed process's initilization");
 
         let mut locked = p.inner.lock();
         locked.state = ProcState::Runnable;

@@ -1,4 +1,4 @@
-use crate::cpu;
+use crate::cpu::CpuTable;
 use crate::cpu::CPU_TABLE;
 use crate::kalloc;
 use crate::kvm;
@@ -11,7 +11,7 @@ static STARTED: AtomicBool = AtomicBool::new(false);
 /// start() jumps here in supervisor mode on all CPUs.
 #[no_mangle]
 pub unsafe fn main() -> ! {
-    let cpu_id = cpu::cpu_id();
+    let cpu_id = CpuTable::cpu_id();
     if cpu_id == 0 {
         println!("Hello, World! in Rust {}", cpu_id);
 

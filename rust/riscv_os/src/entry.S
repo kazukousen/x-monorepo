@@ -1,4 +1,4 @@
-.section .text.entry
+.section .text
 .global _entry
 _entry:
     la sp, STACK0
