@@ -118,6 +118,10 @@ impl ProcessData {
         self.context.ra = forkret as usize;
         self.context.sp = self.kstack + PAGESIZE;
     }
+
+    pub fn get_context(&mut self) -> *mut Context {
+        &mut self.context as *mut _
+    }
 }
 
 pub enum ProcState {
