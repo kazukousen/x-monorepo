@@ -12,7 +12,6 @@ pub struct SpinLock<T: ?Sized> {
 
 unsafe impl<T: ?Sized + Send> Sync for SpinLock<T> {}
 
-
 impl<T> SpinLock<T> {
     pub const fn new(data: T) -> Self {
         Self {
@@ -23,7 +22,6 @@ impl<T> SpinLock<T> {
 }
 
 impl<T: ?Sized> SpinLock<T> {
-
     pub fn lock(&self) -> SpinLockGuard<'_, T> {
         self.acquire();
         SpinLockGuard {
@@ -65,9 +63,8 @@ impl<'a, T: ?Sized> DerefMut for SpinLockGuard<'a, T> {
     }
 }
 
-impl <'a, T: ?Sized> Drop for SpinLockGuard<'a, T> {
+impl<'a, T: ?Sized> Drop for SpinLockGuard<'a, T> {
     fn drop(&mut self) {
         self.lock.release();
     }
 }
-

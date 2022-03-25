@@ -3,6 +3,7 @@ use core::ptr;
 
 use crate::page_table::PageTable;
 use crate::register::tp;
+use crate::spinlock::SpinLock;
 use alloc::boxed::Box;
 
 pub fn cpu_id() -> usize {
@@ -119,18 +120,40 @@ pub enum ProcState {
     Runnable,
 }
 
+pub struct ProcInner {
+    pub state: ProcState,
+    pub pid: usize,
+}
+
+impl ProcInner {
+    const fn new() -> Self {
+        Self {
+            state: ProcState::Unused,
+            pid: 0,
+        }
+    }
+}
+
 pub struct Proc {
-    index: usize,
+    pub inner: SpinLock<ProcInner>,
     page_table: Option<Box<PageTable>>,
     pub data: UnsafeCell<ProcessData>,
 }
 
 impl Proc {
-    pub const fn new(index: usize) -> Self {
+    pub const fn new() -> Self {
         Self {
-            index,
+            inner: SpinLock::new(ProcInner::new()),
             page_table: None,
             data: UnsafeCell::new(ProcessData::new()),
         }
+    }
+
+    pub fn user_init(&mut self) -> Result<(), &'static str> {
+        let pd = self.data.get_mut();
+
+        pd.page_table.as_mut().unwrap().uvm_init(pd.sz)?;
+
+        Ok(())
     }
 }

@@ -21,6 +21,7 @@ pub unsafe fn main() -> ! {
         kvm::init_hart();
         // initialize the process table and allocate a page for each process's kernel stack.
         PROCESS_TABLE.proc_init();
+        PROCESS_TABLE.user_init();
 
         STARTED.store(true, Ordering::SeqCst);
     } else {

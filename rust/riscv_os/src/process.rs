@@ -1,7 +1,7 @@
 use crate::kvm::kvm_map;
 use crate::page_table::{Page, PageTable, PteFlag, SinglePage};
 use crate::param::{kstack, NPROC, PAGESIZE};
-use crate::proc::{Proc, TrapFrame};
+use crate::proc::{Proc, ProcState, TrapFrame};
 use crate::spinlock::SpinLock;
 use array_macro::array;
 
@@ -15,7 +15,7 @@ pub static mut PROCESS_TABLE: ProcessTable = ProcessTable::new();
 impl ProcessTable {
     const fn new() -> Self {
         Self {
-            table: array![i => Proc::new(i); NPROC],
+            table: array![_ => Proc::new(); NPROC],
             pid: SpinLock::new(0),
         }
     }
@@ -28,7 +28,9 @@ impl ProcessTable {
             let va = kstack(i);
             let pa = SinglePage::new_zeroed()
                 .expect("process_table: insufficient memory for process's kernel stack");
+            // map
             kvm_map(va, pa as usize, PAGESIZE, PteFlag::Read | PteFlag::Write);
+            // kstack
             p.data.get_mut().set_kstack(va);
         }
     }
@@ -46,22 +48,47 @@ impl ProcessTable {
         let pid = self.alloc_pid();
 
         for p in self.table.iter_mut() {
-            // TODO excl.lock
-            let pd = p.data.get_mut();
-            pd.tf = unsafe { SinglePage::new_zeroed().ok()? as *mut TrapFrame };
-            match PageTable::alloc_user_page_table(pd.tf as usize) {
-                Some(pgt) => {
-                    pd.page_table = Some(pgt);
-                },
-                None => {
-                    unsafe { SinglePage::drop(pd.tf as *mut u8) };
-                    return None;
-                },
+            let mut locked = p.inner.lock();
+
+            match locked.state {
+                ProcState::Unused => {
+
+                    // found an unused process
+
+                    locked.pid = pid;
+
+                    let pd = p.data.get_mut();
+
+                    // hold trapframe pointer
+                    pd.tf = unsafe { SinglePage::new_zeroed().ok()? as *mut TrapFrame };
+
+                    // allocate trapframe page table
+                    match PageTable::alloc_user_page_table(pd.tf as usize) {
+                        Some(pgt) => {
+                            pd.page_table = Some(pgt);
+                        }
+                        None => {
+                            unsafe { SinglePage::drop(pd.tf as *mut u8) };
+                            return None;
+                        }
+                    }
+
+                    drop(locked);
+                    return Some(p);
+                }
+                _ => drop(locked),
             }
-            // TODO: drop lock
         }
 
         None
     }
-}
 
+    pub fn user_init(&mut self) {
+        let p = self.alloc_proc().expect("user_init: no free procs");
+
+        p.user_init().expect("user_init: failed process's initilization");
+
+        let mut locked = p.inner.lock();
+        locked.state = ProcState::Runnable;
+    }
+}
