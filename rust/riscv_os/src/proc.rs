@@ -2,13 +2,9 @@ use core::cell::UnsafeCell;
 use core::ptr;
 
 use crate::page_table::PageTable;
-use crate::register::tp;
+use crate::param::PAGESIZE;
 use crate::spinlock::SpinLock;
 use alloc::boxed::Box;
-
-pub fn cpu_id() -> usize {
-    unsafe { tp::read() }
-}
 
 #[repr(C)]
 pub struct Context {
@@ -113,11 +109,22 @@ impl ProcessData {
     pub fn set_kstack(&mut self, kstack: usize) {
         self.kstack = kstack;
     }
+
+    pub fn init_context(&mut self) {
+
+        extern "Rust" {
+            fn forkret();
+        }
+
+        self.context.ra = forkret as usize;
+        self.context.sp = self.kstack + PAGESIZE;
+    }
 }
 
 pub enum ProcState {
     Unused,
     Runnable,
+    Running,
 }
 
 pub struct ProcInner {
@@ -136,7 +143,6 @@ impl ProcInner {
 
 pub struct Proc {
     pub inner: SpinLock<ProcInner>,
-    page_table: Option<Box<PageTable>>,
     pub data: UnsafeCell<ProcessData>,
 }
 
@@ -144,7 +150,6 @@ impl Proc {
     pub const fn new() -> Self {
         Self {
             inner: SpinLock::new(ProcInner::new()),
-            page_table: None,
             data: UnsafeCell::new(ProcessData::new()),
         }
     }
@@ -156,4 +161,9 @@ impl Proc {
 
         Ok(())
     }
+}
+
+#[no_mangle]
+fn forkret() {
+
 }

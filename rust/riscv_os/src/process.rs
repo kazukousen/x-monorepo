@@ -35,6 +35,23 @@ impl ProcessTable {
         }
     }
 
+    pub fn find_runnable(&mut self) -> Option<&mut Proc> {
+
+        for p in self.table.iter_mut() {
+            let locked = p.inner.lock();
+            match locked.state {
+                ProcState::Runnable => {
+                    drop(locked);
+                    return Some(p);
+                },
+                _ => {},
+            }
+            drop(locked)
+        }
+
+        None
+    }
+
     fn alloc_pid(&self) -> usize {
         let ret: usize;
         let mut pid = self.pid.lock();
@@ -72,6 +89,8 @@ impl ProcessTable {
                             return None;
                         }
                     }
+
+                    pd.init_context();
 
                     drop(locked);
                     return Some(p);
