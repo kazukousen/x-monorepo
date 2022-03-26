@@ -161,10 +161,7 @@ impl Proc {
 
     pub fn user_init(&mut self) -> Result<(), &'static str> {
         let pd = self.data.get_mut();
-
-        pd.sz = PAGESIZE;
-
-        pd.page_table.as_mut().unwrap().uvm_init(pd.sz)?;
+        pd.page_table.as_mut().unwrap().uvm_init()?;
 
         Ok(())
     }

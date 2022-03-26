@@ -16,21 +16,21 @@ pub unsafe fn init_hart() {
 
 pub unsafe fn init() {
     // uart registers
-    kvm_map(UART0, UART0, UART0_MAP_SIZE, PteFlag::Read | PteFlag::Write);
+    kvm_map(UART0, UART0, UART0_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
 
     // virtio mmio disk interface
     kvm_map(
         VIRTIO0,
         VIRTIO0,
         VIRTIO0_MAP_SIZE,
-        PteFlag::Read | PteFlag::Write,
+        PteFlag::READ | PteFlag::WRITE,
     );
 
     // CLINT
-    kvm_map(CLINT, CLINT, CLINT_MAP_SIZE, PteFlag::Read | PteFlag::Write);
+    kvm_map(CLINT, CLINT, CLINT_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
 
     // PLIC
-    kvm_map(PLIC, PLIC, PLIC_MAP_SIZE, PteFlag::Read | PteFlag::Write);
+    kvm_map(PLIC, PLIC, PLIC_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
 
     extern "C" {
         fn _etext();
@@ -42,7 +42,7 @@ pub unsafe fn init() {
         KERNBASE,
         KERNBASE,
         etext - KERNBASE,
-        PteFlag::Read | PteFlag::Exec,
+        PteFlag::READ | PteFlag::EXEC,
     );
 
     // map kernel data and the physical RAM we'll make use of.
@@ -50,7 +50,7 @@ pub unsafe fn init() {
         etext,
         etext,
         PHYSTOP - etext,
-        PteFlag::Read | PteFlag::Write,
+        PteFlag::READ | PteFlag::WRITE,
     );
 
     extern "C" {

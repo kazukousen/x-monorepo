@@ -7,14 +7,14 @@ use core::ops::{Index, IndexMut};
 
 bitflags! {
     pub struct PteFlag: usize {
-        const Valid = 1 << 0;
-        const Read = 1 << 1;
-        const Write = 1 << 2;
-        const Exec = 1 << 3;
-        const User = 1 << 4;
-        const Glob = 1 << 5;
-        const Acces = 1 << 6;
-        const Dirty = 1 << 7;
+        const VALID = 1 << 0;
+        const READ = 1 << 1;
+        const WRITE = 1 << 2;
+        const EXEC = 1 << 3;
+        const USER = 1 << 4;
+        const GLOB = 1 << 5;
+        const ACCES = 1 << 6;
+        const DIRTY = 1 << 7;
     }
 }
 
@@ -64,7 +64,7 @@ impl PageTable {
             TRAMPOLINE,
             trampoline,
             PAGESIZE,
-            PteFlag::Read | PteFlag::Exec,
+            PteFlag::READ | PteFlag::EXEC,
         )
         .ok()?;
 
@@ -72,7 +72,7 @@ impl PageTable {
             TRAPFRAME,
             trapframe,
             PAGESIZE,
-            PteFlag::Read | PteFlag::Write,
+            PteFlag::READ | PteFlag::WRITE,
         )
         .ok()?;
 
@@ -126,7 +126,7 @@ impl PageTable {
                 // The raw page_table pointer is leaked but kept in the page table entry that can calculate later.
                 let page_table_ptr = unsafe { PageTable::new_zeroed().ok()? };
 
-                pte.set_addr(as_pte_addr(page_table_ptr as usize), PteFlag::Valid);
+                pte.set_addr(as_pte_addr(page_table_ptr as usize), PteFlag::VALID);
             }
 
             page_table = pte.as_page_table();
@@ -135,13 +135,13 @@ impl PageTable {
         unsafe { Some(&mut page_table.as_mut().unwrap()[get_index(va, 0)]) }
     }
 
-    pub fn uvm_init(&mut self, sz: usize) -> Result<(), &'static str> {
+    pub fn uvm_init(&mut self) -> Result<(), &'static str> {
         let mem = unsafe { SinglePage::new_zeroed().or(Err("insufficient memory"))? };
         self.map_pages(
             0,
             mem as usize,
-            sz,
-            PteFlag::Read | PteFlag::Write | PteFlag::Exec | PteFlag::User,
+            PAGESIZE,
+            PteFlag::READ | PteFlag::WRITE | PteFlag::EXEC | PteFlag::USER,
         )?;
 
         Ok(())
@@ -195,16 +195,16 @@ impl PageTableEntry {
 
     #[inline]
     pub fn is_valid(&self) -> bool {
-        (self.data & PteFlag::Valid.bits()) > 0
+        (self.data & PteFlag::VALID.bits()) > 0
     }
 
     #[inline]
     pub fn is_leaf(&self) -> bool {
-        (self.data & (PteFlag::Read | PteFlag::Write | PteFlag::Exec).bits()) > 0
+        (self.data & (PteFlag::READ | PteFlag::WRITE | PteFlag::EXEC).bits()) > 0
     }
 
     pub fn set_addr(&mut self, addr: usize, perm: PteFlag) {
-        self.data = addr | (perm | PteFlag::Valid).bits();
+        self.data = addr | (perm | PteFlag::VALID).bits();
     }
 
     #[inline]
