@@ -73,6 +73,9 @@ impl CpuTable {
     }
 
     pub fn my_proc(&mut self) -> &mut Proc {
+
+        push_off();
+
         let p;
 
         unsafe {
@@ -80,6 +83,8 @@ impl CpuTable {
 
             p = &mut *c.proc;
         }
+
+        pop_off();
 
         p
     }
@@ -89,6 +94,10 @@ struct Cpu {
     hartid: usize,
     proc: *mut Proc,
     scheduler: Context,
+    // Depth of push_off() nesting.
+    noff: u8,
+    // Were interruputs enabled before push_off()?
+    intena: bool,
 }
 
 impl Cpu {
@@ -97,6 +106,8 @@ impl Cpu {
             hartid,
             proc: ptr::null_mut(),
             scheduler: Context::new(),
+            noff: 0,
+            intena: false,
         }
     }
 }
@@ -105,5 +116,35 @@ impl Cpu {
 unsafe fn intr_on() {
     sie::intr_on();
     sstatus::intr_on();
+}
+
+pub fn push_off() {
+    let old = sstatus::intr_get();
+    sstatus::intr_off();
+
+    let cpu = unsafe { CPU_TABLE.my_cpu_mut() };
+
+    if cpu.noff == 0 {
+        cpu.intena = old;
+    }
+    cpu.noff += 1;
+}
+
+pub fn pop_off() {
+
+    if sstatus::intr_get() {
+        panic!("pop_off: interruputable");
+    }
+
+    let cpu = unsafe { CPU_TABLE.my_cpu_mut() };
+
+    if cpu.noff < 1 {
+        panic!("pop_off");
+    }
+    cpu.noff -= 1;
+
+    if cpu.noff == 0 && cpu.intena {
+        sstatus::intr_on();
+    }
 }
 
