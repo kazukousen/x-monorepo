@@ -26,3 +26,8 @@ pub fn intr_off() {
     unsafe { write(read() | !SIE); }
 }
 
+#[inline]
+pub fn intr_get() -> bool {
+    unsafe { (read() & SIE != 0) }
+}
+
