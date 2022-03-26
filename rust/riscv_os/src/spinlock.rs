@@ -5,6 +5,8 @@ use core::{
     sync::atomic::{fence, AtomicBool, Ordering},
 };
 
+use crate::cpu;
+
 pub struct SpinLock<T: ?Sized> {
     lock: AtomicBool,
     data: UnsafeCell<T>,
@@ -30,7 +32,12 @@ impl<T: ?Sized> SpinLock<T> {
         }
     }
 
+    // TODO: fn holding()
+
     fn acquire(&self) {
+        cpu::push_off();
+       
+        // TODO: if !self.holding() panic
         while self
             .lock
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
@@ -40,8 +47,15 @@ impl<T: ?Sized> SpinLock<T> {
     }
 
     fn release(&self) {
+        // TODO: if !self.holding() panic
         fence(Ordering::SeqCst);
         self.lock.store(false, Ordering::Release);
+
+        cpu::pop_off();
+    }
+
+    pub fn unlock(&self) {
+        self.release();
     }
 }
 

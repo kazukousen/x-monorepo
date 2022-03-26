@@ -211,7 +211,9 @@ impl Proc {
 
 #[no_mangle]
 unsafe fn forkret() -> ! {
-    let _p = CPU_TABLE.my_proc();
+    let p = CPU_TABLE.my_proc();
+
+    p.inner.unlock();
 
     panic!("in forkret");
 }
