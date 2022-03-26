@@ -1,3 +1,4 @@
+use crate::cpu;
 use crate::param::UART0;
 use crate::spinlock::SpinLock;
 use core::fmt::Error;
@@ -41,8 +42,13 @@ impl Write for Uart {
     }
 }
 
-
-// TODO: push_off? pop_off?
+const RHR: usize = 0;
+const THR: usize = 0;
+const IER: usize = 1;
+const FCR: usize = 2;
+const ISR: usize = 2;
+const LCR: usize = 3;
+const LSR: usize = 5;
 
 impl Uart {
     fn new(base_address: usize) -> Self {
@@ -50,20 +56,32 @@ impl Uart {
     }
 
     fn init(&mut self) {
-        let _ptr = self.base_address as *mut u8;
+        let ptr = self.base_address as *mut u8;
+        unsafe {
+            ptr.add(IER).write_volatile(0x00);
+            ptr.add(LCR).write_volatile(0x80);
+            ptr.add(0).write_volatile(0x03);
+            ptr.add(1).write_volatile(0x00);
+            ptr.add(LCR).write_volatile(0x03);
+            ptr.add(FCR).write_volatile(0x07);
+            ptr.add(IER).write_volatile(0x03);
+        }
     }
 
     fn put(&mut self, c: u8) {
+        cpu::push_off();
         let ptr = self.base_address as *mut u8;
         unsafe {
-            ptr.add(0).write_volatile(c);
+            while !(ptr.add(LSR).read_volatile() & (1 << 5) > 0) {}
+            ptr.add(THR).write_volatile(c);
         }
+        cpu::pop_off();
     }
 
     fn get(&mut self) -> Option<u8> {
         let ptr = self.base_address as *mut u8;
         unsafe {
-            if ptr.add(5).read_volatile() & 1 == 0 {
+            if ptr.add(LSR).read_volatile() & 1 == 0 {
                 None
             } else {
                 Some(ptr.add(0).read_volatile())
@@ -71,3 +89,4 @@ impl Uart {
         }
     }
 }
+

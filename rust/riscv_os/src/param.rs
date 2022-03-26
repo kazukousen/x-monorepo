@@ -9,6 +9,7 @@ pub const MAXVA: usize = 1 << (9 + 9 + 9 + 12 - 1);
 
 // map the trampoline page to the highest address,
 // in both user and kernel space.
+// VirtAddr 0x3ffffff000
 pub const TRAMPOLINE: usize = MAXVA - PAGESIZE;
 
 // map kernel stacks beneath the trampoline,
@@ -26,6 +27,7 @@ pub const fn kstack(p: usize) -> usize {
 //   ...
 //   TRAPFRAME (p->trapframe, used by the trampoline)
 //   TRAMPOLINE (the same page as in the kernel)
+// VirtAddr 0x3fffffe000
 pub const TRAPFRAME: usize = TRAMPOLINE - PAGESIZE;
 
 pub const NCPU: usize = 8;
