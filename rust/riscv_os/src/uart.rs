@@ -1,14 +1,14 @@
 use crate::param::UART0;
+use crate::spinlock::SpinLock;
 use core::fmt::Error;
 use core::fmt::Write;
 use lazy_static::lazy_static;
-use spin::Mutex;
 
 lazy_static! {
-    pub static ref UART: Mutex<Uart> = {
+    static ref UART: SpinLock<Uart> = {
         let mut uart = Uart::new(UART0);
         uart.init();
-        Mutex::new(uart)
+        SpinLock::new(uart)
     };
 }
 
@@ -28,7 +28,7 @@ pub fn _print(args: ::core::fmt::Arguments) {
     UART.lock().write_fmt(args).unwrap();
 }
 
-pub struct Uart {
+struct Uart {
     base_address: usize,
 }
 
