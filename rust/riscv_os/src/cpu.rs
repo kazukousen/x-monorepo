@@ -4,7 +4,8 @@ use array_macro::array;
 
 use crate::{
     param::NCPU,
-    proc::{Proc, ProcState, Context},
+    println,
+    proc::{Context, Proc, ProcState},
     process::PROCESS_TABLE,
     register::tp,
 };
@@ -23,7 +24,7 @@ impl CpuTable {
 
     const fn new() -> Self {
         Self {
-            table: array![_ => Cpu::new(); NCPU],
+            table: array![i => Cpu::new(i); NCPU],
         }
     }
 
@@ -32,6 +33,8 @@ impl CpuTable {
 
         loop {
             if let Some(p) = PROCESS_TABLE.find_runnable() {
+                println!("find a process. cpu={}", cpu.hartid);
+
                 cpu.proc = p as *mut _;
 
                 let mut locked = p.inner.lock();
@@ -41,7 +44,7 @@ impl CpuTable {
                     fn swtch(old: *mut Context, new: *mut Context);
                 }
 
-                swtch(&mut cpu.context as *mut _, p.data.get_mut().get_context());
+                swtch(&mut cpu.scheduler as *mut _, p.data.get_mut().get_context());
 
                 cpu.proc = ptr::null_mut();
                 drop(locked);
@@ -73,15 +76,17 @@ impl CpuTable {
 }
 
 struct Cpu {
+    hartid: usize,
     proc: *mut Proc,
-    context: Context,
+    scheduler: Context,
 }
 
 impl Cpu {
-    const fn new() -> Self {
+    const fn new(hartid: usize) -> Self {
         Self {
+            hartid,
             proc: ptr::null_mut(),
-            context: Context::new(),
+            scheduler: Context::new(),
         }
     }
 }

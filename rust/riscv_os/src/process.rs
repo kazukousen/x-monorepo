@@ -37,9 +37,10 @@ impl ProcessTable {
 
     pub fn find_runnable(&mut self) -> Option<&mut Proc> {
         for p in self.table.iter_mut() {
-            let locked = p.inner.lock();
+            let mut locked = p.inner.lock();
             match locked.state {
                 ProcState::Runnable => {
+                    locked.state = ProcState::Allocated;
                     drop(locked);
                     return Some(p);
                 }

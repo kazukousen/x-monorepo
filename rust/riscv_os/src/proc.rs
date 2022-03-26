@@ -3,6 +3,7 @@ use core::ptr;
 
 use crate::page_table::PageTable;
 use crate::param::PAGESIZE;
+use crate::println;
 use crate::spinlock::SpinLock;
 use alloc::boxed::Box;
 
@@ -128,6 +129,7 @@ pub enum ProcState {
     Unused,
     Runnable,
     Running,
+    Allocated,
 }
 
 pub struct ProcInner {
@@ -160,6 +162,8 @@ impl Proc {
     pub fn user_init(&mut self) -> Result<(), &'static str> {
         let pd = self.data.get_mut();
 
+        pd.sz = PAGESIZE;
+
         pd.page_table.as_mut().unwrap().uvm_init(pd.sz)?;
 
         Ok(())
@@ -167,4 +171,6 @@ impl Proc {
 }
 
 #[no_mangle]
-fn forkret() {}
+fn forkret() {
+    println!("forkret");
+}
