@@ -40,6 +40,7 @@ pub const CLINT_MAP_SIZE: usize = 0x10000;
 // qemu puts UART registers here in physical memory.
 pub const UART0: usize = 0x1000_0000;
 pub const UART0_MAP_SIZE: usize = PAGESIZE;
+pub const UART0_IRQ: usize = 10;
 
 // virtio mmio interface
 pub const VIRTIO0: usize = 0x10001000;
