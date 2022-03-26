@@ -1,4 +1,3 @@
-use core::arch::asm;
 use core::ptr;
 
 const CLINT_MTIME: usize = 0x200bff8;

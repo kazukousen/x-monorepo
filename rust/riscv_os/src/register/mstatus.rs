@@ -37,6 +37,7 @@ pub unsafe fn enable_interrupt(mode: MPPMode) {
         MPPMode::Supervisor => 1 << 1,
         MPPMode::Machine => 1 << 3,
     };
+    write(mstatus);
 }
 
 pub unsafe fn disable_interrupt(mode: MPPMode) {
@@ -46,4 +47,5 @@ pub unsafe fn disable_interrupt(mode: MPPMode) {
         MPPMode::Supervisor => !(1 << 1),
         MPPMode::Machine => !(1 << 3),
     };
+    write(mstatus);
 }

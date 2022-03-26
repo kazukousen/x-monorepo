@@ -4,7 +4,6 @@
 #![feature(new_uninit)]
 #![feature(allocator_api)]
 
-#[macro_use]
 extern crate alloc;
 
 use core::panic::PanicInfo;

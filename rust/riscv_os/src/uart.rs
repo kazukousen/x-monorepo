@@ -47,8 +47,7 @@ impl Uart {
     }
 
     fn init(&mut self) {
-        let ptr = self.base_address as *mut u8;
-        unsafe {}
+        let _ptr = self.base_address as *mut u8;
     }
 
     fn put(&mut self, c: u8) {

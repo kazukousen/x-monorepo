@@ -1,5 +1,5 @@
 use crate::param::{PAGESIZE, TRAMPOLINE, TRAPFRAME};
-use crate::println;
+// use crate::println;
 use alloc::boxed::Box;
 use bitflags::bitflags;
 use core::alloc::AllocError;
