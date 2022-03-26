@@ -12,6 +12,7 @@ runner = """
     -kernel target/riscv64imac-unknown-none-elf/debug/riscv_os \
     -m 3G -smp 3 -nographic
 """
+# -S -gdb tcp::12345
 
 [term]
 verbose = true
