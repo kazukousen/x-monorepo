@@ -4,6 +4,7 @@ use alloc::boxed::Box;
 use bitflags::bitflags;
 use core::alloc::AllocError;
 use core::ops::{Index, IndexMut};
+use core::ptr;
 
 bitflags! {
     pub struct PteFlag: usize {
@@ -79,6 +80,30 @@ impl PageTable {
         Some(pt)
     }
 
+    /// Load the user initcode into address 0 of pagetable,
+    /// for the very first process.
+    /// sz must be less than a page.
+    pub fn uvm_init(&mut self, code: &[u8]) -> Result<(), &'static str> {
+        if code.len() >= PAGESIZE {
+            return Err("uvm_init: more than a page");
+        }
+
+        let mem = unsafe { SinglePage::new_zeroed().or(Err("uvm_init: insufficient memory"))? };
+        self.map_pages(
+            0,
+            mem as usize,
+            PAGESIZE,
+            PteFlag::READ | PteFlag::WRITE | PteFlag::EXEC | PteFlag::USER,
+        )?;
+
+        // copy the code
+        unsafe {
+            ptr::copy_nonoverlapping(code.as_ptr(), mem, code.len());
+        }
+
+        Ok(())
+    }
+
     pub fn as_satp(&self) -> usize {
         (8 << 60) | ((self as *const PageTable as usize) >> 12)
     }
@@ -133,18 +158,6 @@ impl PageTable {
         }
 
         unsafe { Some(&mut page_table.as_mut().unwrap()[get_index(va, 0)]) }
-    }
-
-    pub fn uvm_init(&mut self) -> Result<(), &'static str> {
-        let mem = unsafe { SinglePage::new_zeroed().or(Err("insufficient memory"))? };
-        self.map_pages(
-            0,
-            mem as usize,
-            PAGESIZE,
-            PteFlag::READ | PteFlag::WRITE | PteFlag::EXEC | PteFlag::USER,
-        )?;
-
-        Ok(())
     }
 }
 

@@ -29,22 +29,33 @@ impl CpuTable {
     }
 
     pub unsafe fn scheduler(&mut self) -> ! {
+        extern "C" {
+            fn swtch(old: *mut Context, new: *mut Context);
+        }
         let cpu = self.my_cpu_mut();
 
         loop {
-            if let Some(p) = PROCESS_TABLE.find_runnable() {
-                println!("find a process. cpu={}", cpu.hartid);
+            // TODO
+            // ensure devices can interrupt
+            // sstatus::intr_on();
 
+            if let Some(p) = PROCESS_TABLE.find_runnable() {
                 cpu.proc = p as *mut _;
 
                 let mut locked = p.inner.lock();
                 locked.state = ProcState::Running;
 
-                extern "C" {
-                    fn swtch(old: *mut Context, new: *mut Context);
+                let ctx_ptr = p.data.get_mut().get_context();
+
+                {
+                    let ctx = ctx_ptr.as_mut().unwrap();
+                    println!(
+                        "scheduler: new context ra={:#x} stack={:#x}",
+                        ctx.ra, ctx.sp
+                    );
                 }
 
-                swtch(&mut cpu.scheduler as *mut _, p.data.get_mut().get_context());
+                swtch(&mut cpu.scheduler as *mut _, ctx_ptr);
 
                 cpu.proc = ptr::null_mut();
                 drop(locked);

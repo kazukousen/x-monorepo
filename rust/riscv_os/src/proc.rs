@@ -1,6 +1,7 @@
 use core::cell::UnsafeCell;
 use core::ptr;
 
+use crate::cpu::CPU_TABLE;
 use crate::page_table::PageTable;
 use crate::param::PAGESIZE;
 use crate::println;
@@ -9,8 +10,8 @@ use alloc::boxed::Box;
 
 #[repr(C)]
 pub struct Context {
-    ra: usize,
-    sp: usize,
+    pub ra: usize,
+    pub sp: usize,
 
     // callee saved
     s0: usize,
@@ -45,6 +46,22 @@ impl Context {
             s10: 0,
             s11: 0,
         }
+    }
+
+    fn clear(&mut self) {
+        self.ra = 0;
+        self.sp = 0;
+        self.s1 = 0;
+        self.s2 = 0;
+        self.s3 = 0;
+        self.s4 = 0;
+        self.s5 = 0;
+        self.s6 = 0;
+        self.s7 = 0;
+        self.s8 = 0;
+        self.s9 = 0;
+        self.s10 = 0;
+        self.s11 = 0;
     }
 }
 
@@ -92,6 +109,7 @@ pub struct ProcessData {
     kstack: usize,
     sz: usize,
     context: Context,
+    name: [u8; 16],
     pub tf: *mut TrapFrame,
     pub page_table: Option<Box<PageTable>>,
 }
@@ -101,6 +119,7 @@ impl ProcessData {
         Self {
             kstack: 0,
             sz: 0,
+            name: [0; 16],
             context: Context::new(),
             tf: ptr::null_mut(),
             page_table: None,
@@ -116,8 +135,15 @@ impl ProcessData {
             fn forkret();
         }
 
+        self.context.clear();
         self.context.ra = forkret as usize;
         self.context.sp = self.kstack + PAGESIZE;
+
+        // TODO: remove
+        println!(
+            "init_context: ra: {:#x}, sp: {:#x}",
+            self.context.ra, self.context.sp
+        );
     }
 
     pub fn get_context(&mut self) -> *mut Context {
@@ -161,13 +187,39 @@ impl Proc {
 
     pub fn user_init(&mut self) -> Result<(), &'static str> {
         let pd = self.data.get_mut();
-        pd.page_table.as_mut().unwrap().uvm_init()?;
+
+        // allocate one user page and copy init's instructions
+        // and data into it.
+        pd.page_table.as_mut().unwrap().uvm_init(&INITCODE)?;
+        pd.sz = PAGESIZE;
+
+        // prepare for the very first "return" from kernel to user.
+        let tf = unsafe { pd.tf.as_mut().unwrap() };
+        tf.epc = 0; // user program counter
+        tf.sp = PAGESIZE; // user stack poiner
+
+        let init_name = b"initcode\0";
+        unsafe {
+            ptr::copy_nonoverlapping(init_name.as_ptr(), pd.name.as_mut_ptr(), init_name.len());
+        }
+        // TODO:
+        // p->cwd = namei("/");
 
         Ok(())
     }
 }
 
 #[no_mangle]
-fn forkret() {
-    println!("forkret");
+unsafe fn forkret() -> ! {
+    let p = CPU_TABLE.my_proc();
+
+    panic!("in forkret");
 }
+
+/// first user program that calls exec("/init")
+static INITCODE: [u8; 51] = [
+    0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x05, 0x02, 0x97, 0x05, 0x00, 0x00, 0x93, 0x85, 0x05, 0x02,
+    0x9d, 0x48, 0x73, 0x00, 0x00, 0x00, 0x89, 0x48, 0x73, 0x00, 0x00, 0x00, 0xef, 0xf0, 0xbf, 0xff,
+    0x2f, 0x69, 0x6e, 0x69, 0x74, 0x00, 0x00, 0x01, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00,
+];

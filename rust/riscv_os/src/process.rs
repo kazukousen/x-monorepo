@@ -1,6 +1,7 @@
 use crate::kvm::kvm_map;
 use crate::page_table::{Page, PageTable, PteFlag, SinglePage};
 use crate::param::{kstack, NPROC, PAGESIZE};
+use crate::println;
 use crate::proc::{Proc, ProcState, TrapFrame};
 use crate::spinlock::SpinLock;
 use array_macro::array;
@@ -70,8 +71,6 @@ impl ProcessTable {
                 ProcState::Unused => {
                     // found an unused process
 
-                    locked.pid = pid;
-
                     let pd = p.data.get_mut();
 
                     // hold trapframe pointer
@@ -89,8 +88,13 @@ impl ProcessTable {
                     }
 
                     pd.init_context();
+                    locked.pid = pid;
+                    locked.state = ProcState::Allocated;
+
+                    println!("allocated pid: {}", locked.pid);
 
                     drop(locked);
+
                     return Some(p);
                 }
                 _ => drop(locked),
@@ -102,6 +106,8 @@ impl ProcessTable {
 
     pub fn user_init(&mut self) {
         let p = self.alloc_proc().expect("user_init: no free procs");
+
+        // TODO: self.init_proc = p?
 
         p.user_init()
             .expect("user_init: failed process's initilization");
