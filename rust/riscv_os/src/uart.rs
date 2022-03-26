@@ -41,6 +41,9 @@ impl Write for Uart {
     }
 }
 
+
+// TODO: push_off? pop_off?
+
 impl Uart {
     fn new(base_address: usize) -> Self {
         Self { base_address }
