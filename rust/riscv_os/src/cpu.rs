@@ -7,7 +7,7 @@ use crate::{
     println,
     proc::{Context, Proc, ProcState},
     process::PROCESS_TABLE,
-    register::tp,
+    register::{tp, sie, sstatus},
 };
 
 pub static mut CPU_TABLE: CpuTable = CpuTable::new();
@@ -35,9 +35,8 @@ impl CpuTable {
         let cpu = self.my_cpu_mut();
 
         loop {
-            // TODO
             // ensure devices can interrupt
-            // sstatus::intr_on();
+            intr_on();
 
             if let Some(p) = PROCESS_TABLE.find_runnable() {
                 cpu.proc = p as *mut _;
@@ -101,3 +100,10 @@ impl Cpu {
         }
     }
 }
+
+#[inline]
+unsafe fn intr_on() {
+    sie::intr_on();
+    sstatus::intr_on();
+}
+

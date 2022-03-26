@@ -10,3 +10,4 @@ pub mod mtvec;
 pub mod satp;
 pub mod sie;
 pub mod tp;
+pub mod sstatus;

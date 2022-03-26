@@ -8,9 +8,10 @@
 	# kernel.ld causes this to be aligned
         # to a page boundary.
         #
-        .section trampsec
+.section trampsec
 .globl trampoline
 trampoline:
+
 .align 4
 .globl uservec
 uservec:    
@@ -24,7 +25,7 @@ uservec:
         # mapped into user space, at TRAPFRAME.
         #
         
-	# swap a0 and sscratch
+	      # swap a0 and sscratch
         # so that a0 is TRAPFRAME
         csrrw a0, sscratch, a0
 
@@ -60,7 +61,7 @@ uservec:
         sd t5, 272(a0)
         sd t6, 280(a0)
 
-	# save the user a0 in p->trapframe->a0
+	      # save the user a0 in p->trapframe->a0
         csrr t0, sscratch
         sd t0, 112(a0)
 

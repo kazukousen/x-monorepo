@@ -28,7 +28,7 @@ unsafe fn start() -> ! {
     register::mideleg::write(0xffff);
 
     // 5. Enable interrupt in supervisor mode
-    register::sie::enable_supervisor_all();
+    register::sie::intr_on();
 
     // 5. Enable clock interrupts.
     timerinit();
