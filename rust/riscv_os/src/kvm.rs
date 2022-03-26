@@ -1,7 +1,7 @@
 use crate::page_table::{PageTable, PteFlag};
 use crate::param::{
     CLINT, CLINT_MAP_SIZE, KERNBASE, PHYSTOP, PLIC, PLIC_MAP_SIZE, UART0, UART0_MAP_SIZE, VIRTIO0,
-    VIRTIO0_MAP_SIZE,
+    VIRTIO0_MAP_SIZE, TRAMPOLINE, PAGESIZE,
 };
 use crate::println;
 use crate::register::satp;
@@ -16,10 +16,11 @@ pub unsafe fn init_hart() {
 
 pub unsafe fn init() {
     // uart registers
-    kvm_map(UART0, UART0, UART0_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
+    kvm_map("uart", UART0, UART0, UART0_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
 
     // virtio mmio disk interface
     kvm_map(
+        "virtio",
         VIRTIO0,
         VIRTIO0,
         VIRTIO0_MAP_SIZE,
@@ -27,10 +28,10 @@ pub unsafe fn init() {
     );
 
     // CLINT
-    kvm_map(CLINT, CLINT, CLINT_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
+    kvm_map("CLINT", CLINT, CLINT, CLINT_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
 
     // PLIC
-    kvm_map(PLIC, PLIC, PLIC_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
+    kvm_map("PRIC", PLIC, PLIC, PLIC_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
 
     extern "C" {
         fn _etext();
@@ -39,6 +40,7 @@ pub unsafe fn init() {
 
     // map kernel text executable and read-only.
     kvm_map(
+        "kernel text",
         KERNBASE,
         KERNBASE,
         etext - KERNBASE,
@@ -47,6 +49,7 @@ pub unsafe fn init() {
 
     // map kernel data and the physical RAM we'll make use of.
     kvm_map(
+        "physical",
         etext,
         etext,
         PHYSTOP - etext,
@@ -54,20 +57,14 @@ pub unsafe fn init() {
     );
 
     extern "C" {
-        fn _trampoline();
+        fn trampoline();
     }
-    let trampoline = _trampoline as usize;
 
-    println!(
-        "trampoline={:#x}, etext={:#x}, satp={:#x}",
-        trampoline,
-        etext,
-        KERNEL_PAGE_TABLE.as_satp()
-    );
+    kvm_map("trampoline", TRAMPOLINE, trampoline as usize, PAGESIZE, PteFlag::READ | PteFlag::EXEC);
 }
 
-pub unsafe fn kvm_map(va: usize, pa: usize, size: usize, perm: PteFlag) {
-    println!("kvm_map: va={:#x}, pa={:#x}, size={:#x}", va, pa, size);
+pub unsafe fn kvm_map(name: &'static str, va: usize, pa: usize, size: usize, perm: PteFlag) {
+    println!("kvm_map '{}': va={:#x}, pa={:#x}, size={:#x}", name, va, pa, size);
 
     if let Err(err) = KERNEL_PAGE_TABLE.map_pages(va, pa, size, perm) {
         panic!("kvm_map: {}", err)

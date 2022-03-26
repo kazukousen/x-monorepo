@@ -55,15 +55,13 @@ impl PageTable {
     // Allocate a new user page table.
     pub fn alloc_user_page_table(trapframe: usize) -> Option<Box<Self>> {
         extern "C" {
-            fn _trampoline();
+            fn trampoline();
         }
-        let trampoline = _trampoline as usize;
-
         let mut pt = unsafe { Box::<Self>::try_new_zeroed().ok()?.assume_init() };
 
         pt.map_pages(
             TRAMPOLINE,
-            trampoline,
+            trampoline as usize,
             PAGESIZE,
             PteFlag::READ | PteFlag::EXEC,
         )
