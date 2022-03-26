@@ -20,6 +20,8 @@ mod rmain;
 mod spinlock;
 mod start;
 mod uart;
+mod trap;
+mod plic;
 
 #[panic_handler]
 fn panic(info: &PanicInfo<'_>) -> ! {
