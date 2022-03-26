@@ -36,7 +36,7 @@ impl CpuTable {
 
         loop {
             // ensure devices can interrupt
-            intr_on();
+            sstatus::intr_on();
 
             if let Some(p) = PROCESS_TABLE.find_runnable() {
                 cpu.proc = p as *mut _;
@@ -110,12 +110,6 @@ impl Cpu {
             intena: false,
         }
     }
-}
-
-#[inline]
-unsafe fn intr_on() {
-    sie::intr_on();
-    sstatus::intr_on();
 }
 
 pub fn push_off() {
