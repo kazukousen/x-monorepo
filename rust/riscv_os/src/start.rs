@@ -1,5 +1,5 @@
 use crate::param::NCPU;
-use crate::register;
+use crate::{register, println};
 use core::arch::asm;
 
 #[no_mangle]
@@ -11,7 +11,7 @@ static TIMER_SCRATCH: [[usize; 5]; NCPU] = [[0; 5]; NCPU];
 #[no_mangle]
 unsafe fn start() -> ! {
     // 1. Perform some configurations that is only allowed in machine mode.
-    register::mstatus::set_mpp(register::mstatus::MPPMode::Machine);
+    register::mstatus::set_mpp(register::mstatus::MPPMode::Supervisor);
 
     extern "Rust" {
         fn main();
@@ -30,14 +30,18 @@ unsafe fn start() -> ! {
     // 5. Enable interrupt in supervisor mode
     register::sie::intr_on();
 
-    // 5. Enable clock interrupts.
+    // 6. configure Physical Memory Protection to give supervisor mode access to all of physical memory.
+    register::pmp::write_address0(!(0) >> 10);
+    register::pmp::set_config0();
+
+    // 7. Enable clock interrupts.
     timerinit();
 
-    // 6. Store each CPU's hart id in tp register, for cpuid().
+    // 8. Store each CPU's hart id in tp register, for cpuid().
     let id = register::mhartid::read();
     register::tp::write(id);
 
-    // 7. Switch to supervisor mode and jump to `main`.
+    // 9. Switch to supervisor mode and jump to `main`.
     asm!("mret");
 
     loop {}

@@ -14,9 +14,9 @@ unsafe fn write(v: usize) {
 
 /// Machine Previous Privilege Mode
 pub enum MPPMode {
-    User = 0,
-    Supervisor = 1,
-    Machine = 3,
+    User,
+    Supervisor,
+    Machine,
 }
 
 pub unsafe fn set_mpp(mode: MPPMode) {

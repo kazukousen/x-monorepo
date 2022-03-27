@@ -6,12 +6,14 @@ use crate::param::{
 use crate::println;
 use crate::register::satp;
 use core::arch::asm;
+use core::sync::atomic::{fence, Ordering};
 
 static mut KERNEL_PAGE_TABLE: PageTable = PageTable::empty();
 
 pub unsafe fn init_hart() {
     satp::write(KERNEL_PAGE_TABLE.as_satp());
-    asm!("sfence.vma zero, zero");
+    fence(Ordering::SeqCst);
+    // asm!("sfence.vma zero, zero");
 }
 
 pub unsafe fn init() {

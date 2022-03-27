@@ -13,3 +13,4 @@ pub mod sie;
 pub mod sstatus;
 pub mod stvec;
 pub mod tp;
+pub mod pmp;
