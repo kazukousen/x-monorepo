@@ -136,8 +136,8 @@ impl ProcessData {
         self.context.sp = self.kstack + PAGESIZE;
     }
 
-    pub fn get_context(&mut self) -> *mut Context {
-        &mut self.context as *mut _
+    pub fn get_context(&mut self) -> &Context {
+        &self.context
     }
 }
 
@@ -200,6 +200,8 @@ impl Proc {
 }
 
 unsafe fn forkret() -> ! {
+    println!("forkret");
+
     let p = CPU_TABLE.my_proc();
 
     p.inner.unlock();

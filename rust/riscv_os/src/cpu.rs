@@ -8,6 +8,7 @@ use crate::{
     proc::{Context, Proc, ProcState},
     process::PROCESS_TABLE,
     register::{sstatus, tp},
+    swtch,
 };
 
 pub static mut CPU_TABLE: CpuTable = CpuTable::new();
@@ -44,17 +45,15 @@ impl CpuTable {
                 let mut locked = p.inner.lock();
                 locked.state = ProcState::Running;
 
-                let ctx_ptr = p.data.get_mut().get_context();
-
+                let ctx = p.data.get_mut().get_context();
                 {
-                    let ctx = ctx_ptr.as_mut().unwrap();
                     println!(
                         "scheduler: new context ra={:#x} stack={:#x}",
                         ctx.ra, ctx.sp
                     );
                 }
 
-                swtch(&mut cpu.scheduler as *mut _, p.data.get_mut().get_context());
+                swtch::swtch(&mut cpu.scheduler, ctx);
 
                 cpu.proc = ptr::null_mut();
                 drop(locked);
