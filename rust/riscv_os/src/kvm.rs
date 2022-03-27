@@ -89,7 +89,7 @@ pub unsafe fn init() {
 
 pub unsafe fn kvm_map(name: &'static str, va: usize, pa: usize, size: usize, perm: PteFlag) {
     println!(
-        "kvm_map '{}': va={:#x}, pa={:#x}, size={:#x}",
+        "kvm_map: '{}' va={:#x}, pa={:#x}, size={:#x}",
         name, va, pa, size
     );
 

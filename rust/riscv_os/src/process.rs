@@ -31,7 +31,7 @@ impl ProcessTable {
                 .expect("process_table: insufficient memory for process's kernel stack");
             // map
             kvm_map(
-                "proc_init",
+                "process's kernel stack",
                 va,
                 pa as usize,
                 PAGESIZE * 4,

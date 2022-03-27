@@ -1,9 +1,25 @@
 use core::mem;
 
 use crate::{
-    cpu, param,
+    cpu::{self, CpuTable}, param,
     register::{self, sstatus},
 };
+
+/// set up to take exceptions and traps while in the kernel.
+pub unsafe fn init_hart() {
+    extern "C" {
+        fn kernelvec();
+    }
+    register::stvec::write(kernelvec as usize);
+}
+
+#[no_mangle]
+pub unsafe fn kerneltrap() {
+    let sepc = register::sepc::read();
+    // let sstatus = register::sstatus::
+    //
+    
+}
 
 /// return to user space
 pub unsafe fn user_trap_ret() -> ! {
@@ -23,9 +39,9 @@ pub unsafe fn user_trap_ret() -> ! {
     let tf = pd.tf.as_mut().unwrap();
 
     tf.kernel_satp = register::satp::read();
-    tf.kernel_sp = pd.kstack + param::PAGESIZE;
+    tf.kernel_sp = pd.kstack + param::PAGESIZE * 4;
     tf.kernel_trap = user_trap as usize;
-    tf.kernel_hartid = register::tp::read();
+    tf.kernel_hartid = CpuTable::cpu_id();
 
     // set S Previous Privilege mode to User.
     register::sstatus::prepare_user_ret();
