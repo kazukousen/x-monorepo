@@ -30,9 +30,6 @@ impl CpuTable {
     }
 
     pub unsafe fn scheduler(&mut self) -> ! {
-        extern "C" {
-            fn swtch(old: *mut Context, new: *mut Context);
-        }
         let cpu = self.my_cpu_mut();
 
         loop {

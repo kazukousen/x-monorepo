@@ -5,9 +5,9 @@ use crate::proc;
 pub extern "C" fn swtch(old: &mut proc::Context, new: &proc::Context) {
     unsafe {
         asm!(
-        "sd ra, 0({0})",
-        "sd sp, 8({0})",
-        "sd s0, 16({0})",
+            "sd ra, 0({0})",
+            "sd sp, 8({0})",
+            "sd s0, 16({0})",
             "sd s1, 24({0})",
             "sd s2, 32({0})",
             "sd s3, 40({0})",
