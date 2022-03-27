@@ -15,7 +15,7 @@ pub const TRAMPOLINE: usize = MAXVA - PAGESIZE;
 // map kernel stacks beneath the trampoline,
 // each surrounded by invalid guard pages.
 pub const fn kstack(p: usize) -> usize {
-    TRAMPOLINE - ((p + 1) * 2 * PAGESIZE)
+    TRAMPOLINE - ((p + 1) * 5 * PAGESIZE)
 }
 
 // User memory layout.

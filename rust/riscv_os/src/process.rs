@@ -30,7 +30,13 @@ impl ProcessTable {
             let pa = SinglePage::new_zeroed()
                 .expect("process_table: insufficient memory for process's kernel stack");
             // map
-            kvm_map("proc_init", va, pa as usize, PAGESIZE, PteFlag::READ | PteFlag::WRITE);
+            kvm_map(
+                "proc_init",
+                va,
+                pa as usize,
+                PAGESIZE * 4,
+                PteFlag::READ | PteFlag::WRITE,
+            );
             // kstack
             p.data.get_mut().set_kstack(va);
         }

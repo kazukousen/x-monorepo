@@ -9,15 +9,14 @@ unsafe fn write(offset: usize, v: u32) {
 }
 
 pub unsafe fn init() {
-    write(param::UART0_IRQ*4, 1);
+    write(param::UART0_IRQ * 4, 1);
     // TODO: virtio0_irq
 }
 
 pub unsafe fn init_hart(hart: usize) {
-    write(SENABLE + SENABLE_HART * hart, (1<<param::UART0_IRQ));
+    write(SENABLE + SENABLE_HART * hart, (1 << param::UART0_IRQ));
     write(SPRIORITY + SPRIORITY_HART * hart, 0);
 }
-
 
 const SENABLE: usize = 0x2080;
 const SENABLE_HART: usize = 0x100;

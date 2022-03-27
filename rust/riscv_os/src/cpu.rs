@@ -7,7 +7,7 @@ use crate::{
     println,
     proc::{Context, Proc, ProcState},
     process::PROCESS_TABLE,
-    register::{tp, sie, sstatus},
+    register::{sstatus, tp},
 };
 
 pub static mut CPU_TABLE: CpuTable = CpuTable::new();
@@ -54,7 +54,7 @@ impl CpuTable {
                     );
                 }
 
-                swtch(&mut cpu.scheduler as *mut _, ctx_ptr);
+                swtch(&mut cpu.scheduler as *mut _, p.data.get_mut().get_context());
 
                 cpu.proc = ptr::null_mut();
                 drop(locked);
@@ -73,7 +73,6 @@ impl CpuTable {
     }
 
     pub fn my_proc(&mut self) -> &mut Proc {
-
         push_off();
 
         let p;
@@ -125,7 +124,6 @@ pub fn push_off() {
 }
 
 pub fn pop_off() {
-
     if sstatus::intr_get() {
         panic!("pop_off: interruputable");
     }
@@ -141,4 +139,3 @@ pub fn pop_off() {
         sstatus::intr_on();
     }
 }
-

@@ -1,7 +1,7 @@
 use crate::page_table::{PageTable, PteFlag};
 use crate::param::{
-    CLINT, CLINT_MAP_SIZE, KERNBASE, PHYSTOP, PLIC, PLIC_MAP_SIZE, UART0, UART0_MAP_SIZE, VIRTIO0,
-    VIRTIO0_MAP_SIZE, TRAMPOLINE, PAGESIZE,
+    CLINT, CLINT_MAP_SIZE, KERNBASE, PAGESIZE, PHYSTOP, PLIC, PLIC_MAP_SIZE, TRAMPOLINE, UART0,
+    UART0_MAP_SIZE, VIRTIO0, VIRTIO0_MAP_SIZE,
 };
 use crate::println;
 use crate::register::satp;
@@ -16,7 +16,13 @@ pub unsafe fn init_hart() {
 
 pub unsafe fn init() {
     // uart registers
-    kvm_map("uart", UART0, UART0, UART0_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
+    kvm_map(
+        "uart",
+        UART0,
+        UART0,
+        UART0_MAP_SIZE,
+        PteFlag::READ | PteFlag::WRITE,
+    );
 
     // virtio mmio disk interface
     kvm_map(
@@ -28,10 +34,22 @@ pub unsafe fn init() {
     );
 
     // CLINT
-    kvm_map("CLINT", CLINT, CLINT, CLINT_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
+    kvm_map(
+        "CLINT",
+        CLINT,
+        CLINT,
+        CLINT_MAP_SIZE,
+        PteFlag::READ | PteFlag::WRITE,
+    );
 
     // PLIC
-    kvm_map("PRIC", PLIC, PLIC, PLIC_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
+    kvm_map(
+        "PRIC",
+        PLIC,
+        PLIC,
+        PLIC_MAP_SIZE,
+        PteFlag::READ | PteFlag::WRITE,
+    );
 
     extern "C" {
         fn _etext();
@@ -60,11 +78,20 @@ pub unsafe fn init() {
         fn trampoline();
     }
 
-    kvm_map("trampoline", TRAMPOLINE, trampoline as usize, PAGESIZE, PteFlag::READ | PteFlag::EXEC);
+    kvm_map(
+        "trampoline",
+        TRAMPOLINE,
+        trampoline as usize,
+        PAGESIZE,
+        PteFlag::READ | PteFlag::EXEC,
+    );
 }
 
 pub unsafe fn kvm_map(name: &'static str, va: usize, pa: usize, size: usize, perm: PteFlag) {
-    println!("kvm_map '{}': va={:#x}, pa={:#x}, size={:#x}", name, va, pa, size);
+    println!(
+        "kvm_map '{}': va={:#x}, pa={:#x}, size={:#x}",
+        name, va, pa, size
+    );
 
     if let Err(err) = KERNEL_PAGE_TABLE.map_pages(va, pa, size, perm) {
         panic!("kvm_map: {}", err)

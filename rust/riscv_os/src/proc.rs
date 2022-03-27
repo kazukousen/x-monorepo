@@ -4,8 +4,8 @@ use core::ptr;
 use crate::cpu::CPU_TABLE;
 use crate::page_table::PageTable;
 use crate::param::PAGESIZE;
-use crate::println;
 use crate::spinlock::SpinLock;
+use crate::{println, trap};
 use alloc::boxed::Box;
 
 #[repr(C)]
@@ -67,11 +67,11 @@ impl Context {
 
 #[repr(C)]
 pub struct TrapFrame {
-    /* 0 */ kernel_satp: usize,
-    /* 8 */ kernel_sp: usize,
-    /* 16 */ kernel_trap: usize,
-    /* 24 */ epc: usize,
-    /* 32 */ kernel_hartid: usize,
+    /* 0 */ pub kernel_satp: usize,
+    /* 8 */ pub kernel_sp: usize,
+    /* 16 */ pub kernel_trap: usize,
+    /* 24 */ pub epc: usize,
+    /* 32 */ pub kernel_hartid: usize,
     /* 40 */ ra: usize,
     /* 48 */ sp: usize,
     /* 56 */ gp: usize,
@@ -106,7 +106,7 @@ pub struct TrapFrame {
 }
 
 pub struct ProcessData {
-    kstack: usize,
+    pub kstack: usize,
     sz: usize,
     context: Context,
     name: [u8; 16],
@@ -131,19 +131,9 @@ impl ProcessData {
     }
 
     pub fn init_context(&mut self) {
-        extern "Rust" {
-            fn forkret();
-        }
-
         self.context.clear();
-        self.context.ra = forkret as usize;
+        self.context.ra = forkret as *const () as usize;
         self.context.sp = self.kstack + PAGESIZE;
-
-        // TODO: remove
-        println!(
-            "init_context: ra: {:#x}, sp: {:#x}",
-            self.context.ra, self.context.sp
-        );
     }
 
     pub fn get_context(&mut self) -> *mut Context {
@@ -209,13 +199,12 @@ impl Proc {
     }
 }
 
-#[no_mangle]
 unsafe fn forkret() -> ! {
     let p = CPU_TABLE.my_proc();
 
     p.inner.unlock();
 
-    panic!("in forkret");
+    trap::user_trap_ret();
 }
 
 /// first user program that calls exec("/init")

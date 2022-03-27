@@ -13,15 +13,15 @@ mod kalloc;
 mod kvm;
 mod page_table;
 mod param;
+mod plic;
 mod proc;
 mod process;
 mod register;
 mod rmain;
 mod spinlock;
 mod start;
-mod uart;
 mod trap;
-mod plic;
+mod uart;
 
 #[panic_handler]
 fn panic(info: &PanicInfo<'_>) -> ! {

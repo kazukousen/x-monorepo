@@ -18,12 +18,16 @@ unsafe fn write(v: usize) {
 
 #[inline]
 pub fn intr_on() {
-    unsafe { write(read() | SIE); }
+    unsafe {
+        write(read() | SIE);
+    }
 }
 
 #[inline]
 pub fn intr_off() {
-    unsafe { write(read() & !SIE); }
+    unsafe {
+        write(read() & !SIE);
+    }
 }
 
 #[inline]
@@ -32,3 +36,12 @@ pub fn intr_get() -> bool {
     (x & SIE) != 0
 }
 
+#[inline]
+pub fn prepare_user_ret() {
+    unsafe {
+        let mut x = read();
+        x &= !SPP;
+        x |= SPIE;
+        write(x);
+    }
+}
