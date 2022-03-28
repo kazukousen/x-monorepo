@@ -20,7 +20,6 @@ mod register;
 mod rmain;
 mod spinlock;
 mod start;
-mod swtch;
 mod trap;
 mod uart;
 
