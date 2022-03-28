@@ -16,6 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Build::new()
         .file("src/entry.S")
         .file("src/kernelvec.S")
+        .file("src/swtch.S")
         .file("src/trampoline.S")
         .compile("asm");
 

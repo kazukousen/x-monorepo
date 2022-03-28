@@ -136,8 +136,8 @@ impl ProcessData {
         self.context.sp = self.kstack + PAGESIZE * 4;
     }
 
-    pub fn get_context(&mut self) -> &Context {
-        &self.context
+    pub fn get_context(&mut self) -> *mut Context {
+        &mut self.context as *mut _
     }
 }
 

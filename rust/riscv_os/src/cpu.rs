@@ -8,7 +8,6 @@ use crate::{
     proc::{Context, Proc, ProcState},
     process::PROCESS_TABLE,
     register::{sstatus, tp},
-    swtch,
 };
 
 pub static mut CPU_TABLE: CpuTable = CpuTable::new();
@@ -24,12 +23,18 @@ impl CpuTable {
     }
 
     const fn new() -> Self {
+
         Self {
             table: array![i => Cpu::new(i); NCPU],
         }
     }
 
     pub unsafe fn scheduler(&mut self) -> ! {
+
+        extern "C" {
+            fn swtch(old: *mut Context, new: *mut Context);
+        }
+
         let cpu = self.my_cpu_mut();
 
         loop {
@@ -44,13 +49,14 @@ impl CpuTable {
 
                 let ctx = p.data.get_mut().get_context();
                 {
+                    let ctx = ctx.as_mut().unwrap();
                     println!(
                         "scheduler: new context ra={:#x} stack={:#x}",
                         ctx.ra, ctx.sp
                     );
                 }
 
-                swtch::swtch(&mut cpu.scheduler, ctx);
+                swtch(&mut cpu.scheduler as *mut _, ctx);
 
                 cpu.proc = ptr::null_mut();
                 drop(locked);
