@@ -61,7 +61,6 @@ pub unsafe fn user_trap_ret() -> ! {
         fn userret();
     }
     let user_ret_virt = param::TRAMPOLINE + (userret as usize - trampoline as usize);
-    println!("userret {:#x}, user_ret_virt: {:#x}", userret as usize, user_ret_virt as usize);
     let user_ret_virt: extern "C" fn(usize, usize) -> ! = mem::transmute(user_ret_virt);
 
     user_ret_virt(param::TRAMPOLINE, satp);

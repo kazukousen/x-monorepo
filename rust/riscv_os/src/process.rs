@@ -81,11 +81,9 @@ impl ProcessTable {
 
                     // hold trapframe pointer
                     pd.tf = unsafe { SinglePage::new_zeroed().ok()? as *mut TrapFrame };
-
                     // allocate trapframe page table
                     match PageTable::alloc_user_page_table(pd.tf as usize) {
                         Some(pgt) => {
-                            println!("alloc_proc: pid={} satp={:#x}", pid, pgt.as_satp());
                             pd.page_table = Some(pgt);
                         }
                         None => {
@@ -93,6 +91,7 @@ impl ProcessTable {
                             return None;
                         }
                     }
+                    println!("alloc_proc: pid={} tf={:#x} satp={:#x}", pid, pd.tf as usize, pd.page_table.as_ref().unwrap().as_satp());
 
                     pd.init_context();
                     locked.pid = pid;
