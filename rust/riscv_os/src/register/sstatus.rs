@@ -30,6 +30,7 @@ pub fn intr_off() {
     }
 }
 
+// are device interrupts enabled?
 #[inline]
 pub fn intr_get() -> bool {
     let x = unsafe { read() };

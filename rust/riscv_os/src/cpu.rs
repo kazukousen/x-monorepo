@@ -23,14 +23,12 @@ impl CpuTable {
     }
 
     const fn new() -> Self {
-
         Self {
             table: array![i => Cpu::new(i); NCPU],
         }
     }
 
     pub unsafe fn scheduler(&mut self) -> ! {
-
         extern "C" {
             fn swtch(old: *mut Context, new: *mut Context);
         }
@@ -38,7 +36,7 @@ impl CpuTable {
         let cpu = self.my_cpu_mut();
 
         loop {
-            // ensure devices can interrupt
+            // Avoid deadlock by ensuring that devices can interrupt.
             sstatus::intr_on();
 
             if let Some(p) = PROCESS_TABLE.find_runnable() {

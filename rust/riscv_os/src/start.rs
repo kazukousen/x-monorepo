@@ -1,5 +1,5 @@
 use crate::param::NCPU;
-use crate::{register, println};
+use crate::{println, register};
 use core::arch::asm;
 
 #[no_mangle]

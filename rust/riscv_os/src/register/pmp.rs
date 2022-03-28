@@ -1,6 +1,5 @@
 use core::arch::asm;
 
-
 #[inline]
 pub fn write_address0(addr: u64) {
     unsafe {
@@ -39,4 +38,3 @@ pub fn set_config0() {
         write_config(v);
     }
 }
-

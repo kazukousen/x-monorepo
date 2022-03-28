@@ -1,7 +1,8 @@
 use core::mem;
 
 use crate::{
-    cpu::{self, CpuTable}, param,
+    cpu::{self, CpuTable},
+    param,
     register::{self, sstatus},
 };
 
@@ -18,7 +19,6 @@ pub unsafe fn kerneltrap() {
     let sepc = register::sepc::read();
     // let sstatus = register::sstatus::
     //
-    
 }
 
 /// return to user space
