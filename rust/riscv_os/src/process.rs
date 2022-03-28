@@ -85,6 +85,7 @@ impl ProcessTable {
                     // allocate trapframe page table
                     match PageTable::alloc_user_page_table(pd.tf as usize) {
                         Some(pgt) => {
+                            println!("alloc_proc: pid={} satp={:#x}", pid, pgt.as_satp());
                             pd.page_table = Some(pgt);
                         }
                         None => {

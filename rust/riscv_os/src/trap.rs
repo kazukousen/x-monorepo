@@ -3,7 +3,7 @@ use core::mem;
 use crate::{
     cpu::{self, CpuTable},
     param,
-    register::{self, sstatus},
+    register::{self, sstatus}, println,
 };
 
 /// set up to take exceptions and traps while in the kernel.
@@ -17,12 +17,14 @@ pub unsafe fn init_hart() {
 #[no_mangle]
 pub unsafe fn kerneltrap() {
     let sepc = register::sepc::read();
-    // let sstatus = register::sstatus::
-    //
+    if register::sstatus::is_spp() {
+        panic!("");
+    }
 }
 
 /// return to user space
 pub unsafe fn user_trap_ret() -> ! {
+
     let p = cpu::CPU_TABLE.my_proc();
 
     sstatus::intr_off();
@@ -59,7 +61,9 @@ pub unsafe fn user_trap_ret() -> ! {
         fn userret();
     }
     let user_ret_virt = param::TRAMPOLINE + (userret as usize - trampoline as usize);
+    println!("userret {:#x}, user_ret_virt: {:#x}", userret as usize, user_ret_virt as usize);
     let user_ret_virt: extern "C" fn(usize, usize) -> ! = mem::transmute(user_ret_virt);
+
     user_ret_virt(param::TRAMPOLINE, satp);
 }
 

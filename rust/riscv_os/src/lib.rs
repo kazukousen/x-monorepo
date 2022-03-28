@@ -25,6 +25,6 @@ mod uart;
 
 #[panic_handler]
 fn panic(info: &PanicInfo<'_>) -> ! {
-    println!("{}", info);
+    println!("panic: {}", info);
     loop {}
 }

@@ -38,6 +38,11 @@ pub fn intr_get() -> bool {
 }
 
 #[inline]
+pub fn is_spp() -> bool {
+    unsafe { read() & SPP != 0 }
+}
+
+#[inline]
 pub fn prepare_user_ret() {
     unsafe {
         let mut x = read();
