@@ -2,8 +2,8 @@ use core::mem;
 
 use crate::{
     cpu::{self, CpuTable},
-    param,
-    register::{self, sstatus}, println,
+    param, println,
+    register::{self, sstatus},
 };
 
 /// set up to take exceptions and traps while in the kernel.
@@ -24,7 +24,6 @@ pub unsafe fn kerneltrap() {
 
 /// return to user space
 pub unsafe fn user_trap_ret() -> ! {
-
     let p = cpu::CPU_TABLE.my_proc();
 
     sstatus::intr_off();

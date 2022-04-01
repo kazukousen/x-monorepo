@@ -91,7 +91,12 @@ impl ProcessTable {
                             return None;
                         }
                     }
-                    println!("alloc_proc: pid={} tf={:#x} satp={:#x}", pid, pd.tf as usize, pd.page_table.as_ref().unwrap().as_satp());
+                    println!(
+                        "alloc_proc: pid={} tf={:#x} satp={:#x}",
+                        pid,
+                        pd.tf as usize,
+                        pd.page_table.as_ref().unwrap().as_satp()
+                    );
 
                     pd.init_context();
                     locked.pid = pid;
