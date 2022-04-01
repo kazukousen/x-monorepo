@@ -12,8 +12,7 @@ static mut KERNEL_PAGE_TABLE: PageTable = PageTable::empty();
 
 pub unsafe fn init_hart() {
     satp::write(KERNEL_PAGE_TABLE.as_satp());
-    fence(Ordering::SeqCst);
-    // asm!("sfence.vma zero, zero");
+    asm!("sfence.vma zero, zero");
 }
 
 pub unsafe fn init() {

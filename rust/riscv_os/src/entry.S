@@ -12,6 +12,3 @@ _entry:
 
 spin:
     j spin
-
-    .section .data
-    .align 16
