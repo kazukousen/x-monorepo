@@ -34,7 +34,7 @@ pub unsafe fn user_trap_ret() -> ! {
         fn trampoline();
     }
 
-    register::stvec::write(param::TRAMPOLINE + (uservec as usize - trampoline as usize));
+    register::stvec::write(param::TRAMPOLINE);
 
     let pd = p.data.get_mut();
 
@@ -63,7 +63,7 @@ pub unsafe fn user_trap_ret() -> ! {
     let user_ret_virt = param::TRAMPOLINE + (userret as usize - trampoline as usize);
     let user_ret_virt: extern "C" fn(usize, usize) -> ! = mem::transmute(user_ret_virt);
 
-    user_ret_virt(param::TRAMPOLINE, satp);
+    user_ret_virt(param::TRAPFRAME, satp);
 }
 
 fn user_trap() {}

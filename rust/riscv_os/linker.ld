@@ -6,12 +6,13 @@ SECTIONS
   . = 0x80000000;
 
   .text : {
-    *(.text)
+    *(.text.entry)
+    *(.text .text.*)
     . = ALIGN(0x1000);
+    _trampoline = .;
     *(trampsec)
     . = ALIGN(0x1000);
-    ASSERT(. - trampoline == 0x1000, "error: trampoline larger than one page");
-    PROVIDE(_etext = .);
+    ASSERT(. - _trampoline == 0x1000, "error: trampoline larger than one page");
   }
 
   .rodata : {
@@ -20,6 +21,8 @@ SECTIONS
     . = ALIGN(16);
     *(.rodata .rodata.*)
   }
+    . = ALIGN(0x1000);
+    PROVIDE(_etext = .);
 
   .data : {
     . = ALIGN(16);

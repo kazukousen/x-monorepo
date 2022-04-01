@@ -5,7 +5,7 @@
 # Save current registers in old. Load from new.	
 
 
-.section .text.swtch
+.section .text
 .globl swtch
 swtch:
         sd ra, 0(a0)

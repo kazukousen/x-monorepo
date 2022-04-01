@@ -12,7 +12,6 @@
 .globl trampoline
 trampoline:
 
-.align 4
 .globl uservec
 uservec:    
 	#
@@ -85,6 +84,7 @@ uservec:
         # jump to usertrap(), which does not return
         jr t0
 
+.align 4
 .globl userret
 userret:
         # userret(TRAPFRAME, pagetable)

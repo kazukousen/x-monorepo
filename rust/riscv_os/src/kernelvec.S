@@ -4,7 +4,7 @@
         #
         # push all registers, call kerneltrap(), restore, return.
         #
-.section .text.kerneltrap
+.section .text
 .globl kerneltrap
 .globl kernelvec
 .align 4
