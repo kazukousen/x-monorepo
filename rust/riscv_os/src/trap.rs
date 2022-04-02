@@ -8,6 +8,8 @@ use crate::{
 
 /// set up to take exceptions and traps while in the kernel.
 pub unsafe fn init_hart() {
+    println!("inithart");
+    panic!("inithart");
     extern "C" {
         fn kernelvec();
     }
