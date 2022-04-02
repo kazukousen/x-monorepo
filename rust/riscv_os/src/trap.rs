@@ -3,13 +3,12 @@ use core::mem;
 use crate::{
     cpu::{self, CpuTable},
     param, println,
-    register::{self, sstatus},
+    register::{self, scause::ScauseType},
 };
 
 /// set up to take exceptions and traps while in the kernel.
 pub unsafe fn init_hart() {
-    println!("inithart");
-    panic!("inithart");
+    println!("traph_init_hart");
     extern "C" {
         fn kernelvec();
     }
@@ -18,19 +17,36 @@ pub unsafe fn init_hart() {
 
 #[no_mangle]
 pub unsafe fn kerneltrap() {
-    println!("kerneltrap");
-    panic!("kerneltrap");
     let sepc = register::sepc::read();
-    if register::sstatus::is_spp() {
-        panic!("");
+    let sstatus = register::sstatus::read();
+
+    if register::sstatus::is_from_supervisor() {
+        // panic!("kerneltrap: not from supervisor mode");
     }
+
+    if register::sstatus::intr_get() {
+        // panic!("kerneltrap: interrupts enabled");
+    }
+
+    match register::scause::get_type() {
+        ScauseType::IntSExt => {}
+        ScauseType::IntSSoft => {
+            println!("kerneltrap: handling timer interrupt");
+
+            register::sip::clear_ssip();
+        }
+        ScauseType::Unknown => {}
+    }
+
+    register::sepc::write(sepc);
+    register::sepc::write(sstatus);
 }
 
 /// return to user space
 pub unsafe fn user_trap_ret() -> ! {
     let p = cpu::CPU_TABLE.my_proc();
 
-    sstatus::intr_off();
+    register::sstatus::intr_off();
 
     extern "C" {
         fn uservec();
@@ -70,7 +86,9 @@ pub unsafe fn user_trap_ret() -> ! {
     user_ret_virt(param::TRAPFRAME, satp);
 }
 
-fn user_trap() {
+#[no_mangle]
+unsafe extern "C" fn user_trap() {
+    // TODO: deny from user mode
+
     println!("usertrap");
-    panic!("usertrap");
 }

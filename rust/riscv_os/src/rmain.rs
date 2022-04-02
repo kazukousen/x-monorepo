@@ -5,6 +5,7 @@ use crate::kvm;
 use crate::plic;
 use crate::println;
 use crate::process::PROCESS_TABLE;
+use crate::trap;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 static STARTED: AtomicBool = AtomicBool::new(false);
@@ -21,12 +22,14 @@ pub unsafe fn main() -> ! {
         // initialize the kernel page table
         kvm::init();
         kvm::init_hart();
+        // initialize the process table and allocate a page for each process's kernel stack.
+        PROCESS_TABLE.proc_init();
+        // install kernel trap handler
+        trap::init_hart();
 
         plic::init();
         plic::init_hart(cpu_id);
 
-        // initialize the process table and allocate a page for each process's kernel stack.
-        PROCESS_TABLE.proc_init();
         PROCESS_TABLE.user_init();
 
         STARTED.store(true, Ordering::SeqCst);
@@ -34,6 +37,8 @@ pub unsafe fn main() -> ! {
         while !STARTED.load(Ordering::SeqCst) {}
         println!("hart {} starting", cpu_id);
         kvm::init_hart();
+        // install kernel trap handler
+        trap::init_hart();
         plic::init_hart(cpu_id);
     }
 
