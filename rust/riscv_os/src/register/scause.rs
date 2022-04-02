@@ -12,7 +12,7 @@ const INTERRUPT_SUPERVISOR_SOFTWARE: usize = INTERRUPT + 1;
 const INTERRUPT_SUPERVISOR_EXTERNAL: usize = INTERRUPT + 9;
 
 pub enum ScauseType {
-    Unknown,
+    Unknown(usize),
     IntSSoft,
     IntSExt,
 }
@@ -23,6 +23,6 @@ pub unsafe fn get_type() -> ScauseType {
     match scause {
         INTERRUPT_SUPERVISOR_SOFTWARE => ScauseType::IntSSoft,
         INTERRUPT_SUPERVISOR_EXTERNAL => ScauseType::IntSExt,
-        _ => ScauseType::Unknown,
+        v => ScauseType::Unknown(v),
     }
 }

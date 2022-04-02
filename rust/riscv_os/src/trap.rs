@@ -8,7 +8,7 @@ use crate::{
 
 /// set up to take exceptions and traps while in the kernel.
 pub unsafe fn init_hart() {
-    println!("traph_init_hart");
+    println!("trap_init_hart");
     extern "C" {
         fn kernelvec();
     }
@@ -35,7 +35,10 @@ pub unsafe fn kerneltrap() {
 
             register::sip::clear_ssip();
         }
-        ScauseType::Unknown => {}
+        ScauseType::Unknown(v) => {
+            println!("kerneltrap: scause {}", v);
+            panic!("kerneltrap");
+        }
     }
 
     register::sepc::write(sepc);
