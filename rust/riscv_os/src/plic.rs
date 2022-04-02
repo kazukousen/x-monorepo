@@ -10,11 +10,11 @@ unsafe fn write(offset: usize, v: u32) {
 
 pub unsafe fn init() {
     write(param::UART0_IRQ * 4, 1);
-    // TODO: virtio0_irq
+    write(param::VIRTIO0_IRQ * 4, 1);
 }
 
 pub unsafe fn init_hart(hart: usize) {
-    write(SENABLE + SENABLE_HART * hart, 1 << param::UART0_IRQ);
+    write(SENABLE + SENABLE_HART * hart, (1 << param::UART0_IRQ) | (1 << param::VIRTIO0_IRQ));
     write(SPRIORITY + SPRIORITY_HART * hart, 0);
 }
 

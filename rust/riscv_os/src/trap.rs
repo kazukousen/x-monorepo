@@ -16,6 +16,8 @@ pub unsafe fn init_hart() {
 
 #[no_mangle]
 pub unsafe fn kerneltrap() {
+    println!("kerneltrap");
+    panic!("kerneltrap");
     let sepc = register::sepc::read();
     if register::sstatus::is_spp() {
         panic!("");
@@ -33,7 +35,8 @@ pub unsafe fn user_trap_ret() -> ! {
         fn trampoline();
     }
 
-    register::stvec::write(param::TRAMPOLINE);
+    // send syscalls, interrupts, and exceptions to trampoline.S
+    register::stvec::write(param::TRAMPOLINE + (uservec as usize - trampoline as usize));
 
     let pd = p.data.get_mut();
 
@@ -65,4 +68,7 @@ pub unsafe fn user_trap_ret() -> ! {
     user_ret_virt(param::TRAPFRAME, satp);
 }
 
-fn user_trap() {}
+fn user_trap() {
+    println!("usertrap");
+    panic!("usertrap");
+}

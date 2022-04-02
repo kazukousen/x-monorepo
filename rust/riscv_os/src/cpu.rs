@@ -37,7 +37,7 @@ impl CpuTable {
 
         loop {
             // Avoid deadlock by ensuring that devices can interrupt.
-            // sstatus::intr_on();
+            sstatus::intr_on();
 
             if let Some(p) = PROCESS_TABLE.find_runnable() {
                 cpu.proc = p as *mut _;

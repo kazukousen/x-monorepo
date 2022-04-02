@@ -6,7 +6,6 @@ use crate::param::{
 use crate::println;
 use crate::register::satp;
 use core::arch::asm;
-use core::sync::atomic::{fence, Ordering};
 
 static mut KERNEL_PAGE_TABLE: PageTable = PageTable::empty();
 

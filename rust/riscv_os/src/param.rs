@@ -45,6 +45,7 @@ pub const UART0_IRQ: usize = 10;
 // virtio mmio interface
 pub const VIRTIO0: usize = 0x10001000;
 pub const VIRTIO0_MAP_SIZE: usize = PAGESIZE;
+pub const VIRTIO0_IRQ: usize = 1;
 
 // qemu puts programmable interrupt controller here.
 pub const PLIC: usize = 0x0c000000;
