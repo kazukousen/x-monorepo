@@ -62,7 +62,7 @@ impl CpuTable {
         }
     }
 
-    unsafe fn my_cpu_mut(&mut self) -> &mut Cpu {
+    pub unsafe fn my_cpu_mut(&mut self) -> &mut Cpu {
         let id = Self::cpu_id();
         &mut self.table[id]
     }
@@ -89,7 +89,7 @@ impl CpuTable {
     }
 }
 
-struct Cpu {
+pub struct Cpu {
     hartid: usize,
     proc: *mut Proc,
     scheduler: Context,
@@ -107,6 +107,31 @@ impl Cpu {
             scheduler: Context::new(),
             noff: 0,
             intena: false,
+        }
+    }
+
+    unsafe fn sched(&mut self) {
+        extern "C" {
+            fn swtch(old: *mut Context, new: *mut Context);
+        }
+
+        let proc = self.proc.as_mut().unwrap();
+        let ctx = proc.data.get_mut().get_context();
+
+        let intena = self.intena;
+
+        swtch(ctx, &mut self.scheduler as *mut _);
+
+        self.intena = intena;
+    }
+
+    pub unsafe fn yielding(&mut self) {
+        if !self.proc.is_null() {
+            let proc = self.proc.as_mut().unwrap();
+            let mut locked = proc.inner.lock();
+            locked.state = ProcState::Runnable;
+            self.sched();
+            drop(locked);
         }
     }
 }

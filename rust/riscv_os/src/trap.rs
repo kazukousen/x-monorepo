@@ -1,9 +1,9 @@
 use core::mem;
 
 use crate::{
-    cpu::{self, CpuTable},
+    cpu::{self, CpuTable, CPU_TABLE},
     param, println,
-    register::{self, scause::ScauseType},
+    register::{self, scause::ScauseType}, spinlock::SpinLock,
 };
 
 /// set up to take exceptions and traps while in the kernel.
@@ -17,15 +17,16 @@ pub unsafe fn init_hart() {
 
 #[no_mangle]
 pub unsafe fn kerneltrap() {
+
     let sepc = register::sepc::read();
     let sstatus = register::sstatus::read();
 
-    if register::sstatus::is_from_supervisor() {
-        // panic!("kerneltrap: not from supervisor mode");
+    if !register::sstatus::is_from_supervisor() {
+        panic!("kerneltrap: not from supervisor mode");
     }
 
     if register::sstatus::intr_get() {
-        // panic!("kerneltrap: interrupts enabled");
+        panic!("kerneltrap: interrupts enabled");
     }
 
     match register::scause::get_type() {
@@ -33,7 +34,13 @@ pub unsafe fn kerneltrap() {
         ScauseType::IntSSoft => {
             println!("kerneltrap: handling timer interrupt");
 
+            if cpu::CpuTable::cpu_id() == 0 {
+                clock_intr();
+            }
+
             register::sip::clear_ssip();
+
+            CPU_TABLE.my_cpu_mut().yielding();
         }
         ScauseType::Unknown(v) => {
             println!("kerneltrap: scause {}", v);
@@ -43,6 +50,14 @@ pub unsafe fn kerneltrap() {
 
     register::sepc::write(sepc);
     register::sepc::write(sstatus);
+}
+
+static TICKS: SpinLock<usize> = SpinLock::new(0);
+
+fn clock_intr() {
+    let mut locked = TICKS.lock();
+    *locked += 1;
+    drop(locked)
 }
 
 /// return to user space
