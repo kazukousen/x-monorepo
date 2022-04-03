@@ -8,6 +8,10 @@ use crate::spinlock::SpinLock;
 use crate::{println, trap};
 use alloc::boxed::Box;
 
+mod syscall;
+
+use self::syscall::Syscall;
+
 #[repr(C)]
 pub struct Context {
     pub ra: usize,
@@ -196,6 +200,27 @@ impl Proc {
         // p->cwd = namei("/");
 
         Ok(())
+    }
+
+    pub unsafe fn syscall(&mut self) {
+        let pd = self.data.get_mut();
+        let tf = pd.tf.as_mut().unwrap();
+
+        let num = tf.a7;
+
+        let ret = match num {
+            7 => self.sys_exec(),
+            _ => {
+                // TODO: panic
+                println!("unknown syscall: {}", num);
+                loop {}
+            }
+        };
+
+        tf.a0 = match ret {
+            Ok(ret) => ret,
+            Err(()) => -1isize as usize,
+        }
     }
 }
 

@@ -32,4 +32,3 @@ fn panic(info: &PanicInfo<'_>) -> ! {
 fn abort() -> ! {
     panic!("abort");
 }
-

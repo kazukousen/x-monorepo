@@ -136,6 +136,7 @@ impl Cpu {
     }
 }
 
+/// push_off/pop_off are like intr_off()/intr_on()
 pub fn push_off() {
     let old = sstatus::intr_get();
     sstatus::intr_off();

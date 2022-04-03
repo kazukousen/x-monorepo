@@ -54,7 +54,7 @@ pub unsafe fn kerneltrap() {
             CPU_TABLE.my_cpu_mut().yielding();
         }
         ScauseType::ExcEcall => {
-            println!("kerneltrap: handling syscall");
+            panic!("kerneltrap: handling syscall");
         }
         ScauseType::Unknown(v) => {
             println!("kerneltrap: scause {}", v);
@@ -142,7 +142,10 @@ unsafe extern "C" fn user_trap() {
             CPU_TABLE.my_cpu_mut().yielding();
         }
         ScauseType::ExcEcall => {
-            println!("user_trap: handling syscall");
+            register::sstatus::intr_on();
+
+            let p = cpu::CPU_TABLE.my_proc();
+            p.syscall();
         }
         ScauseType::Unknown(v) => {
             println!("user_trap: scause {}", v);
