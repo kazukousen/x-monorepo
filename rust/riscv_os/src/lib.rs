@@ -1,4 +1,3 @@
-#![no_main]
 #![no_std]
 #![feature(alloc_error_handler)]
 #![feature(new_uninit)]
@@ -28,3 +27,9 @@ fn panic(info: &PanicInfo<'_>) -> ! {
     println!("panic: {}", info);
     loop {}
 }
+
+#[no_mangle]
+fn abort() -> ! {
+    panic!("abort");
+}
+
