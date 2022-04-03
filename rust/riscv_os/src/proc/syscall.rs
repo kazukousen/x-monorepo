@@ -1,6 +1,6 @@
 use core::{mem, str};
 
-use crate::println;
+use crate::{print, println};
 
 use super::ProcessData;
 
@@ -14,14 +14,16 @@ impl Syscall for ProcessData {
     fn sys_exec(&mut self) -> SysResult {
         let mut path: [u8; 128] = unsafe { mem::MaybeUninit::uninit().assume_init() };
         match self.arg_str(0, &mut path) {
-            Ok(_) => match str::from_utf8(&path) {
-                Ok(s) => {
-                    println!("sys_exec: debug {}", s);
+            Ok(_) => {
+                print!("sys_exec: ");
+                for c in path.iter() {
+                    if *c == 0 {
+                        break;
+                    }
+                    print!("{}", *c as char);
                 }
-                Err(e) => {
-                    println!("sys_exec: invalid path: {}", e);
-                }
-            },
+                println!();
+            }
             Err(msg) => {
                 println!("sys_exec: {}", msg);
             }
