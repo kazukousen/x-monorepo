@@ -1,6 +1,6 @@
 use core::ptr;
 
-use crate::{param, cpu};
+use crate::{cpu, param};
 
 pub unsafe fn init() {
     write(param::UART0_IRQ * 4, 1);
@@ -17,13 +17,12 @@ pub unsafe fn init_hart(hart: usize) {
 
 pub unsafe fn complete(irq: u32) {
     let hart: usize = cpu::CpuTable::cpu_id();
-    write(SCLAIM+SCLAIM_HART*hart, irq);
+    write(SCLAIM + SCLAIM_HART * hart, irq);
 }
-
 
 pub unsafe fn claim() -> u32 {
     let hart = cpu::CpuTable::cpu_id();
-    read(SCLAIM + SCLAIM_HART*hart)
+    read(SCLAIM + SCLAIM_HART * hart)
 }
 
 #[inline]

@@ -2,8 +2,9 @@ use core::mem;
 
 use crate::{
     cpu::{self, CpuTable, CPU_TABLE},
-    param, println,
-    register::{self, scause::ScauseType}, spinlock::SpinLock, plic,
+    param, plic, println,
+    register::{self, scause::ScauseType},
+    spinlock::SpinLock,
 };
 
 /// set up to take exceptions and traps while in the kernel.
@@ -17,7 +18,6 @@ pub unsafe fn init_hart() {
 
 #[no_mangle]
 pub unsafe fn kerneltrap() {
-
     let sepc = register::sepc::read();
     let sstatus = register::sstatus::read();
 
@@ -29,7 +29,8 @@ pub unsafe fn kerneltrap() {
         panic!("kerneltrap: interrupts enabled");
     }
 
-    match register::scause::get_type() {
+    let scause = register::scause::get_type();
+    match scause {
         ScauseType::IntSExt => {
             // this is a supervisor external interrupt, via PLIC.
 
@@ -51,6 +52,9 @@ pub unsafe fn kerneltrap() {
             register::sip::clear_ssip();
 
             CPU_TABLE.my_cpu_mut().yielding();
+        }
+        ScauseType::ExcEcall => {
+            println!("kerneltrap: handling syscall");
         }
         ScauseType::Unknown(v) => {
             println!("kerneltrap: scause {}", v);
@@ -118,7 +122,33 @@ pub unsafe fn user_trap_ret() -> ! {
 
 #[no_mangle]
 unsafe extern "C" fn user_trap() {
-    // TODO: deny from user mode
+    extern "C" {
+        fn kernelvec();
+    }
+    register::stvec::write(kernelvec as usize);
+    let scause = register::scause::get_type();
 
-    println!("usertrap");
+    match scause {
+        ScauseType::IntSExt => {}
+        ScauseType::IntSSoft => {
+            println!("user_trap: handling timer interrupt");
+
+            if cpu::CpuTable::cpu_id() == 0 {
+                clock_intr();
+            }
+
+            register::sip::clear_ssip();
+
+            CPU_TABLE.my_cpu_mut().yielding();
+        }
+        ScauseType::ExcEcall => {
+            println!("user_trap: handling syscall");
+        }
+        ScauseType::Unknown(v) => {
+            println!("user_trap: scause {}", v);
+            // panic!("kerneltrap");
+        }
+    }
+
+    user_trap_ret();
 }

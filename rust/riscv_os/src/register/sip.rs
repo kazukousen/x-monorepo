@@ -3,13 +3,13 @@ use core::arch::asm;
 #[inline]
 unsafe fn read() -> usize {
     let ret: usize;
-    asm!("csrr {}, sie", out(reg) ret);
+    asm!("csrr {}, sip", out(reg) ret);
     ret
 }
 
 #[inline]
 unsafe fn write(v: usize) {
-    asm!("csrw sie, {}", in(reg) v);
+    asm!("csrw sip, {}", in(reg) v);
 }
 
 // Supervisor Interrupt Pending
