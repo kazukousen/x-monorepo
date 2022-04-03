@@ -23,6 +23,6 @@ pub unsafe fn get_type() -> ScauseType {
     match scause {
         INTERRUPT_SUPERVISOR_SOFTWARE => ScauseType::IntSSoft,
         INTERRUPT_SUPERVISOR_EXTERNAL => ScauseType::IntSExt,
-        v => ScauseType::Unknown(v),
+        v => ScauseType::Unknown(v - INTERRUPT),
     }
 }

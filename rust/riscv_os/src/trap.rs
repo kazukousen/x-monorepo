@@ -3,7 +3,7 @@ use core::mem;
 use crate::{
     cpu::{self, CpuTable, CPU_TABLE},
     param, println,
-    register::{self, scause::ScauseType}, spinlock::SpinLock,
+    register::{self, scause::ScauseType}, spinlock::SpinLock, plic,
 };
 
 /// set up to take exceptions and traps while in the kernel.
@@ -30,7 +30,17 @@ pub unsafe fn kerneltrap() {
     }
 
     match register::scause::get_type() {
-        ScauseType::IntSExt => {}
+        ScauseType::IntSExt => {
+            // this is a supervisor external interrupt, via PLIC.
+
+            let irq = plic::claim();
+
+            // TODO
+
+            if irq > 0 {
+                plic::complete(irq);
+            }
+        }
         ScauseType::IntSSoft => {
             println!("kerneltrap: handling timer interrupt");
 
@@ -44,12 +54,12 @@ pub unsafe fn kerneltrap() {
         }
         ScauseType::Unknown(v) => {
             println!("kerneltrap: scause {}", v);
-            panic!("kerneltrap");
+            // panic!("kerneltrap");
         }
     }
 
     register::sepc::write(sepc);
-    register::sepc::write(sstatus);
+    register::sstatus::write(sstatus);
 }
 
 static TICKS: SpinLock<usize> = SpinLock::new(0);
