@@ -1,8 +1,9 @@
 use crate::param::{PAGESIZE, TRAMPOLINE, TRAPFRAME};
-// use crate::println;
+use crate::println;
 use alloc::boxed::Box;
 use bitflags::bitflags;
 use core::alloc::AllocError;
+use core::cmp::min;
 use core::ops::{Index, IndexMut};
 use core::ptr;
 
@@ -120,7 +121,7 @@ impl PageTable {
 
         for va in (va_start..va_end).step_by(PAGESIZE) {
             // println!("va_start={:#x}, va_end={:#x}, pa={:#x}, size={:#x}", va, va_end, pa, size);
-            match self.walk(va) {
+            match self.walk_alloc(va) {
                 Some(pte) => {
                     if pte.is_valid() {
                         return Err("map_pages: remap");
@@ -139,7 +140,38 @@ impl PageTable {
         Ok(())
     }
 
-    fn walk(&mut self, va: usize) -> Option<&mut PageTableEntry> {
+    pub fn walk_addr(&self, va: usize) -> Result<usize, &'static str> {
+        match self.walk(va) {
+            Some(pte) => {
+                if !pte.is_valid() {
+                    Err("walk_addr: pte is not valid")
+                } else if !pte.is_user() {
+                    Err("walk_addr: pte is not user")
+                } else {
+                    Ok(pte.as_phys_addr())
+                }
+            }
+            None => Err("walk_addr: va is not mapped"),
+        }
+    }
+
+    fn walk(&self, va: usize) -> Option<&PageTableEntry> {
+        let mut page_table = self as *const PageTable;
+
+        for level in (1..=2).rev() {
+            let pte = unsafe { &page_table.as_ref().unwrap()[get_index(va, level)] };
+
+            if !pte.is_valid() {
+                return None;
+            }
+
+            page_table = pte.as_page_table();
+        }
+
+        unsafe { Some(&page_table.as_ref().unwrap()[get_index(va, 0)]) }
+    }
+
+    fn walk_alloc(&mut self, va: usize) -> Option<&mut PageTableEntry> {
         let mut page_table = self as *mut PageTable;
 
         for level in (1..=2).rev() {
@@ -156,6 +188,40 @@ impl PageTable {
         }
 
         unsafe { Some(&mut page_table.as_mut().unwrap()[get_index(va, 0)]) }
+    }
+
+    /// Copy a null-terminated string from user to kernel.
+    /// Copy bytes to dst from virtual address srcva in a given page table,
+    /// until a '\0'.
+    pub fn copy_in_str(&self, dst: &mut [u8], srcva: usize) -> Result<(), &'static str> {
+        let mut i = 0;
+        let mut va = srcva;
+
+        while i < dst.len() {
+            let va_base = align_down(va, PAGESIZE);
+            let distance = va - va_base;
+            let mut va_ptr = va as *const u8;
+            let mut pa_ptr =
+                unsafe { (self.walk_addr(va_base)? as *const u8).offset(distance as isize) };
+
+            let mut count = min(PAGESIZE - distance, dst.len() - 1);
+            while count > 0 {
+                unsafe {
+                    dst[i] = ptr::read(pa_ptr);
+                    if dst[i] == 0 {
+                        return Ok(());
+                    }
+                    va_ptr = va_ptr.add(1);
+                    pa_ptr = pa_ptr.add(1);
+                    i += 1;
+                    count -= 1;
+                }
+            }
+
+            va = va_base + PAGESIZE;
+        }
+
+        Err("copy_in_str: dst not enough space")
     }
 }
 
@@ -210,6 +276,11 @@ impl PageTableEntry {
     }
 
     #[inline]
+    pub fn is_user(&self) -> bool {
+        (self.data & PteFlag::USER.bits()) > 0
+    }
+
+    #[inline]
     pub fn is_leaf(&self) -> bool {
         (self.data & (PteFlag::READ | PteFlag::WRITE | PteFlag::EXEC).bits()) > 0
     }
@@ -222,6 +293,12 @@ impl PageTableEntry {
     fn as_page_table(&self) -> *mut PageTable {
         // Physical Page Number (44 bit) + Offset (12 bit)
         (self.data >> 10 << 12) as *mut PageTable
+    }
+
+    #[inline]
+    fn as_phys_addr(&self) -> usize {
+        // Physical Page Number (44 bit) + Offset (12 bit)
+        (self.data >> 10 << 12)
     }
 
     fn free(&mut self) {

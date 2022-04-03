@@ -209,7 +209,7 @@ impl Proc {
         let num = tf.a7;
 
         let ret = match num {
-            7 => self.sys_exec(),
+            7 => pd.sys_exec(),
             _ => {
                 // TODO: panic
                 println!("unknown syscall: {}", num);

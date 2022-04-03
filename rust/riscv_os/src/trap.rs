@@ -36,7 +36,8 @@ pub unsafe fn kerneltrap() {
 
             let irq = plic::claim();
 
-            // TODO
+            // TODO uart
+            // TODO virtio
 
             if irq > 0 {
                 plic::complete(irq);
@@ -129,7 +130,18 @@ unsafe extern "C" fn user_trap() {
     let scause = register::scause::get_type();
 
     match scause {
-        ScauseType::IntSExt => {}
+        ScauseType::IntSExt => {
+            // this is a supervisor external interrupt, via PLIC.
+
+            let irq = plic::claim();
+
+            // TODO uart
+            // TODO virtio
+
+            if irq > 0 {
+                plic::complete(irq);
+            }
+        }
         ScauseType::IntSSoft => {
             println!("user_trap: handling timer interrupt");
 
@@ -149,7 +161,6 @@ unsafe extern "C" fn user_trap() {
         }
         ScauseType::Unknown(v) => {
             println!("user_trap: scause {}", v);
-            // panic!("kerneltrap");
         }
     }
 
