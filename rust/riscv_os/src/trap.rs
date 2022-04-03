@@ -58,6 +58,8 @@ pub unsafe fn kerneltrap() {
         }
     }
 
+    // the yield() may have caused some traps to occur,
+    // so restore trap registers for use by kernelvec.S's sepc instruction.
     register::sepc::write(sepc);
     register::sstatus::write(sstatus);
 }
