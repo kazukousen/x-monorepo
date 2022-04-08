@@ -21,6 +21,7 @@ mod spinlock;
 mod start;
 mod trap;
 mod uart;
+mod virtio;
 
 #[panic_handler]
 fn panic(info: &PanicInfo<'_>) -> ! {

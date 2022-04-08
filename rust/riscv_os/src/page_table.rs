@@ -1,5 +1,4 @@
 use crate::param::{PAGESIZE, TRAMPOLINE, TRAPFRAME};
-use crate::println;
 use alloc::boxed::Box;
 use bitflags::bitflags;
 use core::alloc::AllocError;
@@ -298,7 +297,7 @@ impl PageTableEntry {
     #[inline]
     fn as_phys_addr(&self) -> usize {
         // Physical Page Number (44 bit) + Offset (12 bit)
-        (self.data >> 10 << 12)
+        self.data >> 10 << 12
     }
 
     fn free(&mut self) {
