@@ -5,9 +5,9 @@ use array_macro::array;
 use crate::{
     param::NCPU,
     println,
-    proc::{Context, Proc, ProcState},
+    proc::{Context, Proc, ProcState, ProcInner},
     process::PROCESS_TABLE,
-    register::{sstatus, tp},
+    register::{sstatus, tp}, spinlock::SpinLockGuard,
 };
 
 pub static mut CPU_TABLE: CpuTable = CpuTable::new();
@@ -110,19 +110,24 @@ impl Cpu {
         }
     }
 
-    unsafe fn sched(&mut self) {
-        extern "C" {
-            fn swtch(old: *mut Context, new: *mut Context);
-        }
+    /// Switch to scheduler.
+    /// Saves and restores intena because intena is a property of this
+    /// kernel thread, not this CPU.
+    /// Passing in and out a locked because we need to the lock during this function.
+    pub unsafe fn sched<'a>(&mut self, locked: SpinLockGuard<'a, ProcInner>, ctx: *mut Context) -> SpinLockGuard<'a, ProcInner> {
 
         let proc = self.proc.as_mut().unwrap();
-        let ctx = proc.data.get_mut().get_context();
 
         let intena = self.intena;
 
+        extern "C" {
+            fn swtch(old: *mut Context, new: *mut Context);
+        }
         swtch(ctx, &mut self.scheduler as *mut _);
 
         self.intena = intena;
+
+        locked
     }
 
     pub unsafe fn yielding(&mut self) {
@@ -130,7 +135,7 @@ impl Cpu {
             let proc = self.proc.as_mut().unwrap();
             let mut locked = proc.inner.lock();
             locked.state = ProcState::Runnable;
-            self.sched();
+            locked = self.sched(locked, proc.data.get_mut().get_context());
             drop(locked);
         }
     }
