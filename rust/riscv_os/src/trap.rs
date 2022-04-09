@@ -4,7 +4,7 @@ use crate::{
     cpu::{self, CpuTable, CPU_TABLE},
     param, plic, println,
     register::{self, scause::ScauseType},
-    spinlock::SpinLock,
+    spinlock::SpinLock, virtio::DISK,
 };
 
 /// set up to take exceptions and traps while in the kernel.
@@ -37,7 +37,10 @@ pub unsafe fn kerneltrap() {
             let irq = plic::claim();
 
             // TODO uart
-            // TODO virtio
+
+            if irq as usize == param::VIRTIO0_IRQ {
+                DISK.lock().intr();
+            }
 
             if irq > 0 {
                 plic::complete(irq);
@@ -136,7 +139,10 @@ unsafe extern "C" fn user_trap() {
             let irq = plic::claim();
 
             // TODO uart
-            // TODO virtio
+
+            if irq as usize == param::VIRTIO0_IRQ {
+                DISK.lock().intr();
+            }
 
             if irq > 0 {
                 plic::complete(irq);

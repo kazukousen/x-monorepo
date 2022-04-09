@@ -6,6 +6,7 @@ use crate::plic;
 use crate::println;
 use crate::process::PROCESS_TABLE;
 use crate::trap;
+use crate::virtio::DISK;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 static STARTED: AtomicBool = AtomicBool::new(false);
@@ -29,6 +30,8 @@ pub unsafe fn main() -> ! {
 
         plic::init();
         plic::init_hart(cpu_id);
+
+        DISK.lock().init();
 
         PROCESS_TABLE.user_init();
 
