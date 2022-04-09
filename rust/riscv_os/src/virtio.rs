@@ -1,9 +1,9 @@
 /// driver for qemu's virtio disk device.
 /// uses qemu's mmio interface to virtio.
 /// qemu presents a "legacy" virtio interface.
-use core::ptr;
+use core::{ptr, sync::atomic::{Ordering, fence}};
 
-use crate::param::{PAGESIZE, VIRTIO0};
+use crate::{param::{PAGESIZE, VIRTIO0}, process::PROCESS_TABLE, spinlock::SpinLock};
 use array_macro::array;
 
 #[inline]
@@ -18,24 +18,33 @@ unsafe fn write(offset: usize, v: u32) {
     ptr::write_volatile(dst, v);
 }
 
+pub static DISK: SpinLock<Disk> = SpinLock::new(Disk::new());
+
 #[repr(align(4096))]
 pub struct Disk {
     align1: PageAlign,
     desc: Desc,
     avail: Avail,
     used: Used,
+    free: [bool; NUM as usize], // is a descriptor free?
+    used_idx: u32,
+    info: [Info; NUM as usize],
 }
 
 impl Disk {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             align1: PageAlign::new(),
             desc: Desc::new(),
             avail: Avail::new(),
             used: Used::new(),
+            free: [false; NUM as usize],
+            used_idx: 0,
+            info: array![_ => Info::new(); NUM as usize],
         }
     }
-    pub unsafe fn init(&self) {
+
+    pub unsafe fn init(&mut self) {
         if read(VIRTIO_MMIO_MAGIC_VALUE) != 0x74726976
             || read(VIRTIO_MMIO_VERSION) != 1
             || read(VIRTIO_MMIO_DEVICE_ID) != 2
@@ -83,6 +92,30 @@ impl Disk {
 
         let pfn: usize = self as *const Disk as usize >> 12;
         write(VIRTIO_MMIO_QUEUE_PFN, u32::try_from(pfn).unwrap());
+
+        // all NUM descriptors start out unused.
+        self.free.iter_mut().for_each(|v| *v = true);
+    }
+
+    pub fn intr(&mut self) {
+
+        fence(Ordering::SeqCst);
+
+        while self.used_idx != self.used.idx as u32 {
+
+            fence(Ordering::SeqCst);
+
+            let id = self.used.ring[(self.used_idx % NUM) as usize].id as usize;
+
+            if self.info[id].status != 0 {
+                panic!("virtio_intr: status");
+            }
+
+            let buf = self.info[id].buf_chan.clone().expect("");
+            unsafe { PROCESS_TABLE.wakeup(buf); }
+            self.info[id].disk = false;
+            self.used_idx += 1;
+        }
     }
 }
 
@@ -90,7 +123,7 @@ impl Disk {
 struct PageAlign();
 
 impl PageAlign {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self()
     }
 }
@@ -104,7 +137,7 @@ struct Desc {
 }
 
 impl Desc {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             addr: 0,
             len: 0,
@@ -123,7 +156,7 @@ struct Avail {
 }
 
 impl Avail {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             flags: 0,
             idx: 0,
@@ -141,7 +174,7 @@ struct Used {
 }
 
 impl Used {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             flags: 0,
             idx: 0,
@@ -157,8 +190,25 @@ struct UsedElem {
 }
 
 impl UsedElem {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self { id: 0, len: 0 }
+    }
+}
+
+#[repr(C)]
+struct Info {
+    buf_chan: Option<usize>,
+    disk: bool,
+    status: u8,
+}
+
+impl Info {
+    const fn new() -> Self {
+        Self {
+            buf_chan: None,
+            disk: false,
+            status: 0,
+        }
     }
 }
 
