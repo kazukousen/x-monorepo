@@ -2,11 +2,13 @@
 /// uses qemu's mmio interface to virtio.
 /// qemu presents a "legacy" virtio interface.
 use core::{
-    ptr,
+    mem, ptr,
     sync::atomic::{fence, Ordering},
 };
 
 use crate::{
+    bio::{GuardBuf, BSIZE},
+    cpu::CPU_TABLE,
     param::{PAGESIZE, VIRTIO0},
     println,
     process::PROCESS_TABLE,
@@ -19,21 +21,31 @@ pub static DISK: SpinLock<Disk> = SpinLock::new(Disk::new());
 #[repr(align(4096))]
 pub struct Disk {
     align1: PageAlign,
-    desc: Desc,
+
+    // start pages
+    // that is devided three regions (decriptors, avail, and used).
+    // https://docs.oasis-open.org/virtio/virtio/v1.1/virtio-v1.1.pdf
+    desc: [Desc; NUM as usize],
     avail: Avail,
+
     align2: PageAlign,
+
     used: Used,
+
+    // end pages
     align3: PageAlign,
+
     free: [bool; NUM as usize], // is a descriptor free?
     used_idx: u32,
     info: [Info; NUM as usize],
+    ops: [BlkReq; NUM as usize],
 }
 
 impl Disk {
     const fn new() -> Self {
         Self {
             align1: PageAlign::new(),
-            desc: Desc::new(),
+            desc: array![_ => Desc::new(); NUM as usize],
             avail: Avail::new(),
             align2: PageAlign::new(),
             used: Used::new(),
@@ -41,6 +53,7 @@ impl Disk {
             free: [false; NUM as usize],
             used_idx: 0,
             info: array![_ => Info::new(); NUM as usize],
+            ops: array![_ => BlkReq::new(); NUM as usize],
         }
     }
 
@@ -100,8 +113,12 @@ impl Disk {
     }
 
     pub fn intr(&mut self) {
-
-        unsafe { write(VIRTIO_MMIO_INTERRUPT_ACK, read(VIRTIO_MMIO_INTERRUPT_STATUS) & 0x3) };
+        unsafe {
+            write(
+                VIRTIO_MMIO_INTERRUPT_ACK,
+                read(VIRTIO_MMIO_INTERRUPT_STATUS) & 0x3,
+            )
+        };
 
         fence(Ordering::SeqCst);
 
@@ -116,18 +133,165 @@ impl Disk {
                 panic!("virtio_intr: status");
             }
 
-            let buf = self.info[id].buf_chan.clone().expect("virtio: intr not found buffer channel");
+            let buf = self.info[id]
+                .buf_chan
+                .clone()
+                .expect("virtio: intr not found buffer channel");
             unsafe {
                 PROCESS_TABLE.wakeup(buf);
             }
-            // NOTE: why need it?
-            // self.info[id].disk = false;
+            self.info[id].disk = false;
             self.used_idx += 1;
         }
-
     }
 
-    pub fn rw(&mut self) {
+    fn alloc_desc(&mut self) -> Option<usize> {
+        for i in 0..(NUM as usize) {
+            if self.free[i] {
+                self.free[i] = true;
+                return Some(i);
+            }
+        }
+
+        None
+    }
+
+    fn free_desc(&mut self, i: usize) {
+        // TODO: use assert expr
+        if i >= (NUM as usize) {
+            panic!("free_desc 1");
+        }
+        if self.free[i] {
+            panic!("free_desc 2");
+        }
+
+        self.desc[i].addr = 0;
+        self.desc[i].len = 0;
+        self.desc[i].flags = 0;
+        self.desc[i].next = 0;
+
+        // TODO: wakeup
+    }
+
+    fn alloc3_desc(&mut self, idx: &mut [usize; 3]) -> bool {
+        for i in 0..3 {
+            match self.alloc_desc() {
+                Some(desc) => {
+                    idx[i] = desc;
+                }
+                None => {
+                    for j in 0..i {
+                        self.free_desc(j);
+                    }
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    fn free_chain(&mut self, i: usize) {
+        let mut i = i;
+        loop {
+            let should = self.desc[i].flags & VRING_DESC_F_NEXT > 0;
+            let next = self.desc[i].next;
+            self.free_desc(i);
+            if !should {
+                break;
+            }
+            i = next as usize;
+        }
+    }
+}
+
+impl SpinLock<Disk> {
+    /// block operations use three descriptors:
+    /// one for type/reserved/sector
+    /// one for the data
+    /// one for a 1-byte status result
+    pub fn rw(&self, buf: &mut GuardBuf, writing: bool) {
+        let mut locked = self.lock();
+
+        // allocate three descriptors
+        let mut idx = [0usize; 3];
+        loop {
+            if locked.alloc3_desc(&mut idx) {
+                break;
+            }
+            unsafe {
+                CPU_TABLE
+                    .my_proc()
+                    .sleep(&locked.free[0] as *const _ as usize, locked);
+            }
+            locked = self.lock();
+        }
+
+        // format the three descriptors
+
+        let buf0 = &mut locked.ops[idx[0]];
+
+        buf0.typed = if writing {
+            VIRTIO_BLK_T_OUT
+        } else {
+            VIRTIO_BLK_T_IN
+        };
+        buf0.reserved = 0;
+        buf0.sector = (buf.blockno as usize * (BSIZE / 512)) as u64;
+
+        // buf0 (type/reserved/sector)
+        locked.desc[idx[0]].addr = buf0 as *mut _ as usize;
+        locked.desc[idx[0]].len = mem::size_of::<BlkReq>().try_into().unwrap();
+        locked.desc[idx[0]].flags = VRING_DESC_F_NEXT;
+        locked.desc[idx[0]].next = idx[1].try_into().unwrap();
+
+        // data
+        locked.desc[idx[1]].addr = buf.data_ptr_mut() as usize;
+        locked.desc[idx[1]].len = BSIZE.try_into().unwrap();
+        locked.desc[idx[1]].flags = if writing { 0 } else { VRING_DESC_F_WRITE };
+        locked.desc[idx[1]].flags |= VRING_DESC_F_NEXT;
+        locked.desc[idx[1]].next = idx[2].try_into().unwrap();
+
+        // status result
+        locked.info[idx[0]].status = 0xff; // device writes 0 on success
+        locked.desc[idx[2]].addr = locked.info[idx[0]].status as usize;
+        locked.desc[idx[2]].len = 1;
+        locked.desc[idx[2]].flags = VRING_DESC_F_WRITE;
+        locked.desc[idx[2]].next = 0;
+
+        // record struct buf for intr()
+        locked.info[idx[0]].disk = true;
+        locked.info[idx[0]].buf_chan = Some(buf.data_ptr_mut() as usize);
+
+        // tell the device the first index in our chain of descriptors.
+        let avail_idx = locked.avail.idx as usize % (NUM as usize);
+        locked.avail.ring[avail_idx] = idx[0].try_into().unwrap();
+
+        fence(Ordering::SeqCst);
+
+        // tell the device another avail ring entry is available
+        locked.avail.idx += 1;
+
+        fence(Ordering::SeqCst);
+
+        unsafe {
+            write(VIRTIO_MMIO_QUEUE_NOTIFY, 0);
+        }
+
+        // wait for intr() to say request has finised
+        while locked.info[idx[0]].disk {
+            unsafe {
+                CPU_TABLE
+                    .my_proc()
+                    .sleep(locked.info[idx[0]].buf_chan.unwrap(), locked);
+            }
+            locked = self.lock();
+        }
+
+        // tidy up
+        locked.info[idx[0]].buf_chan.take();
+        locked.free_chain(idx[0]);
+
+        drop(locked);
     }
 }
 
@@ -140,7 +304,7 @@ impl PageAlign {
     }
 }
 
-#[repr(C)]
+#[repr(C, align(16))]
 struct Desc {
     addr: usize,
     len: u32,
@@ -159,7 +323,7 @@ impl Desc {
     }
 }
 
-#[repr(C)]
+#[repr(C, align(2))]
 struct Avail {
     flags: u16,
     idx: u16,
@@ -178,7 +342,7 @@ impl Avail {
     }
 }
 
-#[repr(C)]
+#[repr(C, align(4))]
 struct Used {
     flags: u16,
     idx: u16,
@@ -210,8 +374,7 @@ impl UsedElem {
 #[repr(C)]
 struct Info {
     buf_chan: Option<usize>,
-    // NOTE: why need it?
-    // disk: bool,
+    disk: bool,
     status: u8,
 }
 
@@ -219,7 +382,25 @@ impl Info {
     const fn new() -> Self {
         Self {
             buf_chan: None,
+            disk: false,
             status: 0,
+        }
+    }
+}
+
+#[repr(C)]
+struct BlkReq {
+    typed: u32,
+    reserved: u32,
+    sector: u64,
+}
+
+impl BlkReq {
+    const fn new() -> Self {
+        Self {
+            typed: 0,
+            reserved: 0,
+            sector: 0,
         }
     }
 }
@@ -255,6 +436,12 @@ const VIRTIO_F_ANY_LAYOUT: u32 = 27;
 const VIRTIO_RING_F_INDIRECT_DESC: u32 = 28;
 const VIRTIO_RING_F_EVENT_IDX: u32 = 29;
 
+const VRING_DESC_F_NEXT: u16 = 1; // chained with another descriptor
+const VRING_DESC_F_WRITE: u16 = 2; // device writes (vs read)
+
+const VIRTIO_BLK_T_IN: u32 = 0; // read the disk
+const VIRTIO_BLK_T_OUT: u32 = 1; // write the disk
+
 const NUM: u32 = 8; // this many virtio descriptors. must be a power of two.
 
 #[inline]
@@ -268,4 +455,3 @@ unsafe fn write(offset: usize, v: u32) {
     let dst = (VIRTIO0 + offset) as *mut u32;
     ptr::write_volatile(dst, v);
 }
-

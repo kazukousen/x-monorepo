@@ -43,13 +43,13 @@ pub const UART0_MAP_SIZE: usize = PAGESIZE;
 pub const UART0_IRQ: usize = 10;
 
 // virtio mmio interface
-pub const VIRTIO0: usize = 0x10001000;
+pub const VIRTIO0: usize = 0x1000_1000;
 pub const VIRTIO0_MAP_SIZE: usize = PAGESIZE;
 pub const VIRTIO0_IRQ: usize = 1;
 
 // qemu puts programmable interrupt controller here.
-pub const PLIC: usize = 0x0c000000;
-pub const PLIC_MAP_SIZE: usize = 0x400000;
+pub const PLIC: usize = 0x0c00_0000;
+pub const PLIC_MAP_SIZE: usize = 0x40_0000;
 
 pub const MAXOPBLOCKS: usize = 10; // max # of blocks any FS op writes
 pub const NBUF: usize = MAXOPBLOCKS * 3; // size of disk block cache

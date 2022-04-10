@@ -1,8 +1,12 @@
-use core::ptr;
+use core::{ops::DerefMut, ptr};
 
 use array_macro::array;
 
-use crate::{param::NBUF, spinlock::SpinLock};
+use crate::{
+    param::NBUF,
+    sleeplock::{SleepLock, SleepLockGuard},
+    spinlock::SpinLock,
+};
 
 /// The buffer cache is a linked list of buf structures holding
 /// cached copies of disk block contents.
@@ -14,12 +18,14 @@ pub static BCACHE: BCache = BCache::new();
 
 pub struct BCache {
     lru: SpinLock<BufLru>,
+    bufs: [Buf; NBUF],
 }
 
 impl BCache {
     const fn new() -> Self {
         Self {
             lru: SpinLock::new(BufLru::new()),
+            bufs: array![_ => Buf::new(); NBUF],
         }
     }
 
@@ -40,18 +46,83 @@ impl BCache {
         }
     }
 
-    fn bget(&self) {
-        let mut lru = self.lru.lock();
+    pub fn brelse(&self, index: usize) {
+        self.lru.lock().brelse(index);
+    }
+
+    fn bget(&self, dev: u32, blockno: u32) -> GuardBuf {
+        let lru = self.lru.lock();
+
+        if let Some((index, rc_ptr)) = lru.find(dev, blockno) {
+            drop(lru);
+            return GuardBuf {
+                index,
+                dev,
+                blockno,
+                rc_ptr,
+                data: Some(self.bufs[index].data.lock()),
+            };
+        }
+
+        if let Some((index, rc_ptr)) = lru.recycle(dev, blockno) {
+            drop(lru);
+            return GuardBuf {
+                index,
+                dev,
+                blockno,
+                rc_ptr,
+                data: Some(self.bufs[index].data.lock()),
+            };
+        }
+
+        panic!("bcache: no buffers");
+    }
+}
+
+pub struct GuardBuf<'a> {
+    index: usize,
+    dev: u32,
+    pub blockno: u32,
+    rc_ptr: *mut usize,
+    data: Option<SleepLockGuard<'a, BufData>>,
+}
+
+impl<'a> GuardBuf<'a> {
+    pub fn data_ptr_mut(&mut self) -> *mut BufData {
+        let guard = self.data.as_mut().unwrap();
+        guard.deref_mut()
+    }
+}
+
+impl<'a> Drop for GuardBuf<'a> {
+    fn drop(&mut self) {
+        drop(self.data.take());
+        BCACHE.brelse(self.index);
     }
 }
 
 struct Buf {
     valid: bool,
-    data: BufData,
+    data: SleepLock<BufData>,
+}
+
+impl Buf {
+    const fn new() -> Self {
+        Self {
+            valid: false,
+            data: SleepLock::new(BufData::new()),
+        }
+    }
 }
 
 #[repr(C, align(8))]
 pub struct BufData([u8; BSIZE]);
+
+impl BufData {
+    const fn new() -> Self {
+        Self([0; BSIZE])
+    }
+}
 
 struct BufLru {
     inner: [BufInfo; NBUF],
@@ -65,30 +136,73 @@ unsafe impl Send for BufLru {}
 impl BufLru {
     const fn new() -> Self {
         Self {
-            inner: array![_ => BufInfo::new(); NBUF],
+            inner: array![i => BufInfo::new(i); NBUF],
             head: ptr::null_mut(),
             tail: ptr::null_mut(),
         }
     }
 
-    // TODO: what return
-    fn find(&self, dev: u32, blockno: u32) -> Option<()> {
+    fn find(&self, dev: u32, blockno: u32) -> Option<(usize, *mut usize)> {
         let mut b = self.head;
 
         while !b.is_null() {
             let buf = unsafe { b.as_mut().unwrap() };
             if buf.dev == dev && buf.blockno == blockno {
                 buf.refcnt += 1;
-                return Some(());
+                return Some((buf.index, &mut buf.refcnt));
             }
             b = buf.next;
         }
 
         None
     }
+
+    fn recycle(&self, dev: u32, blockno: u32) -> Option<(usize, *mut usize)> {
+        let mut b = self.tail;
+
+        while !b.is_null() {
+            let buf = unsafe { b.as_mut().unwrap() };
+            if buf.refcnt == 0 {
+                buf.dev = dev;
+                buf.blockno = blockno;
+                buf.refcnt += 1;
+                return Some((buf.index, &mut buf.refcnt));
+            }
+            b = buf.prev;
+        }
+
+        None
+    }
+
+    /// Release a locked buffer.
+    /// If no live reference,
+    /// Move the buffer to the head of the most-recently-used list.
+    fn brelse(&mut self, index: usize) {
+        let buf = &mut self.inner[index];
+        buf.refcnt -= 1;
+
+        if buf.refcnt == 0 && !ptr::eq(self.head, buf) {
+            if ptr::eq(self.tail, buf) && !buf.prev.is_null() {
+                self.tail = buf.prev;
+            }
+
+            unsafe {
+                buf.next.as_mut().map(|buf_next| buf_next.prev = buf.prev);
+                buf.prev.as_mut().map(|buf_prev| buf_prev.next = buf.next);
+            }
+
+            buf.prev = ptr::null_mut();
+            buf.next = self.head;
+            unsafe {
+                self.head.as_mut().map(|old_head| old_head.prev = buf);
+            }
+            self.head = buf;
+        }
+    }
 }
 
 struct BufInfo {
+    index: usize,
     dev: u32,
     blockno: u32,
     refcnt: usize,
@@ -97,8 +211,9 @@ struct BufInfo {
 }
 
 impl BufInfo {
-    const fn new() -> Self {
+    const fn new(index: usize) -> Self {
         Self {
+            index,
             dev: 0,
             blockno: 0,
             refcnt: 0,

@@ -157,6 +157,7 @@ pub enum ProcState {
 pub struct ProcInner {
     pub state: ProcState,
     pub pid: usize,
+    // sleeping on channel
     pub chan: usize,
 }
 
