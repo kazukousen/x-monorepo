@@ -50,3 +50,7 @@ pub const VIRTIO0_IRQ: usize = 1;
 // qemu puts programmable interrupt controller here.
 pub const PLIC: usize = 0x0c000000;
 pub const PLIC_MAP_SIZE: usize = 0x400000;
+
+pub const MAXOPBLOCKS: usize = 10; // max # of blocks any FS op writes
+pub const NBUF: usize = MAXOPBLOCKS * 3; // size of disk block cache
+
