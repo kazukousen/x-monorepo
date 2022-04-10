@@ -1,3 +1,4 @@
+use crate::bio::BCACHE;
 use crate::cpu::CpuTable;
 use crate::cpu::CPU_TABLE;
 use crate::kalloc;
@@ -32,6 +33,7 @@ pub unsafe fn main() -> ! {
         plic::init_hart(cpu_id);
 
         DISK.lock().init();
+        BCACHE.init();
 
         PROCESS_TABLE.user_init();
 
