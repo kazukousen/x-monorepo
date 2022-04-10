@@ -21,7 +21,9 @@ pub struct Disk {
     align1: PageAlign,
     desc: Desc,
     avail: Avail,
+    align2: PageAlign,
     used: Used,
+    align3: PageAlign,
     free: [bool; NUM as usize], // is a descriptor free?
     used_idx: u32,
     info: [Info; NUM as usize],
@@ -33,7 +35,9 @@ impl Disk {
             align1: PageAlign::new(),
             desc: Desc::new(),
             avail: Avail::new(),
+            align2: PageAlign::new(),
             used: Used::new(),
+            align3: PageAlign::new(),
             free: [false; NUM as usize],
             used_idx: 0,
             info: array![_ => Info::new(); NUM as usize],
@@ -64,7 +68,7 @@ impl Disk {
         features &= !(1 << VIRTIO_F_ANY_LAYOUT);
         features &= !(1 << VIRTIO_RING_F_EVENT_IDX);
         features &= !(1 << VIRTIO_RING_F_INDIRECT_DESC);
-        write(VIRTIO_MMIO_DEVICE_FEATURES, features);
+        write(VIRTIO_MMIO_DRIVER_FEATURES, features);
 
         // tell device that feature negotiation is complete.
         status |= VIRTIO_CONFIG_S_FEATURE_OK;
@@ -225,7 +229,7 @@ const VIRTIO_MMIO_VERSION: usize = 0x004;
 const VIRTIO_MMIO_DEVICE_ID: usize = 0x008; // device type; 1 is net, 2 is disk
 const VIRTIO_MMIO_VENDOR_ID: usize = 0x00c;
 const VIRTIO_MMIO_DEVICE_FEATURES: usize = 0x010;
-const VIRTIO_MMIO_DRIVER_FEATURES: usize = 0x010;
+const VIRTIO_MMIO_DRIVER_FEATURES: usize = 0x020;
 const VIRTIO_MMIO_GUEST_PAGE_SIZE: usize = 0x028; // page size for PFN, write-only
 const VIRTIO_MMIO_QUEUE_SEL: usize = 0x030;
 const VIRTIO_MMIO_QUEUE_NUM_MAX: usize = 0x034;
