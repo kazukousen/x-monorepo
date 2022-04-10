@@ -3,7 +3,7 @@
 /// qemu presents a "legacy" virtio interface.
 use core::{ptr, sync::atomic::{Ordering, fence}};
 
-use crate::{param::{PAGESIZE, VIRTIO0}, process::PROCESS_TABLE, spinlock::SpinLock};
+use crate::{param::{PAGESIZE, VIRTIO0}, process::PROCESS_TABLE, spinlock::SpinLock, println};
 use array_macro::array;
 
 #[inline]
@@ -95,6 +95,8 @@ impl Disk {
 
         // all NUM descriptors start out unused.
         self.free.iter_mut().for_each(|v| *v = true);
+
+        println!("virtio: init virtio driver done");
     }
 
     pub fn intr(&mut self) {
