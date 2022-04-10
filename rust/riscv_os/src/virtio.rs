@@ -14,18 +14,6 @@ use crate::{
 };
 use array_macro::array;
 
-#[inline]
-unsafe fn read(offset: usize) -> u32 {
-    let src = (VIRTIO0 + offset) as *const u32;
-    ptr::read_volatile(src)
-}
-
-#[inline]
-unsafe fn write(offset: usize, v: u32) {
-    let dst = (VIRTIO0 + offset) as *mut u32;
-    ptr::write_volatile(dst, v);
-}
-
 pub static DISK: SpinLock<Disk> = SpinLock::new(Disk::new());
 
 #[repr(align(4096))]
@@ -108,7 +96,12 @@ impl Disk {
     }
 
     pub fn intr(&mut self) {
+
+        unsafe { write(VIRTIO_MMIO_INTERRUPT_ACK, read(VIRTIO_MMIO_INTERRUPT_STATUS) & 0x3) };
+
         fence(Ordering::SeqCst);
+
+        println!("virtio: intr starting used_idx={}", self.used.idx);
 
         while self.used_idx != self.used.idx as u32 {
             fence(Ordering::SeqCst);
@@ -119,15 +112,18 @@ impl Disk {
                 panic!("virtio_intr: status");
             }
 
-            let buf = self.info[id].buf_chan.clone().expect("");
+            let buf = self.info[id].buf_chan.clone().expect("virtio: intr not found buffer channel");
             unsafe {
                 PROCESS_TABLE.wakeup(buf);
             }
-            self.info[id].disk = false;
+            // NOTE: why need it?
+            // self.info[id].disk = false;
             self.used_idx += 1;
         }
 
-        println!("virtio: intr done");
+    }
+
+    pub fn rw(&mut self) {
     }
 }
 
@@ -210,7 +206,8 @@ impl UsedElem {
 #[repr(C)]
 struct Info {
     buf_chan: Option<usize>,
-    disk: bool,
+    // NOTE: why need it?
+    // disk: bool,
     status: u8,
 }
 
@@ -218,7 +215,6 @@ impl Info {
     const fn new() -> Self {
         Self {
             buf_chan: None,
-            disk: false,
             status: 0,
         }
     }
@@ -238,6 +234,8 @@ const VIRTIO_MMIO_QUEUE_ALIGN: usize = 0x03c;
 const VIRTIO_MMIO_QUEUE_PFN: usize = 0x040;
 const VIRTIO_MMIO_QUEUE_READY: usize = 0x044;
 const VIRTIO_MMIO_QUEUE_NOTIFY: usize = 0x050;
+const VIRTIO_MMIO_INTERRUPT_STATUS: usize = 0x060;
+const VIRTIO_MMIO_INTERRUPT_ACK: usize = 0x064;
 const VIRTIO_MMIO_STATUS: usize = 0x070; // read/write
 
 const VIRTIO_CONFIG_S_ACKNOWLEDGE: u32 = 1;
@@ -254,3 +252,16 @@ const VIRTIO_RING_F_INDIRECT_DESC: u32 = 28;
 const VIRTIO_RING_F_EVENT_IDX: u32 = 29;
 
 const NUM: u32 = 8; // this many virtio descriptors. must be a power of two.
+
+#[inline]
+unsafe fn read(offset: usize) -> u32 {
+    let src = (VIRTIO0 + offset) as *const u32;
+    ptr::read_volatile(src)
+}
+
+#[inline]
+unsafe fn write(offset: usize, v: u32) {
+    let dst = (VIRTIO0 + offset) as *mut u32;
+    ptr::write_volatile(dst, v);
+}
+
