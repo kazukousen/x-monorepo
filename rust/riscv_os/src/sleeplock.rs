@@ -11,6 +11,8 @@ pub struct SleepLock<T> {
     data: UnsafeCell<T>,
 }
 
+unsafe impl<T> Sync for SleepLock<T> {}
+
 impl<T> SleepLock<T> {
     pub const fn new(data: T) -> Self {
         Self {

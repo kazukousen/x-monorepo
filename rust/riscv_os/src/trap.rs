@@ -4,7 +4,8 @@ use crate::{
     cpu::{self, CpuTable, CPU_TABLE},
     param, plic, println,
     register::{self, scause::ScauseType},
-    spinlock::SpinLock, virtio::DISK,
+    spinlock::SpinLock,
+    virtio::DISK,
 };
 
 /// set up to take exceptions and traps while in the kernel.

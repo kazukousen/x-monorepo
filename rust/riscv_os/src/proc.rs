@@ -1,10 +1,10 @@
 use core::cell::UnsafeCell;
 use core::ptr;
 
-use crate::cpu::CPU_TABLE;
+use crate::cpu::{Cpu, CPU_TABLE};
 use crate::page_table::PageTable;
 use crate::param::PAGESIZE;
-use crate::spinlock::SpinLock;
+use crate::spinlock::{SpinLock, SpinLockGuard};
 use crate::{println, trap};
 use alloc::boxed::Box;
 
@@ -145,16 +145,19 @@ impl ProcessData {
     }
 }
 
+#[derive(PartialEq)]
 pub enum ProcState {
     Unused,
     Runnable,
     Running,
     Allocated,
+    Sleeping,
 }
 
 pub struct ProcInner {
     pub state: ProcState,
     pub pid: usize,
+    pub chan: usize,
 }
 
 impl ProcInner {
@@ -162,6 +165,7 @@ impl ProcInner {
         Self {
             state: ProcState::Unused,
             pid: 0,
+            chan: 0,
         }
     }
 }
@@ -221,6 +225,33 @@ impl Proc {
             Ok(ret) => ret,
             Err(()) => -1isize as usize,
         }
+    }
+
+    pub unsafe fn yielding(&self, cpu: &mut Cpu) {
+        let mut locked = self.inner.lock();
+        let ctx = &mut (*self.data.get()).context;
+        locked.state = ProcState::Runnable;
+        locked = cpu.sched(locked, ctx);
+        drop(locked);
+    }
+
+    /// Atomically release lock and sleep on chan.
+    pub fn sleep<T>(&self, chan: usize, lk: SpinLockGuard<T>) {
+        let mut locked = self.inner.lock();
+        drop(lk);
+
+        // Go to sleep
+        locked.chan = chan;
+        locked.state = ProcState::Sleeping;
+        unsafe {
+            let cpu = CPU_TABLE.my_cpu_mut();
+            locked = cpu.sched(locked, &mut (*self.data.get()).context);
+        }
+
+        // Tidy up.
+        locked.chan = 0;
+
+        drop(locked);
     }
 }
 

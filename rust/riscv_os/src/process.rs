@@ -126,4 +126,14 @@ impl ProcessTable {
         let mut locked = p.inner.lock();
         locked.state = ProcState::Runnable;
     }
+
+    pub fn wakeup(&mut self, chan: usize) {
+        for p in self.table.iter_mut() {
+            let mut locked = p.inner.lock();
+            if locked.state == ProcState::Sleeping && locked.chan == chan {
+                locked.state = ProcState::Runnable;
+            }
+            drop(locked);
+        }
+    }
 }

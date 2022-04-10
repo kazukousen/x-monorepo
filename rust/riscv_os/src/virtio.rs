@@ -1,9 +1,17 @@
 /// driver for qemu's virtio disk device.
 /// uses qemu's mmio interface to virtio.
 /// qemu presents a "legacy" virtio interface.
-use core::{ptr, sync::atomic::{Ordering, fence}};
+use core::{
+    ptr,
+    sync::atomic::{fence, Ordering},
+};
 
-use crate::{param::{PAGESIZE, VIRTIO0}, process::PROCESS_TABLE, spinlock::SpinLock, println};
+use crate::{
+    param::{PAGESIZE, VIRTIO0},
+    println,
+    process::PROCESS_TABLE,
+    spinlock::SpinLock,
+};
 use array_macro::array;
 
 #[inline]
@@ -100,11 +108,9 @@ impl Disk {
     }
 
     pub fn intr(&mut self) {
-
         fence(Ordering::SeqCst);
 
         while self.used_idx != self.used.idx as u32 {
-
             fence(Ordering::SeqCst);
 
             let id = self.used.ring[(self.used_idx % NUM) as usize].id as usize;
@@ -114,10 +120,14 @@ impl Disk {
             }
 
             let buf = self.info[id].buf_chan.clone().expect("");
-            unsafe { PROCESS_TABLE.wakeup(buf); }
+            unsafe {
+                PROCESS_TABLE.wakeup(buf);
+            }
             self.info[id].disk = false;
             self.used_idx += 1;
         }
+
+        println!("virtio: intr done");
     }
 }
 

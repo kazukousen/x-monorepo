@@ -5,9 +5,10 @@ use array_macro::array;
 use crate::{
     param::NCPU,
     println,
-    proc::{Context, Proc, ProcState, ProcInner},
+    proc::{Context, Proc, ProcInner, ProcState},
     process::PROCESS_TABLE,
-    register::{sstatus, tp}, spinlock::SpinLockGuard,
+    register::{sstatus, tp},
+    spinlock::SpinLockGuard,
 };
 
 pub static mut CPU_TABLE: CpuTable = CpuTable::new();
@@ -114,10 +115,11 @@ impl Cpu {
     /// Saves and restores intena because intena is a property of this
     /// kernel thread, not this CPU.
     /// Passing in and out a locked because we need to the lock during this function.
-    pub unsafe fn sched<'a>(&mut self, locked: SpinLockGuard<'a, ProcInner>, ctx: *mut Context) -> SpinLockGuard<'a, ProcInner> {
-
-        let proc = self.proc.as_mut().unwrap();
-
+    pub unsafe fn sched<'a>(
+        &mut self,
+        locked: SpinLockGuard<'a, ProcInner>,
+        ctx: *mut Context,
+    ) -> SpinLockGuard<'a, ProcInner> {
         let intena = self.intena;
 
         extern "C" {
@@ -133,10 +135,7 @@ impl Cpu {
     pub unsafe fn yielding(&mut self) {
         if !self.proc.is_null() {
             let proc = self.proc.as_mut().unwrap();
-            let mut locked = proc.inner.lock();
-            locked.state = ProcState::Runnable;
-            locked = self.sched(locked, proc.data.get_mut().get_context());
-            drop(locked);
+            proc.yielding(self);
         }
     }
 }
