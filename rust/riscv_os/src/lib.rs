@@ -7,6 +7,7 @@ extern crate alloc;
 
 use core::panic::PanicInfo;
 
+mod bio;
 mod cpu;
 mod kalloc;
 mod kvm;
@@ -17,6 +18,7 @@ mod proc;
 mod process;
 mod register;
 mod rmain;
+mod sleeplock;
 mod spinlock;
 mod start;
 mod trap;
