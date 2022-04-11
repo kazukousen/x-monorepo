@@ -32,8 +32,8 @@ pub unsafe fn main() -> ! {
         plic::init();
         plic::init_hart(cpu_id);
 
-        DISK.lock().init();
         BCACHE.init();
+        DISK.lock().init();
 
         PROCESS_TABLE.user_init();
 

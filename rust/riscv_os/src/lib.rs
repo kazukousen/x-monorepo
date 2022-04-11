@@ -9,6 +9,7 @@ use core::panic::PanicInfo;
 
 mod bio;
 mod cpu;
+mod fs;
 mod kalloc;
 mod kvm;
 mod page_table;

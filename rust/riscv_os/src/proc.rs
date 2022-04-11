@@ -3,9 +3,9 @@ use core::ptr;
 
 use crate::cpu::{Cpu, CPU_TABLE};
 use crate::page_table::PageTable;
-use crate::param::PAGESIZE;
+use crate::param::{PAGESIZE, ROOTDEV};
 use crate::spinlock::{SpinLock, SpinLockGuard};
-use crate::{println, trap};
+use crate::{fs, println, trap};
 use alloc::boxed::Box;
 
 mod syscall;
@@ -256,12 +256,17 @@ impl Proc {
     }
 }
 
+static mut FIRST: bool = true;
+
 pub unsafe fn forkret() -> ! {
     println!("forkret");
 
-    let p = CPU_TABLE.my_proc();
+    CPU_TABLE.my_proc().inner.unlock();
 
-    p.inner.unlock();
+    if FIRST {
+        FIRST = false;
+        fs::init(ROOTDEV);
+    }
 
     trap::user_trap_ret();
 }

@@ -40,6 +40,7 @@ pub unsafe fn kerneltrap() {
             // TODO uart
 
             if irq as usize == param::VIRTIO0_IRQ {
+                println!("kerneltrap: irq virtio");
                 DISK.lock().intr();
             }
 
@@ -142,6 +143,7 @@ unsafe extern "C" fn user_trap() {
             // TODO uart
 
             if irq as usize == param::VIRTIO0_IRQ {
+                println!("usertrap: irq virtio");
                 DISK.lock().intr();
             }
 

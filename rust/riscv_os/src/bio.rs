@@ -1,4 +1,7 @@
-use core::{ops::DerefMut, ptr};
+use core::{
+    ops::{Deref, DerefMut},
+    ptr,
+};
 
 use array_macro::array;
 
@@ -6,6 +9,7 @@ use crate::{
     param::NBUF,
     sleeplock::{SleepLock, SleepLockGuard},
     spinlock::SpinLock,
+    virtio::DISK,
 };
 
 /// The buffer cache is a linked list of buf structures holding
@@ -46,6 +50,16 @@ impl BCache {
         }
     }
 
+    pub fn bread(&self, dev: u32, blockno: u32) -> GuardBuf {
+        let mut buf = self.bget(dev, blockno);
+
+        if !buf.valid {
+            DISK.rw(&mut buf, false);
+            buf.valid = true;
+        }
+        buf
+    }
+
     pub fn brelse(&self, index: usize) {
         self.lru.lock().brelse(index);
     }
@@ -56,6 +70,7 @@ impl BCache {
         if let Some((index, rc_ptr)) = lru.find(dev, blockno) {
             drop(lru);
             return GuardBuf {
+                valid: false,
                 index,
                 dev,
                 blockno,
@@ -67,6 +82,7 @@ impl BCache {
         if let Some((index, rc_ptr)) = lru.recycle(dev, blockno) {
             drop(lru);
             return GuardBuf {
+                valid: false,
                 index,
                 dev,
                 blockno,
@@ -80,7 +96,8 @@ impl BCache {
 }
 
 pub struct GuardBuf<'a> {
-    index: usize,
+    valid: bool,
+    pub index: usize,
     dev: u32,
     pub blockno: u32,
     rc_ptr: *mut usize,
@@ -91,6 +108,25 @@ impl<'a> GuardBuf<'a> {
     pub fn data_ptr_mut(&mut self) -> *mut BufData {
         let guard = self.data.as_mut().unwrap();
         guard.deref_mut()
+    }
+
+    pub fn data_ptr(&self) -> *const BufData {
+        let guard = self.data.as_ref().unwrap();
+        guard.deref()
+    }
+}
+
+impl<'a> GuardBuf<'a> {
+    pub fn bwrite(&mut self) {
+        DISK.rw(self, true);
+    }
+
+    pub unsafe fn bpin(&mut self) {
+        self.rc_ptr.as_mut().map(|v| *v += 1);
+    }
+
+    pub unsafe fn bunpin(&mut self) {
+        self.rc_ptr.as_mut().map(|v| *v -= 1);
     }
 }
 

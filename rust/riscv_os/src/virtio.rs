@@ -73,18 +73,18 @@ impl Disk {
         write(VIRTIO_MMIO_STATUS, status);
 
         // negotiate features
-        let mut features = read(VIRTIO_MMIO_DEVICE_FEATURES);
-        features &= !(1 << VIRTIO_BLK_F_RO);
-        features &= !(1 << VIRTIO_BLK_F_SCSI);
-        features &= !(1 << VIRTIO_BLK_F_CONFIG_WCE);
-        features &= !(1 << VIRTIO_BLK_F_MQ);
-        features &= !(1 << VIRTIO_F_ANY_LAYOUT);
-        features &= !(1 << VIRTIO_RING_F_EVENT_IDX);
-        features &= !(1 << VIRTIO_RING_F_INDIRECT_DESC);
+        let mut features: u32 = read(VIRTIO_MMIO_DEVICE_FEATURES);
+        features &= !(1u32 << VIRTIO_BLK_F_RO);
+        features &= !(1u32 << VIRTIO_BLK_F_SCSI);
+        features &= !(1u32 << VIRTIO_BLK_F_CONFIG_WCE);
+        features &= !(1u32 << VIRTIO_BLK_F_MQ);
+        features &= !(1u32 << VIRTIO_F_ANY_LAYOUT);
+        features &= !(1u32 << VIRTIO_RING_F_EVENT_IDX);
+        features &= !(1u32 << VIRTIO_RING_F_INDIRECT_DESC);
         write(VIRTIO_MMIO_DRIVER_FEATURES, features);
 
         // tell device that feature negotiation is complete.
-        status |= VIRTIO_CONFIG_S_FEATURE_OK;
+        status |= VIRTIO_CONFIG_S_FEATURES_OK;
         write(VIRTIO_MMIO_STATUS, status);
 
         // tell device we're complete ready.
@@ -148,7 +148,7 @@ impl Disk {
     fn alloc_desc(&mut self) -> Option<usize> {
         for i in 0..(NUM as usize) {
             if self.free[i] {
-                self.free[i] = true;
+                self.free[i] = false;
                 return Some(i);
             }
         }
@@ -170,7 +170,9 @@ impl Disk {
         self.desc[i].flags = 0;
         self.desc[i].next = 0;
 
-        // TODO: wakeup
+        unsafe {
+            PROCESS_TABLE.wakeup(&self.free[0] as *const bool as usize);
+        }
     }
 
     fn alloc3_desc(&mut self, idx: &mut [usize; 3]) -> bool {
@@ -187,6 +189,7 @@ impl Disk {
                 }
             }
         }
+
         true
     }
 
@@ -245,7 +248,8 @@ impl SpinLock<Disk> {
         locked.desc[idx[0]].next = idx[1].try_into().unwrap();
 
         // data
-        locked.desc[idx[1]].addr = buf.data_ptr_mut() as usize;
+        let buf_ptr = buf.data_ptr_mut();
+        locked.desc[idx[1]].addr = buf_ptr as usize;
         locked.desc[idx[1]].len = BSIZE.try_into().unwrap();
         locked.desc[idx[1]].flags = if writing { 0 } else { VRING_DESC_F_WRITE };
         locked.desc[idx[1]].flags |= VRING_DESC_F_NEXT;
@@ -260,7 +264,7 @@ impl SpinLock<Disk> {
 
         // record struct buf for intr()
         locked.info[idx[0]].disk = true;
-        locked.info[idx[0]].buf_chan = Some(buf.data_ptr_mut() as usize);
+        locked.info[idx[0]].buf_chan = Some(buf_ptr as usize);
 
         // tell the device the first index in our chain of descriptors.
         let avail_idx = locked.avail.idx as usize % (NUM as usize);
@@ -280,12 +284,11 @@ impl SpinLock<Disk> {
         // wait for intr() to say request has finised
         while locked.info[idx[0]].disk {
             unsafe {
-                CPU_TABLE
-                    .my_proc()
-                    .sleep(locked.info[idx[0]].buf_chan.unwrap(), locked);
+                CPU_TABLE.my_proc().sleep(buf_ptr as usize, locked);
             }
             locked = self.lock();
         }
+        println!("virtio_rw: wakeup");
 
         // tidy up
         locked.info[idx[0]].buf_chan.take();
@@ -426,15 +429,15 @@ const VIRTIO_MMIO_STATUS: usize = 0x070; // read/write
 const VIRTIO_CONFIG_S_ACKNOWLEDGE: u32 = 1;
 const VIRTIO_CONFIG_S_DRIVER: u32 = 2;
 const VIRTIO_CONFIG_S_DRIVER_OK: u32 = 4;
-const VIRTIO_CONFIG_S_FEATURE_OK: u32 = 8;
+const VIRTIO_CONFIG_S_FEATURES_OK: u32 = 8;
 
-const VIRTIO_BLK_F_RO: u32 = 5;
-const VIRTIO_BLK_F_SCSI: u32 = 7;
-const VIRTIO_BLK_F_CONFIG_WCE: u32 = 11;
-const VIRTIO_BLK_F_MQ: u32 = 12;
-const VIRTIO_F_ANY_LAYOUT: u32 = 27;
-const VIRTIO_RING_F_INDIRECT_DESC: u32 = 28;
-const VIRTIO_RING_F_EVENT_IDX: u32 = 29;
+const VIRTIO_BLK_F_RO: u16 = 5;
+const VIRTIO_BLK_F_SCSI: u16 = 7;
+const VIRTIO_BLK_F_CONFIG_WCE: u16 = 11;
+const VIRTIO_BLK_F_MQ: u16 = 12;
+const VIRTIO_F_ANY_LAYOUT: u16 = 27;
+const VIRTIO_RING_F_INDIRECT_DESC: u16 = 28;
+const VIRTIO_RING_F_EVENT_IDX: u16 = 29;
 
 const VRING_DESC_F_NEXT: u16 = 1; // chained with another descriptor
 const VRING_DESC_F_WRITE: u16 = 2; // device writes (vs read)
