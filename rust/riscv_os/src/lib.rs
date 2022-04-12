@@ -8,6 +8,7 @@ extern crate alloc;
 use core::panic::PanicInfo;
 
 mod bio;
+mod console;
 mod cpu;
 mod fs;
 mod kalloc;
@@ -15,6 +16,7 @@ mod kvm;
 mod page_table;
 mod param;
 mod plic;
+mod printf;
 mod proc;
 mod process;
 mod register;
@@ -25,8 +27,6 @@ mod start;
 mod trap;
 mod uart;
 mod virtio;
-mod printf;
-mod console;
 
 #[panic_handler]
 fn panic(info: &PanicInfo<'_>) -> ! {

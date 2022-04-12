@@ -1,4 +1,4 @@
-use crate::{param::UART0, cpu};
+use crate::{cpu, param::UART0};
 use core::ptr;
 
 const RHR: usize = 0;
@@ -21,7 +21,7 @@ pub fn init() {
     }
 }
 
-// alternate version of putc() that doesn't 
+// alternate version of putc() that doesn't
 // use interrupts, for use by kernel printf() and
 // to echo characters. it spins waiting for the uart's
 // output register to be empty.

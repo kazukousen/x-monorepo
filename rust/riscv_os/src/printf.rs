@@ -16,7 +16,6 @@ impl fmt::Write for Print {
     }
 }
 
-
 pub fn _print(args: fmt::Arguments<'_>) {
     let locked = PRINT.lock();
     Print.write_fmt(args).expect("printf: error");

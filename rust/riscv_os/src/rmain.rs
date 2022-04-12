@@ -18,7 +18,6 @@ static STARTED: AtomicBool = AtomicBool::new(false);
 pub unsafe fn main() -> ! {
     let cpu_id = CpuTable::cpu_id();
     if cpu_id == 0 {
-
         console::init();
 
         println!("Hello, World! in Rust {}", cpu_id);
