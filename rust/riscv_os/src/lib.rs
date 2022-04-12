@@ -25,6 +25,8 @@ mod start;
 mod trap;
 mod uart;
 mod virtio;
+mod printf;
+mod console;
 
 #[panic_handler]
 fn panic(info: &PanicInfo<'_>) -> ! {

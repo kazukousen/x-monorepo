@@ -1,4 +1,5 @@
 use crate::bio::BCACHE;
+use crate::console;
 use crate::cpu::CpuTable;
 use crate::cpu::CPU_TABLE;
 use crate::kalloc;
@@ -17,6 +18,9 @@ static STARTED: AtomicBool = AtomicBool::new(false);
 pub unsafe fn main() -> ! {
     let cpu_id = CpuTable::cpu_id();
     if cpu_id == 0 {
+
+        console::init();
+
         println!("Hello, World! in Rust {}", cpu_id);
 
         // initialize physical memory allocator
