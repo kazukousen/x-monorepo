@@ -1,6 +1,7 @@
 use core::{
     ops::{Deref, DerefMut},
     ptr,
+    sync::atomic::{AtomicBool, Ordering},
 };
 
 use array_macro::array;
@@ -53,9 +54,9 @@ impl BCache {
     pub fn bread(&self, dev: u32, blockno: u32) -> GuardBuf {
         let mut buf = self.bget(dev, blockno);
 
-        if !buf.valid {
+        if !self.bufs[buf.index].valid.load(Ordering::Relaxed) {
             DISK.rw(&mut buf, false);
-            buf.valid = true;
+            self.bufs[buf.index].valid.store(true, Ordering::Relaxed);
         }
         buf
     }
@@ -68,9 +69,9 @@ impl BCache {
         let lru = self.lru.lock();
 
         if let Some((index, rc_ptr)) = lru.find(dev, blockno) {
+            // found cached block
             drop(lru);
             return GuardBuf {
-                valid: false,
                 index,
                 dev,
                 blockno,
@@ -80,9 +81,10 @@ impl BCache {
         }
 
         if let Some((index, rc_ptr)) = lru.recycle(dev, blockno) {
+            // not cached block
+            self.bufs[index].valid.store(false, Ordering::Relaxed);
             drop(lru);
             return GuardBuf {
-                valid: false,
                 index,
                 dev,
                 blockno,
@@ -96,7 +98,6 @@ impl BCache {
 }
 
 pub struct GuardBuf<'a> {
-    valid: bool,
     pub index: usize,
     dev: u32,
     pub blockno: u32,
@@ -138,14 +139,14 @@ impl<'a> Drop for GuardBuf<'a> {
 }
 
 struct Buf {
-    valid: bool,
+    valid: AtomicBool,
     data: SleepLock<BufData>,
 }
 
 impl Buf {
     const fn new() -> Self {
         Self {
-            valid: false,
+            valid: AtomicBool::new(false),
             data: SleepLock::new(BufData::new()),
         }
     }
