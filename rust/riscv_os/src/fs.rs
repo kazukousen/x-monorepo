@@ -49,5 +49,5 @@ unsafe fn read_super_block(dev: u32) {
     );
 
     println!("super_block: brelse");
-    BCACHE.brelse(bp.index);
+    drop(bp);
 }
