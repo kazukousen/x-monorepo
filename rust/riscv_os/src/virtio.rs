@@ -2,7 +2,7 @@
 /// uses qemu's mmio interface to virtio.
 /// qemu presents a "legacy" virtio interface.
 use core::{
-    mem, ptr,
+    array, mem, ptr,
     sync::atomic::{fence, Ordering},
 };
 
@@ -18,22 +18,99 @@ use array_macro::array;
 
 pub static DISK: SpinLock<Disk> = SpinLock::new(Disk::new());
 
+#[repr(C)]
+struct Desc {
+    addr: usize,
+    len: u32,
+    flags: u16,
+    next: u16,
+}
+
+impl Desc {
+    const fn new() -> Self {
+        Self {
+            addr: 0,
+            len: 0,
+            flags: 0,
+            next: 0,
+        }
+    }
+}
+
+#[repr(C)]
+struct Used {
+    flags: u16,
+    idx: u16,
+    ring: [UsedElem; NUM as usize],
+}
+
+impl Used {
+    const fn new() -> Self {
+        Self {
+            flags: 0,
+            idx: 0,
+            ring: array![_ => UsedElem::new(); NUM as usize],
+        }
+    }
+}
+
+#[repr(C)]
+struct UsedElem {
+    id: u32,
+    len: u32,
+}
+
+impl UsedElem {
+    const fn new() -> Self {
+        Self { id: 0, len: 0 }
+    }
+}
+
+#[repr(C)]
+struct Info {
+    buf_chan: Option<usize>,
+    disk: bool,
+    status: u8,
+}
+
+impl Info {
+    const fn new() -> Self {
+        Self {
+            buf_chan: None,
+            disk: false,
+            status: 0,
+        }
+    }
+}
+
+#[repr(C)]
+struct BlkReq {
+    typed: u32,
+    reserved: u32,
+    sector: u64,
+}
+
+impl BlkReq {
+    const fn new() -> Self {
+        Self {
+            typed: 0,
+            reserved: 0,
+            sector: 0,
+        }
+    }
+}
+
+const AVAILSIZE: usize =
+    (PAGESIZE - NUM as usize * core::mem::size_of::<Desc>()) / core::mem::size_of::<u16>();
+
 #[repr(align(4096))]
 pub struct Disk {
-    align1: PageAlign,
-
     // start pages
     // that is devided three regions (decriptors, avail, and used).
     // https://docs.oasis-open.org/virtio/virtio/v1.1/virtio-v1.1.pdf
     desc: [Desc; NUM as usize],
-    avail: Avail,
-
-    align2: PageAlign,
-
-    used: Used,
-
-    // end pages
-    align3: PageAlign,
+    avail: [u16; AVAILSIZE],
+    used: [Used; NUM as usize],
 
     free: [bool; NUM as usize], // is a descriptor free?
     used_idx: u32,
@@ -44,12 +121,9 @@ pub struct Disk {
 impl Disk {
     const fn new() -> Self {
         Self {
-            align1: PageAlign::new(),
             desc: array![_ => Desc::new(); NUM as usize],
-            avail: Avail::new(),
-            align2: PageAlign::new(),
-            used: Used::new(),
-            align3: PageAlign::new(),
+            avail: [0; AVAILSIZE],
+            used: array![_ => Used::new(); NUM as usize],
             free: [false; NUM as usize],
             used_idx: 0,
             info: array![_ => Info::new(); NUM as usize],
@@ -103,7 +177,8 @@ impl Disk {
         }
         write(VIRTIO_MMIO_QUEUE_NUM, NUM);
 
-        let pfn: usize = self as *const Disk as usize >> 12;
+        let pfn: usize = (self as *const Disk as usize) >> 12;
+        println!("DISK pfn: {:#x}", pfn);
         write(VIRTIO_MMIO_QUEUE_PFN, u32::try_from(pfn).unwrap());
 
         // all NUM descriptors start out unused.
@@ -122,12 +197,12 @@ impl Disk {
 
         fence(Ordering::SeqCst);
 
-        println!("virtio: intr starting used_idx={}", self.used.idx);
+        println!("virtio: intr starting used_idx={}", self.used[0].idx);
 
-        while self.used_idx != self.used.idx as u32 {
+        while self.used_idx != self.used[0].idx as u32 {
             fence(Ordering::SeqCst);
 
-            let id = self.used.ring[(self.used_idx % NUM) as usize].id as usize;
+            let id = self.used[0].ring[(self.used_idx % NUM) as usize].id as usize;
 
             if self.info[id].status != 0 {
                 panic!("virtio_intr: status");
@@ -169,6 +244,7 @@ impl Disk {
         self.desc[i].len = 0;
         self.desc[i].flags = 0;
         self.desc[i].next = 0;
+        self.free[i] = true;
 
         unsafe {
             PROCESS_TABLE.wakeup(&self.free[0] as *const bool as usize);
@@ -257,7 +333,7 @@ impl SpinLock<Disk> {
 
         // status result
         locked.info[idx[0]].status = 0xff; // device writes 0 on success
-        locked.desc[idx[2]].addr = locked.info[idx[0]].status as usize;
+        locked.desc[idx[2]].addr = &mut locked.info[idx[0]].status as *mut u8 as usize;
         locked.desc[idx[2]].len = 1;
         locked.desc[idx[2]].flags = VRING_DESC_F_WRITE;
         locked.desc[idx[2]].next = 0;
@@ -267,13 +343,13 @@ impl SpinLock<Disk> {
         locked.info[idx[0]].buf_chan = Some(buf_ptr as usize);
 
         // tell the device the first index in our chain of descriptors.
-        let avail_idx = locked.avail.idx as usize % (NUM as usize);
-        locked.avail.ring[avail_idx] = idx[0].try_into().unwrap();
+        let avail_idx = 2 + locked.avail[1] as usize % (NUM as usize);
+        locked.avail[avail_idx] = idx[0].try_into().unwrap();
 
         fence(Ordering::SeqCst);
 
         // tell the device another avail ring entry is available
-        locked.avail.idx += 1;
+        locked.avail[1] += locked.avail[1];
 
         fence(Ordering::SeqCst);
 
@@ -295,116 +371,6 @@ impl SpinLock<Disk> {
         locked.free_chain(idx[0]);
 
         drop(locked);
-    }
-}
-
-#[repr(align(4096))]
-struct PageAlign();
-
-impl PageAlign {
-    const fn new() -> Self {
-        Self()
-    }
-}
-
-#[repr(C, align(16))]
-struct Desc {
-    addr: usize,
-    len: u32,
-    flags: u16,
-    next: u16,
-}
-
-impl Desc {
-    const fn new() -> Self {
-        Self {
-            addr: 0,
-            len: 0,
-            flags: 0,
-            next: 0,
-        }
-    }
-}
-
-#[repr(C, align(2))]
-struct Avail {
-    flags: u16,
-    idx: u16,
-    ring: [u16; NUM as usize],
-    unused: u16,
-}
-
-impl Avail {
-    const fn new() -> Self {
-        Self {
-            flags: 0,
-            idx: 0,
-            ring: array![_ => 0_u16; NUM as usize],
-            unused: 0,
-        }
-    }
-}
-
-#[repr(C, align(4))]
-struct Used {
-    flags: u16,
-    idx: u16,
-    ring: [UsedElem; NUM as usize],
-}
-
-impl Used {
-    const fn new() -> Self {
-        Self {
-            flags: 0,
-            idx: 0,
-            ring: array![_ => UsedElem::new(); NUM as usize],
-        }
-    }
-}
-
-#[repr(C)]
-struct UsedElem {
-    id: u32,
-    len: u32,
-}
-
-impl UsedElem {
-    const fn new() -> Self {
-        Self { id: 0, len: 0 }
-    }
-}
-
-#[repr(C)]
-struct Info {
-    buf_chan: Option<usize>,
-    disk: bool,
-    status: u8,
-}
-
-impl Info {
-    const fn new() -> Self {
-        Self {
-            buf_chan: None,
-            disk: false,
-            status: 0,
-        }
-    }
-}
-
-#[repr(C)]
-struct BlkReq {
-    typed: u32,
-    reserved: u32,
-    sector: u64,
-}
-
-impl BlkReq {
-    const fn new() -> Self {
-        Self {
-            typed: 0,
-            reserved: 0,
-            sector: 0,
-        }
     }
 }
 

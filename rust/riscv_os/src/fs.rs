@@ -10,14 +10,14 @@ pub unsafe fn init(dev: u32) {
 
 #[repr(C)]
 struct SuperBlock {
-    magic: usize,
-    size: usize,
-    nblocks: usize,
-    ninodes: usize,
-    nlog: usize,
-    logstart: usize,
-    inodestart: usize,
-    bmapstart: usize,
+    magic: u32,
+    size: u32,
+    nblocks: u32,
+    ninodes: u32,
+    nlog: u32,
+    logstart: u32,
+    inodestart: u32,
+    bmapstart: u32,
 }
 
 impl SuperBlock {
