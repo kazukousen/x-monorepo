@@ -246,6 +246,7 @@ impl Proc {
         // Go to sleep
         locked.chan = chan;
         locked.state = ProcState::Sleeping;
+        println!("proc: Sleeping pid={} chan={:#x}", locked.pid, chan);
         unsafe {
             let cpu = CPU_TABLE.my_cpu_mut();
             locked = cpu.sched(locked, &mut (*self.data.get()).context);
@@ -258,9 +259,10 @@ impl Proc {
     }
 }
 
-static mut FIRST: bool = true;
-
 pub unsafe fn forkret() -> ! {
+
+    static mut FIRST: bool = true;
+
     println!("forkret");
 
     CPU_TABLE.my_proc().inner.unlock();

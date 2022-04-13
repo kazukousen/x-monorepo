@@ -4,12 +4,13 @@ use crate::param::{
     UART0_MAP_SIZE, VIRTIO0, VIRTIO0_MAP_SIZE,
 };
 use crate::println;
-use crate::register::satp;
+use crate::register::{satp, tp};
 use core::arch::asm;
 
 static mut KERNEL_PAGE_TABLE: PageTable = PageTable::empty();
 
 pub unsafe fn init_hart() {
+    println!("kvm_init_hart: hartid={} satp={:#x}", tp::read(), KERNEL_PAGE_TABLE.as_satp());
     satp::write(KERNEL_PAGE_TABLE.as_satp());
     asm!("sfence.vma zero, zero");
 }

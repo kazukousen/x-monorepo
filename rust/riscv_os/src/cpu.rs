@@ -57,6 +57,8 @@ impl CpuTable {
 
                 swtch(&mut cpu.scheduler as *mut _, ctx);
 
+                println!("scheduler: gave up pid={}", locked.pid);
+
                 cpu.proc = ptr::null_mut();
                 drop(locked);
             }

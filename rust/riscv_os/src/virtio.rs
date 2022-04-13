@@ -87,7 +87,7 @@ impl Info {
 struct BlkReq {
     typed: u32,
     reserved: u32,
-    sector: u64,
+    sector: usize,
 }
 
 impl BlkReq {
@@ -103,6 +103,7 @@ impl BlkReq {
 const AVAILSIZE: usize =
     (PAGESIZE - NUM as usize * core::mem::size_of::<Desc>()) / core::mem::size_of::<u16>();
 
+#[repr(C)]
 #[repr(align(4096))]
 pub struct Disk {
     // start pages
@@ -115,7 +116,6 @@ pub struct Disk {
     free: [bool; NUM as usize], // is a descriptor free?
     used_idx: u32,
     info: [Info; NUM as usize],
-    ops: [BlkReq; NUM as usize],
 }
 
 impl Disk {
@@ -127,7 +127,6 @@ impl Disk {
             free: [false; NUM as usize],
             used_idx: 0,
             info: array![_ => Info::new(); NUM as usize],
-            ops: array![_ => BlkReq::new(); NUM as usize],
         }
     }
 
@@ -307,18 +306,14 @@ impl SpinLock<Disk> {
 
         // format the three descriptors
 
-        let buf0 = &mut locked.ops[idx[0]];
-
-        buf0.typed = if writing {
-            VIRTIO_BLK_T_OUT
-        } else {
-            VIRTIO_BLK_T_IN
+        let mut buf0 = BlkReq {
+            typed: if writing { VIRTIO_BLK_T_OUT } else { VIRTIO_BLK_T_IN },
+            reserved: 0,
+            sector: (buf.blockno as usize * (BSIZE / 512)) as usize,
         };
-        buf0.reserved = 0;
-        buf0.sector = (buf.blockno as usize * (BSIZE / 512)) as u64;
 
         // buf0 (type/reserved/sector)
-        locked.desc[idx[0]].addr = buf0 as *mut _ as usize;
+        locked.desc[idx[0]].addr = &buf0 as *const _ as usize;
         locked.desc[idx[0]].len = mem::size_of::<BlkReq>().try_into().unwrap();
         locked.desc[idx[0]].flags = VRING_DESC_F_NEXT;
         locked.desc[idx[0]].next = idx[1].try_into().unwrap();
@@ -403,13 +398,13 @@ const VIRTIO_CONFIG_S_DRIVER: u32 = 2;
 const VIRTIO_CONFIG_S_DRIVER_OK: u32 = 4;
 const VIRTIO_CONFIG_S_FEATURES_OK: u32 = 8;
 
-const VIRTIO_BLK_F_RO: u16 = 5;
-const VIRTIO_BLK_F_SCSI: u16 = 7;
-const VIRTIO_BLK_F_CONFIG_WCE: u16 = 11;
-const VIRTIO_BLK_F_MQ: u16 = 12;
-const VIRTIO_F_ANY_LAYOUT: u16 = 27;
-const VIRTIO_RING_F_INDIRECT_DESC: u16 = 28;
-const VIRTIO_RING_F_EVENT_IDX: u16 = 29;
+const VIRTIO_BLK_F_RO: u8 = 5;
+const VIRTIO_BLK_F_SCSI: u8 = 7;
+const VIRTIO_BLK_F_CONFIG_WCE: u8 = 11;
+const VIRTIO_BLK_F_MQ: u8 = 12;
+const VIRTIO_F_ANY_LAYOUT: u8 = 27;
+const VIRTIO_RING_F_INDIRECT_DESC: u8 = 28;
+const VIRTIO_RING_F_EVENT_IDX: u8 = 29;
 
 const VRING_DESC_F_NEXT: u16 = 1; // chained with another descriptor
 const VRING_DESC_F_WRITE: u16 = 2; // device writes (vs read)
