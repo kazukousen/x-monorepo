@@ -228,11 +228,13 @@ impl Proc {
         }
     }
 
-    pub unsafe fn yielding(&self, cpu: &mut Cpu) {
+    pub unsafe fn yielding(&self) {
         let mut locked = self.inner.lock();
-        let ctx = &mut (*self.data.get()).context;
-        locked.state = ProcState::Runnable;
-        locked = cpu.sched(locked, ctx);
+        if locked.state == ProcState::Running {
+            let ctx = &mut (*self.data.get()).context;
+            locked.state = ProcState::Runnable;
+            locked = CPU_TABLE.my_cpu_mut().sched(locked, ctx);
+        }
         drop(locked);
     }
 

@@ -135,7 +135,7 @@ impl Cpu {
     pub unsafe fn yielding(&mut self) {
         if !self.proc.is_null() {
             let proc = self.proc.as_mut().unwrap();
-            proc.yielding(self);
+            proc.yielding();
         }
     }
 }

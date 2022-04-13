@@ -2,7 +2,7 @@
 /// uses qemu's mmio interface to virtio.
 /// qemu presents a "legacy" virtio interface.
 use core::{
-    array, mem, ptr,
+    mem, ptr,
     sync::atomic::{fence, Ordering},
 };
 
@@ -332,8 +332,9 @@ impl SpinLock<Disk> {
         locked.desc[idx[1]].next = idx[2].try_into().unwrap();
 
         // status result
+        let status_addr = &mut locked.info[idx[0]].status as *mut _ as usize;
         locked.info[idx[0]].status = 0xff; // device writes 0 on success
-        locked.desc[idx[2]].addr = &mut locked.info[idx[0]].status as *mut u8 as usize;
+        locked.desc[idx[2]].addr = status_addr;
         locked.desc[idx[2]].len = 1;
         locked.desc[idx[2]].flags = VRING_DESC_F_WRITE;
         locked.desc[idx[2]].next = 0;
@@ -349,13 +350,18 @@ impl SpinLock<Disk> {
         fence(Ordering::SeqCst);
 
         // tell the device another avail ring entry is available
-        locked.avail[1] += locked.avail[1];
+        locked.avail[1] += 1;
 
         fence(Ordering::SeqCst);
 
         unsafe {
             write(VIRTIO_MMIO_QUEUE_NOTIFY, 0);
         }
+        println!("virtio_rw: status_addr={:#x}", status_addr);
+        println!(
+            "virtio_rw: sleep={:#x}, status={:#x}",
+            buf_ptr as usize, locked.info[idx[0]].status
+        );
 
         // wait for intr() to say request has finised
         while locked.info[idx[0]].disk {
