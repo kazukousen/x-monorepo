@@ -192,7 +192,7 @@ impl PageTable {
     /// Copy a null-terminated string from user to kernel.
     /// Copy bytes to dst from virtual address srcva in a given page table,
     /// until a '\0'.
-    pub fn copy_in_str(&self, dst: &mut [u8], srcva: usize) -> Result<(), &'static str> {
+    pub fn copy_in_str(&self, dst: &mut [u8], srcva: usize) -> Result<usize, &'static str> {
         let mut i = 0;
         let mut va = srcva;
 
@@ -208,7 +208,7 @@ impl PageTable {
                 unsafe {
                     dst[i] = ptr::read(pa_ptr);
                     if dst[i] == 0 {
-                        return Ok(());
+                        return Ok(i);
                     }
                     va_ptr = va_ptr.add(1);
                     pa_ptr = pa_ptr.add(1);

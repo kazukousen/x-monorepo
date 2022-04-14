@@ -14,14 +14,7 @@ impl Syscall for ProcessData {
     fn sys_exec(&mut self) -> SysResult {
         let mut path: [u8; 128] = unsafe { mem::MaybeUninit::uninit().assume_init() };
         match self.arg_str(0, &mut path) {
-            Ok(_) => {
-                let mut nul_pos = 0;
-                for c in path.iter() {
-                    if *c == 0 {
-                        break;
-                    }
-                    nul_pos += 1;
-                }
+            Ok(nul_pos) => {
                 let path = unsafe { core::str::from_utf8_unchecked(&path[0..=nul_pos]) };
                 println!("sys_exec: {}", path);
                 // TODO
@@ -37,7 +30,7 @@ impl Syscall for ProcessData {
 
 impl ProcessData {
     #[inline]
-    fn arg_str(&self, n: usize, dst: &mut [u8]) -> Result<(), &'static str> {
+    fn arg_str(&self, n: usize, dst: &mut [u8]) -> Result<usize, &'static str> {
         let addr = self.arg_raw(n);
         self.page_table.as_ref().unwrap().copy_in_str(dst, addr)
     }
