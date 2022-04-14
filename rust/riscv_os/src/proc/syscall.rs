@@ -4,7 +4,7 @@ use crate::{print, println};
 
 use super::ProcessData;
 
-type SysResult = Result<usize, ()>;
+type SysResult = Result<usize, &'static str>;
 
 pub trait Syscall {
     fn sys_exec(&mut self) -> SysResult;
@@ -13,18 +13,16 @@ pub trait Syscall {
 impl Syscall for ProcessData {
     fn sys_exec(&mut self) -> SysResult {
         let mut path: [u8; 128] = unsafe { mem::MaybeUninit::uninit().assume_init() };
-        match self.arg_str(0, &mut path) {
-            Ok(nul_pos) => {
-                let path = unsafe { core::str::from_utf8_unchecked(&path[0..=nul_pos]) };
-                println!("sys_exec: {}", path);
-                // TODO
-                return Err(())
-            }
-            Err(msg) => {
-                println!("sys_exec: {}", msg);
-                return Err(())
-            }
+
+        let nul_pos = self.arg_str(0, &mut path)?;
+        let path = unsafe { core::str::from_utf8_unchecked(&path[0..nul_pos]) };
+
+        if path == "/init" {
+            println!("sys_exec: {}", path);
         }
+
+        // TODO
+        Err("TODO")
     }
 }
 

@@ -224,7 +224,7 @@ impl Proc {
 
         tf.a0 = match ret {
             Ok(ret) => ret,
-            Err(()) => -1isize as usize,
+            Err(msg) => -1isize as usize,
         }
     }
 
