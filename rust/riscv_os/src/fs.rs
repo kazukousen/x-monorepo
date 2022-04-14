@@ -3,7 +3,6 @@ use core::ptr;
 use crate::{bio::BCACHE, println};
 
 pub unsafe fn init(dev: u32) {
-
     read_super_block(dev);
 
     println!("fs: init done");
@@ -39,7 +38,6 @@ impl SuperBlock {
 static mut SB: SuperBlock = SuperBlock::new();
 
 unsafe fn read_super_block(dev: u32) {
-
     println!("super_block: reading ...");
 
     let bp = BCACHE.bread(dev, 1);

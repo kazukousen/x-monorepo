@@ -10,7 +10,11 @@ use core::arch::asm;
 static mut KERNEL_PAGE_TABLE: PageTable = PageTable::empty();
 
 pub unsafe fn init_hart() {
-    println!("kvm_init_hart: hartid={} satp={:#x}", tp::read(), KERNEL_PAGE_TABLE.as_satp());
+    println!(
+        "kvm_init_hart: hartid={} satp={:#x}",
+        tp::read(),
+        KERNEL_PAGE_TABLE.as_satp()
+    );
     satp::write(KERNEL_PAGE_TABLE.as_satp());
     asm!("sfence.vma zero, zero");
 }

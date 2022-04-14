@@ -260,7 +260,6 @@ impl Proc {
 }
 
 pub unsafe fn forkret() -> ! {
-
     static mut FIRST: bool = true;
 
     println!("forkret");

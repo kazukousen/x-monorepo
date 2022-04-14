@@ -126,7 +126,9 @@ impl Cpu {
         extern "C" {
             fn swtch(old: *mut Context, new: *mut Context);
         }
-        unsafe { swtch(ctx, &mut self.scheduler as *mut _); }
+        unsafe {
+            swtch(ctx, &mut self.scheduler as *mut _);
+        }
 
         self.intena = intena;
 
