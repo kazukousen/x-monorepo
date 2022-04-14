@@ -15,21 +15,23 @@ impl Syscall for ProcessData {
         let mut path: [u8; 128] = unsafe { mem::MaybeUninit::uninit().assume_init() };
         match self.arg_str(0, &mut path) {
             Ok(_) => {
-                print!("sys_exec: path=");
+                let mut nul_pos = 0;
                 for c in path.iter() {
                     if *c == 0 {
                         break;
                     }
-                    print!("{}", *c as char);
+                    nul_pos += 1;
                 }
-                println!();
+                let path = unsafe { core::str::from_utf8_unchecked(&path[0..=nul_pos]) };
+                println!("sys_exec: {}", path);
+                // TODO
+                return Err(())
             }
             Err(msg) => {
                 println!("sys_exec: {}", msg);
+                return Err(())
             }
         }
-
-        Err(())
     }
 }
 
