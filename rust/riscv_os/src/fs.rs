@@ -1,3 +1,5 @@
+use core::ptr;
+
 use crate::{bio::BCACHE, println};
 
 pub unsafe fn init(dev: u32) {
