@@ -19,8 +19,8 @@ pub struct CpuTable {
 
 impl CpuTable {
     #[inline]
-    pub unsafe fn cpu_id() -> usize {
-        tp::read()
+    pub fn cpu_id() -> usize {
+        unsafe { tp::read() }
     }
 
     const fn new() -> Self {
@@ -65,12 +65,12 @@ impl CpuTable {
         }
     }
 
-    pub unsafe fn my_cpu_mut(&mut self) -> &mut Cpu {
+    pub fn my_cpu_mut(&mut self) -> &mut Cpu {
         let id = Self::cpu_id();
         &mut self.table[id]
     }
 
-    unsafe fn my_cpu(&self) -> &Cpu {
+    fn my_cpu(&self) -> &Cpu {
         let id = Self::cpu_id();
         &self.table[id]
     }
@@ -80,9 +80,8 @@ impl CpuTable {
 
         let p;
 
+        let c = self.my_cpu();
         unsafe {
-            let c = self.my_cpu();
-
             p = &mut *c.proc;
         }
 
@@ -117,7 +116,7 @@ impl Cpu {
     /// Saves and restores intena because intena is a property of this
     /// kernel thread, not this CPU.
     /// Passing in and out a locked because we need to the lock during this function.
-    pub unsafe fn sched<'a>(
+    pub fn sched<'a>(
         &mut self,
         locked: SpinLockGuard<'a, ProcInner>,
         ctx: *mut Context,
@@ -127,7 +126,7 @@ impl Cpu {
         extern "C" {
             fn swtch(old: *mut Context, new: *mut Context);
         }
-        swtch(ctx, &mut self.scheduler as *mut _);
+        unsafe { swtch(ctx, &mut self.scheduler as *mut _); }
 
         self.intena = intena;
 

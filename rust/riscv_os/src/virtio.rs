@@ -90,16 +90,6 @@ struct BlkReq {
     sector: usize,
 }
 
-impl BlkReq {
-    const fn new() -> Self {
-        Self {
-            typed: 0,
-            reserved: 0,
-            sector: 0,
-        }
-    }
-}
-
 const AVAILSIZE: usize =
     (PAGESIZE - NUM as usize * core::mem::size_of::<Desc>()) / core::mem::size_of::<u16>();
 
@@ -306,7 +296,7 @@ impl SpinLock<Disk> {
 
         // format the three descriptors
 
-        let mut buf0 = BlkReq {
+        let buf0 = BlkReq {
             typed: if writing { VIRTIO_BLK_T_OUT } else { VIRTIO_BLK_T_IN },
             reserved: 0,
             sector: (buf.blockno as usize * (BSIZE / 512)) as usize,
@@ -365,10 +355,10 @@ impl SpinLock<Disk> {
             }
             locked = self.lock();
         }
-        println!("virtio_rw: wakeup");
-
         // tidy up
-        locked.info[idx[0]].buf_chan.take();
+        let res = locked.info[idx[0]].buf_chan.take();
+
+        println!("virtio_rw: wakeup buf_chan={} buf_ptr={}", res.unwrap(), buf_ptr as usize);
         locked.free_chain(idx[0]);
 
         drop(locked);

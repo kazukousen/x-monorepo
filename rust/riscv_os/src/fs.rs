@@ -1,8 +1,7 @@
-use core::{mem, ptr};
-
 use crate::{bio::BCACHE, println};
 
 pub unsafe fn init(dev: u32) {
+
     read_super_block(dev);
 
     println!("fs: init done");
@@ -38,16 +37,18 @@ impl SuperBlock {
 static mut SB: SuperBlock = SuperBlock::new();
 
 unsafe fn read_super_block(dev: u32) {
-    println!("super_block: bread");
+
+    println!("super_block: reading ...");
+
     let bp = BCACHE.bread(dev, 1);
 
-    println!("super_block: copy");
     ptr::copy_nonoverlapping(
         bp.data_ptr() as *const SuperBlock,
-        &mut SB as *mut _,
-        mem::size_of::<SuperBlock>(),
+        &mut SB as *mut SuperBlock,
+        1,
     );
 
-    println!("super_block: brelse");
+    println!("super_block: magic: {}", SB.magic);
+
     drop(bp);
 }

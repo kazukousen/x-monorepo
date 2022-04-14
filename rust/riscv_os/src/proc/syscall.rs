@@ -15,7 +15,7 @@ impl Syscall for ProcessData {
         let mut path: [u8; 128] = unsafe { mem::MaybeUninit::uninit().assume_init() };
         match self.arg_str(0, &mut path) {
             Ok(_) => {
-                print!("sys_exec: ");
+                print!("sys_exec: path=");
                 for c in path.iter() {
                     if *c == 0 {
                         break;

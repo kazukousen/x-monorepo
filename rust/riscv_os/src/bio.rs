@@ -98,7 +98,7 @@ impl BCache {
 }
 
 pub struct GuardBuf<'a> {
-    pub index: usize,
+    index: usize,
     dev: u32,
     pub blockno: u32,
     rc_ptr: *mut usize,

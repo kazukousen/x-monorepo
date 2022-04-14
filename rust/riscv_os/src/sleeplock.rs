@@ -46,8 +46,8 @@ impl<T> SleepLock<T> {
     /// called by its guard when dropped
     fn unlock(&self) {
         let guard = self.inner_lock.lock();
-        unsafe { PROCESS_TABLE.wakeup(self.locked.as_ptr() as usize) };
         self.locked.set(false);
+        unsafe { PROCESS_TABLE.wakeup(self.locked.as_ptr() as usize) };
         drop(guard);
     }
 }
