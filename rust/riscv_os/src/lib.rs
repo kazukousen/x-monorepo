@@ -5,8 +5,6 @@
 
 extern crate alloc;
 
-use core::panic::PanicInfo;
-
 mod bio;
 mod console;
 mod cpu;
@@ -28,13 +26,3 @@ mod trap;
 mod uart;
 mod virtio;
 
-#[panic_handler]
-fn panic(info: &PanicInfo<'_>) -> ! {
-    println!("panic: {}", info);
-    loop {}
-}
-
-#[no_mangle]
-fn abort() -> ! {
-    panic!("abort");
-}

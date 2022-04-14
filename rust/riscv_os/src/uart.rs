@@ -1,5 +1,5 @@
-use crate::{cpu, param::UART0};
-use core::ptr;
+use crate::{cpu, param::UART0, printf::PANICKED};
+use core::{ptr, sync::atomic::Ordering};
 
 const RHR: usize = 0;
 const THR: usize = 0;
@@ -27,6 +27,11 @@ pub fn init() {
 // output register to be empty.
 pub fn putc_sync(c: u8) {
     cpu::push_off();
+
+    if PANICKED.load(Ordering::Relaxed) {
+        loop {}
+    }
+
     unsafe {
         while ptr::read_volatile((UART0 + LSR) as *const u8) & (1 << 5) == 0 {}
         ptr::write_volatile((UART0 + THR) as *mut u8, c);
