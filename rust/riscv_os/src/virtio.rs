@@ -90,6 +90,16 @@ struct BlkReq {
     sector: usize,
 }
 
+impl BlkReq {
+    const fn new() -> Self {
+        Self {
+            typed: 0,
+            reserved: 0,
+            sector: 0,
+        }
+    }
+}
+
 const AVAILSIZE: usize =
     (PAGESIZE - NUM as usize * core::mem::size_of::<Desc>()) / core::mem::size_of::<u16>();
 
@@ -106,6 +116,7 @@ pub struct Disk {
     free: [bool; NUM as usize], // is a descriptor free?
     used_idx: u32,
     info: [Info; NUM as usize],
+    ops: [BlkReq; NUM as usize],
 }
 
 impl Disk {
@@ -117,6 +128,7 @@ impl Disk {
             free: [false; NUM as usize],
             used_idx: 0,
             info: array![_ => Info::new(); NUM as usize],
+            ops: array![_ => BlkReq::new(); NUM as usize],
         }
     }
 
@@ -185,8 +197,6 @@ impl Disk {
         };
 
         fence(Ordering::SeqCst);
-
-        println!("virtio: intr starting used_idx={}", self.used[0].idx);
 
         while self.used_idx != self.used[0].idx as u32 {
             fence(Ordering::SeqCst);
@@ -295,19 +305,17 @@ impl SpinLock<Disk> {
         }
 
         // format the three descriptors
-
-        let buf0 = BlkReq {
-            typed: if writing {
-                VIRTIO_BLK_T_OUT
-            } else {
-                VIRTIO_BLK_T_IN
-            },
-            reserved: 0,
-            sector: (buf.blockno as usize * (BSIZE / 512)) as usize,
+        let buf0 = &mut locked.ops[idx[0]];
+        buf0.typed = if writing {
+            VIRTIO_BLK_T_OUT
+        } else {
+            VIRTIO_BLK_T_IN
         };
+        buf0.reserved = 0;
+        buf0.sector = (buf.blockno as usize * (BSIZE / 512)) as usize;
 
         // buf0 (type/reserved/sector)
-        locked.desc[idx[0]].addr = &buf0 as *const _ as usize;
+        locked.desc[idx[0]].addr = buf0 as *mut _ as usize;
         locked.desc[idx[0]].len = mem::size_of::<BlkReq>().try_into().unwrap();
         locked.desc[idx[0]].flags = VRING_DESC_F_NEXT;
         locked.desc[idx[0]].next = idx[1].try_into().unwrap();
@@ -346,11 +354,6 @@ impl SpinLock<Disk> {
         unsafe {
             write(VIRTIO_MMIO_QUEUE_NOTIFY, 0);
         }
-        println!("virtio_rw: status_addr={:#x}", status_addr);
-        println!(
-            "virtio_rw: sleep={:#x}, status={:#x}",
-            buf_ptr as usize, locked.info[idx[0]].status
-        );
 
         // wait for intr() to say request has finised
         while locked.info[idx[0]].disk {
@@ -361,13 +364,7 @@ impl SpinLock<Disk> {
         }
         // tidy up
         let res = locked.info[idx[0]].buf_chan.take();
-
-        println!(
-            "virtio_rw: wakeup buf_chan={} buf_ptr={}",
-            res.unwrap(),
-            buf_ptr as usize
-        );
-        locked.free_chain(idx[0]);
+        assert_eq!(res.unwrap(), buf_ptr as usize);
 
         drop(locked);
     }
@@ -422,4 +419,31 @@ unsafe fn read(offset: usize) -> u32 {
 unsafe fn write(offset: usize, v: u32) {
     let dst = (VIRTIO0 + offset) as *mut u32;
     ptr::write_volatile(dst, v);
+}
+
+pub mod tests {
+
+    use super::*;
+
+    pub fn tests() -> &'static [(&'static str, fn())] {
+        &[
+            ("memory layout", test_memory_layout),
+            ("read write", test_rw),
+        ]
+    }
+
+    pub fn test_memory_layout() {
+        let disk = DISK.lock();
+        assert_eq!(&disk.desc as *const _ as usize % PAGESIZE, 0);
+        assert_eq!(&disk.used as *const _ as usize % PAGESIZE, 0);
+        assert_eq!(
+            &disk.used as *const _ as usize - &disk.desc as *const _ as usize,
+            PAGESIZE
+        );
+    }
+
+    pub fn test_rw() {
+        // let buf = BCACHE.bread(ROOTDEV, 1);
+        // let buf_ptr = buf.data_ptr();
+    }
 }

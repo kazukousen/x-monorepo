@@ -284,6 +284,7 @@ impl PageTableEntry {
         (self.data & (PteFlag::READ | PteFlag::WRITE | PteFlag::EXEC).bits()) > 0
     }
 
+    #[inline]
     pub fn set_addr(&mut self, addr: usize, perm: PteFlag) {
         self.data = addr | (perm | PteFlag::VALID).bits();
     }

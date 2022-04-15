@@ -47,17 +47,7 @@ impl CpuTable {
                 locked.state = ProcState::Running;
 
                 let ctx = p.data.get_mut().get_context();
-                {
-                    let ctx = ctx.as_mut().unwrap();
-                    println!(
-                        "scheduler: new context ra={:#x} stack={:#x}",
-                        ctx.ra, ctx.sp
-                    );
-                }
-
                 swtch(&mut cpu.scheduler as *mut _, ctx);
-
-                println!("scheduler: gave up pid={}", locked.pid);
 
                 cpu.proc = ptr::null_mut();
                 drop(locked);

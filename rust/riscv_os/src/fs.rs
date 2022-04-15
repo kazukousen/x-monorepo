@@ -36,10 +36,9 @@ impl SuperBlock {
 }
 
 static mut SB: SuperBlock = SuperBlock::new();
+const FSMAGIC: u32 = 0x10203040;
 
 unsafe fn read_super_block(dev: u32) {
-    println!("super_block: reading ...");
-
     let bp = BCACHE.bread(dev, 1);
 
     ptr::copy_nonoverlapping(
@@ -48,7 +47,9 @@ unsafe fn read_super_block(dev: u32) {
         1,
     );
 
-    println!("super_block: magic: {}", SB.magic);
+    if SB.magic != FSMAGIC {
+        panic!("invalid file system");
+    }
 
     drop(bp);
 }

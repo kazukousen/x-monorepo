@@ -10,7 +10,6 @@ use crate::{
 
 /// set up to take exceptions and traps while in the kernel.
 pub unsafe fn init_hart() {
-    println!("trap_init_hart");
     extern "C" {
         fn kernelvec();
     }
@@ -40,7 +39,6 @@ pub unsafe fn kerneltrap() {
             // TODO uart
 
             if irq as usize == param::VIRTIO0_IRQ {
-                println!("kerneltrap: irq virtio");
                 DISK.lock().intr();
             }
 
@@ -49,7 +47,7 @@ pub unsafe fn kerneltrap() {
             }
         }
         ScauseType::IntSSoft => {
-            println!("kerneltrap: handling timer interrupt");
+            // println!("kerneltrap: handling timer interrupt");
 
             if cpu::CpuTable::cpu_id() == 0 {
                 clock_intr();
@@ -143,7 +141,6 @@ unsafe extern "C" fn user_trap() {
             // TODO uart
 
             if irq as usize == param::VIRTIO0_IRQ {
-                println!("usertrap: irq virtio");
                 DISK.lock().intr();
             }
 

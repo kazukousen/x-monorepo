@@ -22,7 +22,7 @@ mod rmain;
 mod sleeplock;
 mod spinlock;
 mod start;
+mod test;
 mod trap;
 mod uart;
 mod virtio;
-

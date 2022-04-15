@@ -216,15 +216,16 @@ impl Proc {
         let ret = match num {
             7 => pd.sys_exec(),
             _ => {
-                // TODO: panic
-                println!("unknown syscall: {}", num);
-                loop {}
+                panic!("unknown syscall: {}", num);
             }
         };
 
         tf.a0 = match ret {
             Ok(ret) => ret,
-            Err(msg) => -1isize as usize,
+            Err(msg) => {
+                println!("syscall error: {}", msg);
+                -1isize as usize
+            }
         }
     }
 
@@ -246,7 +247,6 @@ impl Proc {
         // Go to sleep
         locked.chan = chan;
         locked.state = ProcState::Sleeping;
-        println!("proc: Sleeping pid={} chan={:#x}", locked.pid, chan);
         unsafe {
             let cpu = CPU_TABLE.my_cpu_mut();
             locked = cpu.sched(locked, &mut (*self.data.get()).context);
@@ -262,9 +262,6 @@ impl Proc {
 static mut FIRST: bool = true;
 
 pub unsafe fn forkret() -> ! {
-
-    println!("forkret");
-
     CPU_TABLE.my_proc().inner.unlock();
 
     if FIRST {

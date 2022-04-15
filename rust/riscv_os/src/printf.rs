@@ -21,7 +21,7 @@ pub fn _print(args: fmt::Arguments<'_>) {
 
     if PANICKED.load(Ordering::Relaxed) {
         Print.write_fmt(args).expect("printf: error");
-        return
+        return;
     }
     let locked = PRINT.lock();
     Print.write_fmt(args).expect("printf: error");
