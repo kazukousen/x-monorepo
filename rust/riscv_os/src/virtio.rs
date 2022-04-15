@@ -233,10 +233,10 @@ impl Disk {
     fn free_desc(&mut self, i: usize) {
         // TODO: use assert expr
         if i >= (NUM as usize) {
-            panic!("free_desc 1");
+            panic!("free_desc: out of range: {}", i);
         }
         if self.free[i] {
-            panic!("free_desc 2");
+            panic!("free_desc: already free: {}", i);
         }
 
         self.desc[i].addr = 0;
@@ -270,15 +270,18 @@ impl Disk {
 
     fn free_chain(&mut self, i: usize) {
         let mut i = i;
+        // print!("free_chain: free...");
         loop {
-            let should = self.desc[i].flags & VRING_DESC_F_NEXT > 0;
+            let should = (self.desc[i].flags & VRING_DESC_F_NEXT) != 0;
             let next = self.desc[i].next;
+            // print!(" {}", i);
             self.free_desc(i);
             if !should {
                 break;
             }
             i = next as usize;
         }
+        // println!();
     }
 }
 
@@ -365,6 +368,7 @@ impl SpinLock<Disk> {
         // tidy up
         let res = locked.info[idx[0]].buf_chan.take();
         assert_eq!(res.unwrap(), buf_ptr as usize);
+        locked.free_chain(idx[0]);
 
         drop(locked);
     }

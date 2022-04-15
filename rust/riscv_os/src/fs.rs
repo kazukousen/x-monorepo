@@ -1,21 +1,22 @@
 use core::ptr;
 
-use crate::{bio::BCACHE, println};
+use crate::{bio::BCACHE, log::LOG, println};
 
 pub unsafe fn init(dev: u32) {
     read_super_block(dev);
+    LOG.lock().init(dev, &SB);
 
     println!("fs: init done");
 }
 
 #[repr(C)]
-struct SuperBlock {
+pub struct SuperBlock {
     magic: u32,
     size: u32,
     nblocks: u32,
     ninodes: u32,
-    nlog: u32,
-    logstart: u32,
+    pub nlog: u32,
+    pub logstart: u32,
     inodestart: u32,
     bmapstart: u32,
 }
@@ -35,7 +36,7 @@ impl SuperBlock {
     }
 }
 
-static mut SB: SuperBlock = SuperBlock::new();
+pub static mut SB: SuperBlock = SuperBlock::new();
 const FSMAGIC: u32 = 0x10203040;
 
 unsafe fn read_super_block(dev: u32) {

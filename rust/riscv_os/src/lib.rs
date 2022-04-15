@@ -11,6 +11,7 @@ mod cpu;
 mod fs;
 mod kalloc;
 mod kvm;
+mod log;
 mod page_table;
 mod param;
 mod plic;

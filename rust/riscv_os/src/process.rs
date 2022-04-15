@@ -1,3 +1,6 @@
+use core::ptr;
+
+use crate::cpu::CPU_TABLE;
 use crate::kvm::kvm_map;
 use crate::page_table::{Page, PageTable, PteFlag, SinglePage};
 use crate::param::{kstack, NPROC, PAGESIZE};
@@ -129,6 +132,11 @@ impl ProcessTable {
 
     pub fn wakeup(&mut self, chan: usize) {
         for p in self.table.iter_mut() {
+            unsafe {
+                if ptr::eq(p, CPU_TABLE.my_proc()) { 
+                    continue;
+                }
+            }
             let mut locked = p.inner.lock();
             if locked.state == ProcState::Sleeping && locked.chan == chan {
                 locked.state = ProcState::Runnable;

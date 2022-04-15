@@ -55,3 +55,4 @@ pub const PLIC_MAP_SIZE: usize = 0x40_0000;
 
 pub const MAXOPBLOCKS: usize = 10; // max # of blocks any FS op writes
 pub const NBUF: usize = MAXOPBLOCKS * 3; // size of disk block cache
+pub const LOGSIZE: usize = MAXOPBLOCKS * 3; // max data blocks in on-disk log
