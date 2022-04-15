@@ -27,7 +27,7 @@ impl<T: ?Sized> SpinLock<T> {
     pub fn lock(&self) -> SpinLockGuard<'_, T> {
         self.acquire();
         SpinLockGuard {
-            lock: &self,
+            inner: &self,
             data: unsafe { &mut *self.data.get() },
         }
     }
@@ -60,8 +60,16 @@ impl<T: ?Sized> SpinLock<T> {
 }
 
 pub struct SpinLockGuard<'a, T: ?Sized> {
-    lock: &'a SpinLock<T>,
+    inner: &'a SpinLock<T>,
     data: &'a mut T,
+}
+
+impl<'a, T: ?Sized> SpinLockGuard<'a, T> {
+    pub fn weak(self) -> SpinLockWeakGuard<'a, T> {
+        SpinLockWeakGuard{
+            inner: self.inner,
+        }
+    }
 }
 
 impl<'a, T: ?Sized> Deref for SpinLockGuard<'a, T> {
@@ -79,6 +87,17 @@ impl<'a, T: ?Sized> DerefMut for SpinLockGuard<'a, T> {
 
 impl<'a, T: ?Sized> Drop for SpinLockGuard<'a, T> {
     fn drop(&mut self) {
-        self.lock.release();
+        self.inner.release();
     }
 }
+
+pub struct SpinLockWeakGuard<'a, T: ?Sized> {
+    inner: &'a SpinLock<T>,
+}
+
+impl<'a, T: ?Sized> SpinLockWeakGuard<'a, T> {
+    pub fn lock(self) -> SpinLockGuard<'a, T> {
+        self.inner.lock()
+    }
+}
+

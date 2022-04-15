@@ -148,7 +148,7 @@ pub fn push_off() {
 
 pub fn pop_off() {
     if sstatus::intr_get() {
-        panic!("pop_off: interruputable");
+        panic!("pop_off: already interruputable");
     }
 
     let cpu = unsafe { CPU_TABLE.my_cpu_mut() };

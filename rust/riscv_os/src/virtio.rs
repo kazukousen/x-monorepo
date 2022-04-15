@@ -300,11 +300,10 @@ impl SpinLock<Disk> {
                 break;
             }
             unsafe {
-                CPU_TABLE
+                locked = CPU_TABLE
                     .my_proc()
                     .sleep(&locked.free[0] as *const _ as usize, locked);
             }
-            locked = self.lock();
         }
 
         // format the three descriptors
@@ -361,9 +360,8 @@ impl SpinLock<Disk> {
         // wait for intr() to say request has finised
         while locked.info[idx[0]].disk {
             unsafe {
-                CPU_TABLE.my_proc().sleep(buf_ptr as usize, locked);
+                locked = CPU_TABLE.my_proc().sleep(buf_ptr as usize, locked);
             }
-            locked = self.lock();
         }
         // tidy up
         let res = locked.info[idx[0]].buf_chan.take();

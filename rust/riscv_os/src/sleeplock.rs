@@ -27,11 +27,10 @@ impl<T> SleepLock<T> {
 
         while self.locked.get() {
             unsafe {
-                CPU_TABLE
+                guard = CPU_TABLE
                     .my_proc()
-                    .sleep(self.locked.as_ptr() as usize, guard)
+                    .sleep(self.locked.as_ptr() as usize, guard);
             };
-            guard = self.inner_lock.lock();
         }
 
         self.locked.set(true);

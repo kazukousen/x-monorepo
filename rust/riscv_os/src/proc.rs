@@ -240,13 +240,16 @@ impl Proc {
     }
 
     /// Atomically release lock and sleep on chan.
-    pub fn sleep<T>(&self, chan: usize, lk: SpinLockGuard<T>) {
+    /// The passed-in guard must not be the proc's guard to avoid deadlock.
+    pub fn sleep<'a, T>(&self, chan: usize, lk: SpinLockGuard<'a, T>) -> SpinLockGuard<'a, T> {
         let mut locked = self.inner.lock();
-        drop(lk);
 
         // Go to sleep
         locked.chan = chan;
         locked.state = ProcState::Sleeping;
+
+        let weaked = lk.weak();
+
         unsafe {
             let cpu = CPU_TABLE.my_cpu_mut();
             locked = cpu.sched(locked, &mut (*self.data.get()).context);
@@ -254,8 +257,7 @@ impl Proc {
 
         // Tidy up.
         locked.chan = 0;
-
-        drop(locked);
+        weaked.lock()
     }
 }
 
