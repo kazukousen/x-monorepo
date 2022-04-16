@@ -1,7 +1,7 @@
 use core::ptr;
 
 use crate::{
-    bio::{BCACHE, BSIZE},
+    bio::BCACHE,
     fs::SuperBlock,
     param::LOGSIZE,
     println,

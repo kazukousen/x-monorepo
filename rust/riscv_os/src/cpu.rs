@@ -4,7 +4,6 @@ use array_macro::array;
 
 use crate::{
     param::NCPU,
-    println,
     proc::{Context, Proc, ProcInner, ProcState},
     process::PROCESS_TABLE,
     register::{sstatus, tp},
@@ -111,6 +110,16 @@ impl Cpu {
         locked: SpinLockGuard<'a, ProcInner>,
         ctx: *mut Context,
     ) -> SpinLockGuard<'a, ProcInner> {
+        if self.noff != 1 {
+            panic!("sched: multi locks");
+        }
+        if locked.state == ProcState::Running {
+            panic!("sched: proc is running");
+        }
+        if sstatus::intr_get() {
+            panic!("sched: interruptable");
+        }
+
         let intena = self.intena;
 
         extern "C" {
@@ -147,11 +156,12 @@ pub fn push_off() {
 }
 
 pub fn pop_off() {
-    if sstatus::intr_get() {
-        panic!("pop_off: already interruputable");
-    }
 
     let cpu = unsafe { CPU_TABLE.my_cpu_mut() };
+
+    if sstatus::intr_get() {
+        panic!("pop_off: already interruputable noff={} intena={}", cpu.noff, cpu.intena);
+    }
 
     if cpu.noff < 1 {
         panic!("pop_off");
