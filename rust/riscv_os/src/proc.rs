@@ -248,6 +248,7 @@ impl Proc {
         locked.chan = chan;
         locked.state = ProcState::Sleeping;
 
+        // unlock lk
         let weaked = lk.weak();
 
         unsafe {
