@@ -133,7 +133,7 @@ impl ProcessTable {
     pub fn wakeup(&mut self, chan: usize) {
         for p in self.table.iter_mut() {
             unsafe {
-                if ptr::eq(p, CPU_TABLE.my_proc()) { 
+                if ptr::eq(p, CPU_TABLE.my_proc()) {
                     continue;
                 }
             }

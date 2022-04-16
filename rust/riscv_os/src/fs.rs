@@ -1,7 +1,11 @@
-use core::ptr;
 use core::ops::DerefMut;
+use core::ptr;
 
-use crate::{bio::BCACHE, log::{LOG, Log}, println};
+use crate::{
+    bio::BCACHE,
+    log::{Log, LOG},
+    println,
+};
 
 pub unsafe fn init(dev: u32) {
     read_super_block(dev);

@@ -66,9 +66,7 @@ pub struct SpinLockGuard<'a, T: ?Sized> {
 
 impl<'a, T: ?Sized> SpinLockGuard<'a, T> {
     pub fn weak(self) -> SpinLockWeakGuard<'a, T> {
-        SpinLockWeakGuard{
-            inner: self.inner,
-        }
+        SpinLockWeakGuard { inner: self.inner }
     }
 }
 
@@ -100,4 +98,3 @@ impl<'a, T: ?Sized> SpinLockWeakGuard<'a, T> {
         self.inner.lock()
     }
 }
-

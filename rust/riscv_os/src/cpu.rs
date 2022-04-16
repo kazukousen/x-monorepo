@@ -156,11 +156,13 @@ pub fn push_off() {
 }
 
 pub fn pop_off() {
-
     let cpu = unsafe { CPU_TABLE.my_cpu_mut() };
 
     if sstatus::intr_get() {
-        panic!("pop_off: already interruputable noff={} intena={}", cpu.noff, cpu.intena);
+        panic!(
+            "pop_off: already interruputable noff={} intena={}",
+            cpu.noff, cpu.intena
+        );
     }
 
     if cpu.noff < 1 {

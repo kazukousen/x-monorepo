@@ -1,12 +1,6 @@
 use core::ptr;
 
-use crate::{
-    bio::BCACHE,
-    fs::SuperBlock,
-    param::LOGSIZE,
-    println,
-    spinlock::SpinLock,
-};
+use crate::{bio::BCACHE, fs::SuperBlock, param::LOGSIZE, println, spinlock::SpinLock};
 
 #[repr(C)]
 struct LogHeader {
