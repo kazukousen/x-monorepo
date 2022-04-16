@@ -1,4 +1,4 @@
-use core::ptr;
+use core::{ops::DerefMut, ptr};
 
 use crate::{bio::BCACHE, fs::SuperBlock, param::LOGSIZE, println, spinlock::SpinLock};
 
@@ -28,6 +28,13 @@ pub struct Log {
 
 pub static LOG: SpinLock<Log> = SpinLock::new(Log::new());
 
+impl SpinLock<Log> {
+    pub unsafe fn init(&self, dev: u32, sb: &SuperBlock) {
+        let log = self.lock().deref_mut() as *mut Log;
+        log.as_mut().unwrap().init(dev, sb);
+    }
+}
+
 impl Log {
     const fn new() -> Self {
         Self {
@@ -40,7 +47,7 @@ impl Log {
         }
     }
 
-    pub fn init(&mut self, dev: u32, sb: &SuperBlock) {
+    fn init(&mut self, dev: u32, sb: &SuperBlock) {
         self.start = sb.logstart;
         self.size = sb.nlog;
         self.dev = dev;

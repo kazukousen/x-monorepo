@@ -1,4 +1,3 @@
-use core::ops::DerefMut;
 use core::ptr;
 
 use crate::{
@@ -10,8 +9,7 @@ use crate::{
 pub unsafe fn init(dev: u32) {
     read_super_block(dev);
     // shoud not lock because it will sleep in log_init
-    let log = LOG.lock().deref_mut() as *mut Log;
-    log.as_mut().unwrap().init(dev, &SB);
+    LOG.init(dev, &SB);
 
     println!("fs: init done");
 }
