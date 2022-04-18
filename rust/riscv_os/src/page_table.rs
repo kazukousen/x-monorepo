@@ -189,17 +189,44 @@ impl PageTable {
         unsafe { Some(&mut page_table.as_mut().unwrap()[get_index(va, 0)]) }
     }
 
+    pub fn copy_in(
+        &self,
+        mut dst: *mut u8,
+        mut srcva: usize,
+        mut count: usize,
+    ) -> Result<usize, &'static str> {
+        loop {
+            let va_base = align_down(srcva, PAGESIZE);
+            let distance = srcva - va_base;
+            let pa_ptr =
+                unsafe { (self.walk_addr(va_base)? as *const u8).offset(distance as isize) };
+
+            let n = PAGESIZE - distance;
+            if n > count {
+                unsafe {
+                    ptr::copy_nonoverlapping(pa_ptr, dst, count);
+                }
+                return Ok(0);
+            }
+
+            unsafe {
+                ptr::copy_nonoverlapping(pa_ptr, dst, n);
+            }
+            count -= n;
+            dst = unsafe { dst.offset(n as isize) };
+            srcva = va_base + PAGESIZE;
+        }
+    }
+
     /// Copy a null-terminated string from user to kernel.
     /// Copy bytes to dst from virtual address srcva in a given page table,
     /// until a '\0'.
-    pub fn copy_in_str(&self, dst: &mut [u8], srcva: usize) -> Result<usize, &'static str> {
+    pub fn copy_in_str(&self, dst: &mut [u8], mut srcva: usize) -> Result<usize, &'static str> {
         let mut i = 0;
-        let mut va = srcva;
 
         while i < dst.len() {
-            let va_base = align_down(va, PAGESIZE);
-            let distance = va - va_base;
-            let mut va_ptr = va as *const u8;
+            let va_base = align_down(srcva, PAGESIZE);
+            let distance = srcva - va_base;
             let mut pa_ptr =
                 unsafe { (self.walk_addr(va_base)? as *const u8).offset(distance as isize) };
 
@@ -210,14 +237,13 @@ impl PageTable {
                     if dst[i] == 0 {
                         return Ok(i);
                     }
-                    va_ptr = va_ptr.add(1);
                     pa_ptr = pa_ptr.add(1);
                     i += 1;
                     count -= 1;
                 }
             }
 
-            va = va_base + PAGESIZE;
+            srcva = va_base + PAGESIZE;
         }
 
         Err("copy_in_str: dst not enough space")

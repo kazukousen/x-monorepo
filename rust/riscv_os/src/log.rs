@@ -76,11 +76,11 @@ impl SpinLock<Log> {
         }
     }
 
-    /// typically wraps bwrite().
+    /// typically replaces bwrite().
     /// Caller has modified buf->data and is done with the buffer.
     /// Record the block number and pin in the cache by increasing refcnt.
     /// commit()/write_log() will do the disk write.
-    pub fn log_write(&self, buf: &mut GuardBuf) {
+    pub fn write(&self, buf: &mut GuardBuf) {
         let mut guard = self.lock();
 
         if (guard.header.n as usize) >= LOGSIZE || guard.header.n >= guard.size - 1 {
@@ -184,22 +184,23 @@ impl Log {
         drop(buf);
     }
 
+    /// Copy committed blocks from log to their home location
     fn install_trans(&mut self, recovering: bool) {
         for tail in 0..self.header.n {
-            let logbuf = BCACHE.bread(self.dev, self.start + tail + 1); // read log block
-            let mut dstbuf = BCACHE.bread(self.dev, self.header.blocknos[tail as usize]); // read dst
+            let lbuf = BCACHE.bread(self.dev, self.start + tail + 1); // read log block
+            let mut dbuf = BCACHE.bread(self.dev, self.header.blocknos[tail as usize]); // read dst
             unsafe {
-                ptr::copy_nonoverlapping(logbuf.data_ptr(), dstbuf.data_ptr_mut(), 1);
+                ptr::copy_nonoverlapping(lbuf.data_ptr(), dbuf.data_ptr_mut(), 1);
             }
-            dstbuf.bwrite();
+            dbuf.bwrite();
             if !recovering {
                 unsafe {
-                    dstbuf.bunpin();
+                    dbuf.bunpin();
                 }
             }
             // TODO: brelse?
-            drop(logbuf);
-            drop(dstbuf);
+            drop(lbuf);
+            drop(dbuf);
         }
     }
 
