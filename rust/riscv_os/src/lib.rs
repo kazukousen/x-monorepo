@@ -2,6 +2,7 @@
 #![feature(alloc_error_handler)]
 #![feature(new_uninit)]
 #![feature(allocator_api)]
+#![feature(const_mut_refs)]
 
 extern crate alloc;
 

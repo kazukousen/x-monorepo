@@ -3,7 +3,7 @@ use core::{mem, str};
 use alloc::boxed::Box;
 use array_macro::array;
 
-use crate::println;
+use crate::{log::LOG, println};
 
 use super::ProcessData;
 
@@ -52,6 +52,9 @@ impl Syscall for ProcessData {
                 str::from_utf8_unchecked(argv[0].as_deref().unwrap())
             );
         }
+
+        LOG.begin_op();
+        LOG.end_op();
 
         Ok(0)
     }

@@ -153,7 +153,7 @@ impl Log {
             start: 0,
             size: 0,
             outstanding: 0,
-            committing: true,
+            committing: false,
             dev: 0,
             header: LogHeader::new(),
         }
