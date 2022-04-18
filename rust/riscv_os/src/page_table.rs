@@ -194,7 +194,7 @@ impl PageTable {
         mut dst: *mut u8,
         mut srcva: usize,
         mut count: usize,
-    ) -> Result<usize, &'static str> {
+    ) -> Result<(), &'static str> {
         loop {
             let va_base = align_down(srcva, PAGESIZE);
             let distance = srcva - va_base;
@@ -206,7 +206,7 @@ impl PageTable {
                 unsafe {
                     ptr::copy_nonoverlapping(pa_ptr, dst, count);
                 }
-                return Ok(0);
+                return Ok(());
             }
 
             unsafe {

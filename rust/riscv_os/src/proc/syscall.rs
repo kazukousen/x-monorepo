@@ -44,6 +44,7 @@ impl Syscall for ProcessData {
             // copy arg to kernel space
             self.fetch_str(uarg, argv[i].as_deref_mut().unwrap())?;
         }
+
         unsafe {
             println!(
                 "sys_exec: {} {}",
