@@ -207,6 +207,9 @@ impl Disk {
                 panic!("virtio_intr: status");
             }
 
+            // disk is done
+            self.info[id].disk = false;
+
             let buf = self.info[id]
                 .buf_chan
                 .clone()
@@ -214,7 +217,6 @@ impl Disk {
             unsafe {
                 PROCESS_TABLE.wakeup(buf);
             }
-            self.info[id].disk = false;
             self.used_idx += 1;
         }
     }
