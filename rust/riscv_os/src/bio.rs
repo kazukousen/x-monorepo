@@ -35,20 +35,7 @@ impl BCache {
     }
 
     pub fn init(&self) {
-        let mut lru = self.lru.lock();
-        let n = lru.inner.len();
-
-        lru.head = &mut lru.inner[0];
-        lru.tail = &mut lru.inner[n - 1];
-
-        lru.inner[0].prev = ptr::null_mut();
-        lru.inner[0].next = &mut lru.inner[1];
-        lru.inner[n - 1].prev = &mut lru.inner[n - 2];
-        lru.inner[n - 1].next = ptr::null_mut();
-        for i in 1..(n - 1) {
-            lru.inner[i].prev = &mut lru.inner[i - 1];
-            lru.inner[i].next = &mut lru.inner[i + 1];
-        }
+        self.lru.lock().init();
     }
 
     pub fn bread(&self, dev: u32, blockno: u32) -> GuardBuf {
@@ -176,6 +163,22 @@ impl BufLru {
             inner: array![i => BufInfo::new(i); NBUF],
             head: ptr::null_mut(),
             tail: ptr::null_mut(),
+        }
+    }
+
+    fn init(&mut self) {
+        let n = self.inner.len();
+        self.head = &mut self.inner[0];
+        self.tail = &mut self.inner[n - 1];
+
+        self.inner[0].prev = ptr::null_mut();
+        self.inner[0].next = &mut self.inner[1];
+        self.inner[n - 1].prev = &mut self.inner[n - 2];
+        self.inner[n - 1].next = ptr::null_mut();
+
+        for i in 1..(n - 1) {
+            self.inner[i].prev = &mut self.inner[i - 1];
+            self.inner[i].next = &mut self.inner[i + 1];
         }
     }
 
