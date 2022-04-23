@@ -2,8 +2,9 @@ use core::cell::UnsafeCell;
 use core::ptr;
 
 use crate::cpu::{Cpu, CPU_TABLE};
+use crate::fs::{INode, INODE_TABLE};
 use crate::page_table::PageTable;
-use crate::param::{PAGESIZE, ROOTDEV};
+use crate::param::{PAGESIZE, ROOTDEV, ROOTIPATH};
 use crate::spinlock::{SpinLock, SpinLockGuard};
 use crate::{fs, println, trap};
 use alloc::boxed::Box;
@@ -116,6 +117,7 @@ pub struct ProcessData {
     name: [u8; 16],
     pub tf: *mut TrapFrame,
     pub page_table: Option<Box<PageTable>>,
+    pub cwd: Option<INode>,
 }
 
 impl ProcessData {
@@ -127,6 +129,7 @@ impl ProcessData {
             context: Context::new(),
             tf: ptr::null_mut(),
             page_table: None,
+            cwd: None,
         }
     }
 
@@ -201,8 +204,11 @@ impl Proc {
         unsafe {
             ptr::copy_nonoverlapping(init_name.as_ptr(), pd.name.as_mut_ptr(), init_name.len());
         }
-        // TODO:
-        // p->cwd = namei("/");
+        pd.cwd = Some(
+            INODE_TABLE
+                .namei(&ROOTIPATH)
+                .expect("cannot find root inode by b'/'"),
+        );
 
         Ok(())
     }

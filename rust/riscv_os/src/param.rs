@@ -35,6 +35,8 @@ pub const NPROC: usize = 64;
 
 pub const ROOTDEV: u32 = 1; // device number of file system root disk
 
+pub const ROOTIPATH: [u8; 2] = [b'/', 0];
+
 // local interrupt controller, which contains the timer.
 pub const CLINT: usize = 0x2000000;
 pub const CLINT_MAP_SIZE: usize = 0x10000;
