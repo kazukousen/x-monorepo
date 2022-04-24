@@ -36,7 +36,7 @@
 //! but only one process can lock the inode at time.
 //! iget() increments refcnt so that the inode stays in the table and pointers to it remain valid.
 
-use core::{mem, ptr};
+use core::{cmp::min, mem, ptr};
 
 use array_macro::array;
 
@@ -47,9 +47,10 @@ use crate::{
     log::LOG,
     param::ROOTDEV,
     println,
+    proc::either_copy_out,
     sleeplock::{SleepLock, SleepLockGuard},
     spinlock::SpinLock,
-    superblock::{read_super_block, SB},
+    superblock::{read_super_block, SB}, print,
 };
 
 pub unsafe fn init(dev: u32) {
@@ -108,6 +109,7 @@ impl InodeTable {
         guard[i].inum = inum;
         guard[i].refcnt += 1;
 
+        drop(guard);
         Inode {
             dev,
             inum,
@@ -186,6 +188,16 @@ impl InodeTable {
                 drop(data_guard);
                 return Some(ip);
             }
+
+            print!("namex: cur={} name=", cur);
+            for i in 0..DIRSIZ {
+                if name[i] == 0 {
+                    break;
+                }
+                let c = name[i] as char;
+                print!("{}", c);
+            }
+            println!();
 
             match data_guard.dirlookup(name) {
                 Some(next) => {
@@ -330,15 +342,17 @@ impl InodeData {
 
     // Look for a directory entry in a directory.
     fn dirlookup(&self, name: &mut [u8; DIRSIZ]) -> Option<Inode> {
-        let (dev, _) = self.valid.as_ref().unwrap();
+        let (dev, _) = self.valid.unwrap();
         if self.dinode.typed != InodeType::Directory {
             panic!("dirlookup not DIR");
         }
 
         let de_size = mem::size_of::<DirEnt>();
         let mut de = DirEnt::empty();
+        let de_ptr = &mut de as *mut DirEnt as *mut u8;
         for off in (0..self.dinode.size).step_by(de_size) {
-            // TODO: readi
+            self.readi(false, de_ptr, off as usize, de_size)
+                .expect("dirlookup: read");
 
             if de.inum == 0 {
                 continue;
@@ -349,7 +363,7 @@ impl InodeData {
                     break;
                 }
                 if de.name[i] == 0 {
-                    return Some(INODE_TABLE.iget(*dev, de.inum as u32));
+                    return Some(INODE_TABLE.iget(dev, de.inum as u32));
                 }
             }
         }
@@ -360,13 +374,13 @@ impl InodeData {
     /// Returns the disk block number of the offset'th data block in the inode.
     /// If there is no such block yet, bmap() allocates one.
     fn bmap(&mut self, mut offset: usize) -> u32 {
-        let (dev, _) = self.valid.as_ref().unwrap();
+        let (dev, _) = self.valid.unwrap();
 
         if offset < NDIRECT {
             if self.dinode.addrs[offset] != 0 {
                 return self.dinode.addrs[offset];
             }
-            let bn = bmap::alloc(*dev);
+            let bn = bmap::alloc(dev);
             self.dinode.addrs[offset] = bn;
             return bn;
         }
@@ -378,16 +392,16 @@ impl InodeData {
             let indirect_bn = if self.dinode.addrs[NDIRECT] != 0 {
                 self.dinode.addrs[NDIRECT]
             } else {
-                let bn = bmap::alloc(*dev);
+                let bn = bmap::alloc(dev);
                 self.dinode.addrs[NDIRECT] = bn;
                 bn
             };
-            let mut buf = BCACHE.bread(*dev, indirect_bn);
+            let mut buf = BCACHE.bread(dev, indirect_bn);
 
             let bn_ptr = unsafe { (buf.data_ptr_mut() as *mut u32).offset(offset as isize) };
             let bn = unsafe { ptr::read(bn_ptr) };
             if bn == 0 {
-                let freed = bmap::alloc(*dev);
+                let freed = bmap::alloc(dev);
                 unsafe { ptr::write(bn_ptr, freed) };
                 LOG.write(&mut buf);
             }
@@ -399,10 +413,35 @@ impl InodeData {
     }
 
     /// Read data from inode.
-    fn readi() {
-        // TODO:
-        //
-        //
+    pub fn readi(
+        &self,
+        is_user: bool,
+        dst: *mut u8,
+        mut offset: usize,
+        count: usize,
+    ) -> Result<(), ()> {
+        let (dev, _) = self.valid.unwrap();
+
+        let end = offset.checked_add(count).ok_or(())?;
+        if end > self.dinode.size as usize {
+            return Err(());
+        }
+
+        let mut count: isize = count.try_into().unwrap();
+
+        while count > 0 {
+            let buf = BCACHE.bread(dev, (offset / BSIZE).try_into().unwrap());
+            let read_count = min(BSIZE - offset % BSIZE, count as usize);
+            let src_ptr =
+                unsafe { (buf.data_ptr() as *const u8).offset((offset % BSIZE) as isize) };
+            either_copy_out(false, dst, src_ptr, count.try_into().unwrap());
+            drop(buf);
+            offset += read_count;
+            count -= read_count as isize;
+            unsafe { dst.offset(read_count as isize) };
+        }
+
+        Ok(())
     }
 }
 

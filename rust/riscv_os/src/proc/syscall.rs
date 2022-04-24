@@ -3,7 +3,7 @@ use core::{mem, str};
 use alloc::boxed::Box;
 use array_macro::array;
 
-use crate::{log::LOG, println};
+use crate::{fs::INODE_TABLE, log::LOG, println};
 
 use super::ProcessData;
 
@@ -20,9 +20,9 @@ impl Syscall for ProcessData {
     fn sys_exec(&mut self) -> SysResult {
         let mut path: [u8; 128] = unsafe { mem::MaybeUninit::uninit().assume_init() };
         let nul_pos = self.arg_str(0, &mut path)?;
-        let path = unsafe { str::from_utf8_unchecked(&path[0..nul_pos]) };
+        let path_str = unsafe { str::from_utf8_unchecked(&path[0..nul_pos]) };
 
-        if path == "/init" {
+        if path_str == "/init" {
             crate::test::run_tests();
         }
 
@@ -45,18 +45,21 @@ impl Syscall for ProcessData {
             self.fetch_str(uarg, argv[i].as_deref_mut().unwrap())?;
         }
 
-        unsafe {
-            println!(
-                "sys_exec: {} {}",
-                path,
-                str::from_utf8_unchecked(argv[0].as_deref().unwrap())
-            );
-        }
-
         LOG.begin_op();
-        LOG.end_op();
 
-        Ok(0)
+        match INODE_TABLE.namei(&path) {
+            None => {
+                LOG.end_op();
+                Err("sys_exec: cannot find inode by given path")
+            }
+            Some(ip) => {
+                let inode = ip.ilock();
+                drop(inode);
+
+                LOG.end_op();
+                Ok(0)
+            }
+        }
     }
 }
 

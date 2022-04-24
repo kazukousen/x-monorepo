@@ -268,6 +268,15 @@ impl Proc {
     }
 }
 
+pub fn either_copy_out(is_user: bool, dst: *mut u8, src: *const u8, count: usize) {
+    if is_user {
+        // TODO:
+        panic!("either_copy_out: not implemented");
+    } else {
+        unsafe { ptr::copy(src, dst, count) };
+    }
+}
+
 static mut FIRST: bool = true;
 
 pub unsafe fn forkret() -> ! {
