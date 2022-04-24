@@ -42,6 +42,7 @@ use array_macro::array;
 
 use crate::{
     bio::{BCACHE, BSIZE},
+    bmap,
     cpu::CPU_TABLE,
     log::LOG,
     param::ROOTDEV,
@@ -269,6 +270,12 @@ pub struct InodeData {
     dinode: DiskInode,
 }
 
+/// The on-disk inode structure `DiskInode`, contains a size and an array of block numbers.
+/// The inode data is found in the blocks listed in the `DiskInode`'s `addrs` field array.
+/// The first 12kB(NDIRECT x BSIZE) of a file can be loaded from the blocks listed in the inode,
+/// while the next 256kB (NINDIRECT x BSIZE) can only be loaded after consulting the indirect
+/// blocks.
+/// (This is a good on-disk representation but a complex one for clients...)
 impl InodeData {
     const fn new() -> Self {
         Self {
@@ -281,18 +288,27 @@ impl InodeData {
     /// Caller must hold sleep-lock.
     fn itrunc(&mut self) {
         let (dev, _) = self.valid.unwrap();
+
+        // direct blocks
         for i in 0..NDIRECT {
             if self.dinode.addrs[i] > 0 {
-                // TODO: bmap_free(dev, self.dinode.addrs[i]);
+                bmap::free(dev, self.dinode.addrs[i]);
                 self.dinode.addrs[i] = 0;
             }
         }
 
+        // an indirect block
         if self.dinode.addrs[NDIRECT] > 0 {
-            let bp = BCACHE.bread(dev, self.dinode.addrs[NDIRECT]);
-            // TODO:
-            drop(bp);
-            // TODO: bmap_free(dev, self.dinode.addrs[i]);
+            let buf = BCACHE.bread(dev, self.dinode.addrs[NDIRECT]);
+            let bn_ptr = buf.data_ptr() as *const u32;
+            for i in 0..(NINDIRECT as isize) {
+                let bn = unsafe { ptr::read(bn_ptr.offset(i)) };
+                if bn != 0 {
+                    bmap::free(dev, bn);
+                }
+            }
+            drop(buf);
+            bmap::free(dev, self.dinode.addrs[NDIRECT]);
             self.dinode.addrs[NDIRECT] = 0;
         }
 
@@ -341,7 +357,53 @@ impl InodeData {
         None
     }
 
-    fn readi() {}
+    /// Returns the disk block number of the offset'th data block in the inode.
+    /// If there is no such block yet, bmap() allocates one.
+    fn bmap(&mut self, mut offset: usize) -> u32 {
+        let (dev, _) = self.valid.as_ref().unwrap();
+
+        if offset < NDIRECT {
+            if self.dinode.addrs[offset] != 0 {
+                return self.dinode.addrs[offset];
+            }
+            let bn = bmap::alloc(*dev);
+            self.dinode.addrs[offset] = bn;
+            return bn;
+        }
+
+        offset -= NDIRECT;
+
+        if offset < NINDIRECT {
+            // load the indirect block, allocating if necessary.
+            let indirect_bn = if self.dinode.addrs[NDIRECT] != 0 {
+                self.dinode.addrs[NDIRECT]
+            } else {
+                let bn = bmap::alloc(*dev);
+                self.dinode.addrs[NDIRECT] = bn;
+                bn
+            };
+            let mut buf = BCACHE.bread(*dev, indirect_bn);
+
+            let bn_ptr = unsafe { (buf.data_ptr_mut() as *mut u32).offset(offset as isize) };
+            let bn = unsafe { ptr::read(bn_ptr) };
+            if bn == 0 {
+                let freed = bmap::alloc(*dev);
+                unsafe { ptr::write(bn_ptr, freed) };
+                LOG.write(&mut buf);
+            }
+            drop(buf);
+            return bn;
+        }
+
+        panic!("bmap: out of range");
+    }
+
+    /// Read data from inode.
+    fn readi() {
+        // TODO:
+        //
+        //
+    }
 }
 
 impl Inode {

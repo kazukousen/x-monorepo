@@ -128,7 +128,7 @@ impl SpinLock<Log> {
                 PROCESS_TABLE.wakeup(&guard as *const _ as usize);
             }
         }
-        drop(guard);
+        drop(guard); // release the spin-lock once to call commit
 
         if do_commit {
             // call commit without locks, since not allowed to sleep with locks.
