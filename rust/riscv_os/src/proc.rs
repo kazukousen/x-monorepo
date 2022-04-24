@@ -2,7 +2,7 @@ use core::cell::UnsafeCell;
 use core::ptr;
 
 use crate::cpu::{Cpu, CPU_TABLE};
-use crate::fs::{INode, INODE_TABLE};
+use crate::fs::{Inode, INODE_TABLE};
 use crate::page_table::PageTable;
 use crate::param::{PAGESIZE, ROOTDEV, ROOTIPATH};
 use crate::spinlock::{SpinLock, SpinLockGuard};
@@ -117,7 +117,7 @@ pub struct ProcessData {
     name: [u8; 16],
     pub tf: *mut TrapFrame,
     pub page_table: Option<Box<PageTable>>,
-    pub cwd: Option<INode>,
+    pub cwd: Option<Inode>,
 }
 
 impl ProcessData {

@@ -3,11 +3,11 @@ use core::{ops::DerefMut, ptr};
 use crate::{
     bio::{GuardBuf, BCACHE},
     cpu::CPU_TABLE,
-    fs::SuperBlock,
     param::{LOGSIZE, MAXOPBLOCKS},
     println,
     process::PROCESS_TABLE,
     spinlock::SpinLock,
+    superblock::SuperBlock,
 };
 
 #[repr(C)]

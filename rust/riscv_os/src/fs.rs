@@ -1,31 +1,41 @@
-/// An inode describes a single unnamed file.
-/// The inode disk structure holds metadata:
-/// rhe file's type, its size, the number of links referring to it
-/// and the list of blocks holding the file's content.
-///
-/// The inodes are laid out sequentially on disk at SUPER_BLOCK.inodestart.
-///
-/// The kernel keeps a table of in-use inodes in memory
-/// to provide a place for synchronizing access to inodes used by multiple processes.
-/// The in-memory inodes include book-keeping information that is
-/// not stored on disk: refcnt and valid.
-///
-/// the information in an node table entry is only correct when INodeData->valid is some.
-/// ilock() reads the inode from the disk and sets INodeData->valid
-/// while iput() clears INodeData->valid if refcnt has fallen to zero.
-///
-/// a typical sequence is:
-///     let ip = INODE_TABLE.iget(dev, inum);
-///     let guard = ip.ilock();
-///     // examine and modify guard->xxx ...
-///     drop(guard); // iunlock()
-///     // and iput() when ip is dropped
-///
-/// ilock() is separate from iget() so that ststem calls can
-/// get a long-term reference to an inode (as for an open file)
-/// and only lock it for shot periods (e.g. in read()).
-/// The separation helps avoid deadlock and races during pathname lookup.
-/// iget() increments refcnt so that the inode stays in the table and pointers to it remain valid.
+//! Term of `inode` can have two related meanings. On-disk data structure and In-memory.
+//!
+//! An inode describes a single unnamed file.
+//! The inode disk structure holds metadata:
+//! rhe file's type, its size, the number of links referring to it
+//! and the list of blocks holding the file's content.
+//!
+//! The inodes are laid out sequentially on disk at SUPER_BLOCK.inodestart.
+//!
+//! The on-disk inode is structured by a `struct DiskInode`.
+//!
+//! The kernel keeps a table of in-use inodes in memory called `INODE_TABLE`
+//! to provide a place for synchronizing access to inodes used by multiple processes.
+//! The in-memory inodes include book-keeping information that is
+//! not stored on disk: `refcnt` and `valid`.
+//! The `refcnt` field counts the number of instances referring to the in-memory inode,
+//! and kernel discards the inode from memory if the reference count drops to zero.
+//! The `iget()` and `iput()` acquire and release an instance referring to an inode, modifying the reference count.
+//!
+//! the information in an node table entry is only correct when InodeData->valid is some.
+//! ilock() reads the inode from the disk and sets InodeData->valid
+//! while iput() clears InodeData->valid if refcnt has fallen to zero.
+//!
+//! a typical sequence is:
+//!     let ip = INODE_TABLE.iget(dev, inum);
+//!     let guard = ip.ilock();
+//!     // examine and modify guard->xxx ...
+//!     drop(guard); // iunlock()
+//!     // and iput() when ip is dropped
+//!
+//! ilock() is separate from iget() so that ststem calls can
+//! get a long-term reference to an inode (as for an open file)
+//! and only lock it for shot periods (e.g. in read()).
+//! The separation helps avoid deadlock and races during pathname lookup.
+//! multiple process can hold an instance of an inode retuned by iget(),
+//! but only one process can lock the inode at time.
+//! iget() increments refcnt so that the inode stays in the table and pointers to it remain valid.
+
 use core::{mem, ptr};
 
 use array_macro::array;
@@ -33,11 +43,12 @@ use array_macro::array;
 use crate::{
     bio::{BCACHE, BSIZE},
     cpu::CPU_TABLE,
-    log::{Log, LOG},
+    log::LOG,
     param::ROOTDEV,
     println,
     sleeplock::{SleepLock, SleepLockGuard},
     spinlock::SpinLock,
+    superblock::{read_super_block, SB},
 };
 
 pub unsafe fn init(dev: u32) {
@@ -50,32 +61,32 @@ pub unsafe fn init(dev: u32) {
 const NINODE: usize = 50;
 const ROOTINO: u32 = 1;
 const DIRSIZ: usize = 14;
-pub static INODE_TABLE: INodeTable = INodeTable::new();
+pub static INODE_TABLE: InodeTable = InodeTable::new();
 
-pub struct INodeTable {
-    info: SpinLock<[INodeInfo; NINODE]>,
-    data: [SleepLock<INodeData>; NINODE],
+pub struct InodeTable {
+    info: SpinLock<[InodeMeta; NINODE]>,
+    data: [SleepLock<InodeData>; NINODE],
 }
 
-impl INodeTable {
+impl InodeTable {
     pub const fn new() -> Self {
         Self {
-            info: SpinLock::new(array![_ => INodeInfo::new(); NINODE]),
-            data: array![_ => SleepLock::new(INodeData::new()); NINODE],
+            info: SpinLock::new(array![_ => InodeMeta::new(); NINODE]),
+            data: array![_ => SleepLock::new(InodeData::new()); NINODE],
         }
     }
 
     /// Find the inode with number inum on device dev
     /// and return the in-memory copy.
     /// does not lock the inode and does not read it from disk.
-    pub fn iget(&self, dev: u32, inum: u32) -> INode {
+    pub fn iget(&self, dev: u32, inum: u32) -> Inode {
         let mut guard = self.info.lock();
         let mut empty: Option<usize> = None;
         for (i, ip) in guard.iter_mut().enumerate() {
             if ip.dev == dev && ip.inum == inum {
                 ip.refcnt += 1;
                 drop(guard);
-                return INode {
+                return Inode {
                     dev,
                     inum,
                     index: i,
@@ -96,18 +107,18 @@ impl INodeTable {
         guard[i].inum = inum;
         guard[i].refcnt += 1;
 
-        INode {
+        Inode {
             dev,
             inum,
             index: i,
         }
     }
 
-    // drop a reference to an in-memory inode.
-    // If that was the last reference, the inode table entry can be recycled.
-    // If that was the last reference and the inode has no links to it,
-    // free the inode (and its content) on disk.
-    // All calls to iput() must be inside a transaction in case it has to free the inode.
+    /// Drop a reference to an in-memory inode.
+    /// if that was the last reference, the inode table entry can be recycled.
+    /// if that was the last reference and the inode has no links to it,
+    /// free the inode (and its content) on disk.
+    /// all calls to iput() must be inside a transaction in case it has to free the inode.
     pub fn iput(&self, index: usize) {
         let mut guard = self.info.lock();
 
@@ -121,9 +132,9 @@ impl INodeTable {
 
                 drop(guard);
 
-                // TODO: ip.itrunc();
-                data_guard.dinode.typed = INodeType::Empty;
-                // TODO: ip.iupdate();
+                data_guard.itrunc();
+                data_guard.dinode.typed = InodeType::Empty;
+                data_guard.iupdate();
                 data_guard.valid.take();
                 drop(data_guard);
 
@@ -137,18 +148,18 @@ impl INodeTable {
         drop(guard);
     }
 
-    pub fn idup(&self, ip: &INode) -> INode {
+    pub fn idup(&self, ip: &Inode) -> Inode {
         let mut guard = self.info.lock();
         let i = ip.index;
         guard[i].refcnt += 1;
-        INode {
+        Inode {
             dev: guard[i].dev,
             inum: guard[i].inum,
             index: i,
         }
     }
 
-    pub fn namex(&self, path: &[u8], name: &mut [u8; DIRSIZ], parent: bool) -> Option<INode> {
+    pub fn namex(&self, path: &[u8], name: &mut [u8; DIRSIZ], parent: bool) -> Option<Inode> {
         let mut ip = if path[0] == b'/' {
             self.iget(ROOTDEV, ROOTINO)
         } else {
@@ -164,7 +175,7 @@ impl INodeTable {
 
             let data_guard = ip.ilock();
 
-            if data_guard.dinode.typed != INodeType::Directory {
+            if data_guard.dinode.typed != InodeType::Directory {
                 drop(data_guard);
                 return None;
             }
@@ -190,7 +201,9 @@ impl INodeTable {
         Some(ip)
     }
 
-    pub fn namei(&self, path: &[u8]) -> Option<INode> {
+    /// Lookup and return the inode for a pathname.
+    /// must be called inside a transaction (begin_op/end_op) since it calls iput().
+    pub fn namei(&self, path: &[u8]) -> Option<Inode> {
         let mut name: [u8; DIRSIZ] = [0; DIRSIZ];
         self.namex(path, &mut name, false)
     }
@@ -234,13 +247,13 @@ impl INodeTable {
     }
 }
 
-struct INodeInfo {
+struct InodeMeta {
     dev: u32,
     inum: u32,
     refcnt: usize,
 }
 
-impl INodeInfo {
+impl InodeMeta {
     const fn new() -> Self {
         Self {
             dev: 0,
@@ -250,30 +263,66 @@ impl INodeInfo {
     }
 }
 
-pub struct INodeData {
+/// it is always protected by sleep-lock.
+pub struct InodeData {
     valid: Option<(u32, u32)>, // (dev, inum)
-    dinode: DiskINode,
+    dinode: DiskInode,
 }
 
-impl INodeData {
+impl InodeData {
     const fn new() -> Self {
         Self {
             valid: None,
-            dinode: DiskINode::new(),
+            dinode: DiskInode::new(),
         }
     }
 
+    /// Truncate inode (discard contents).
+    /// Caller must hold sleep-lock.
+    fn itrunc(&mut self) {
+        let (dev, _) = self.valid.unwrap();
+        for i in 0..NDIRECT {
+            if self.dinode.addrs[i] > 0 {
+                // TODO: bmap_free(dev, self.dinode.addrs[i]);
+                self.dinode.addrs[i] = 0;
+            }
+        }
+
+        if self.dinode.addrs[NDIRECT] > 0 {
+            let bp = BCACHE.bread(dev, self.dinode.addrs[NDIRECT]);
+            // TODO:
+            drop(bp);
+            // TODO: bmap_free(dev, self.dinode.addrs[i]);
+            self.dinode.addrs[NDIRECT] = 0;
+        }
+
+        self.dinode.size = 0;
+        self.iupdate();
+    }
+
+    /// Copy a modified in-memory inode to disk.
+    /// Must be called after every change to itself dinode field
+    /// that lives on disk.
+    /// Caller must hold sleep-lock.
+    fn iupdate(&mut self) {
+        let (dev, inum) = self.valid.unwrap();
+        let mut bp = unsafe { BCACHE.bread(dev, SB.inode_block(inum)) };
+        let dip = unsafe { (bp.data_ptr() as *mut DiskInode).offset(inode_offset(inum)) };
+        unsafe { ptr::write(dip, self.dinode) };
+        LOG.write(&mut bp);
+    }
+
     // Look for a directory entry in a directory.
-    fn dirlookup(&self, name: &mut [u8; DIRSIZ]) -> Option<INode> {
+    fn dirlookup(&self, name: &mut [u8; DIRSIZ]) -> Option<Inode> {
         let (dev, _) = self.valid.as_ref().unwrap();
-        if self.dinode.typed != INodeType::Directory {
+        if self.dinode.typed != InodeType::Directory {
             panic!("dirlookup not DIR");
         }
 
         let de_size = mem::size_of::<DirEnt>();
         let mut de = DirEnt::empty();
         for off in (0..self.dinode.size).step_by(de_size) {
-            // readi
+            // TODO: readi
 
             if de.inum == 0 {
                 continue;
@@ -295,10 +344,10 @@ impl INodeData {
     fn readi() {}
 }
 
-impl INode {
+impl Inode {
     /// Lock the inode.
     /// Reads the inode from the disk if necessary.
-    pub fn ilock(&self) -> SleepLockGuard<INodeData> {
+    pub fn ilock(&self) -> SleepLockGuard<InodeData> {
         let mut guard = INODE_TABLE.data[self.index].lock();
 
         if guard.valid.is_some() {
@@ -306,12 +355,12 @@ impl INode {
         }
 
         let bp = unsafe { BCACHE.bread(self.dev, SB.inode_block(self.inum)) };
-        let dip = unsafe { (bp.data_ptr() as *const DiskINode).offset(inode_offset(self.inum)) };
+        let dip = unsafe { (bp.data_ptr() as *const DiskInode).offset(inode_offset(self.inum)) };
         guard.dinode = unsafe { dip.as_ref().unwrap().clone() };
         drop(bp);
         guard.valid = Some((self.dev, self.inum));
 
-        if guard.dinode.typed == INodeType::Empty {
+        if guard.dinode.typed == InodeType::Empty {
             panic!("ilock: no type");
         }
 
@@ -319,7 +368,7 @@ impl INode {
     }
 }
 
-impl Drop for INode {
+impl Drop for Inode {
     fn drop(&mut self) {
         INODE_TABLE.iput(self.index);
     }
@@ -332,19 +381,19 @@ const MAXFILE: usize = NDIRECT + NINDIRECT;
 /// On disk inode structure
 #[repr(C)]
 #[derive(Clone, Copy)]
-struct DiskINode {
-    typed: INodeType,          // file type
+struct DiskInode {
+    typed: InodeType,          // file type
     major: u16,                // major device number (Device Type only)
     minor: u16,                // minor device number (Device Type only)
-    nlink: u16,                // number of links to inode in file system
+    nlink: u16,                // number of directory entries that refer to a file
     size: u32,                 // size of file (bytes)
     addrs: [u32; NDIRECT + 1], // data blocks addresses
 }
 
-impl DiskINode {
+impl DiskInode {
     const fn new() -> Self {
         Self {
-            typed: INodeType::Empty,
+            typed: InodeType::Empty,
             major: 0,
             minor: 0,
             nlink: 0,
@@ -356,7 +405,7 @@ impl DiskINode {
 
 #[repr(u16)]
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum INodeType {
+enum InodeType {
     Empty = 0,
     Directory = 1,
     File = 2,
@@ -378,66 +427,16 @@ impl DirEnt {
     }
 }
 
-pub struct INode {
+pub struct Inode {
     dev: u32,
     inum: u32,
     index: usize,
 }
 
 // number of inodes in a single block
-const IPB: usize = BSIZE / mem::size_of::<DiskINode>();
+pub const IPB: usize = BSIZE / mem::size_of::<DiskInode>();
 
 #[inline]
 fn inode_offset(inum: u32) -> isize {
     (inum as usize % IPB) as isize
-}
-
-pub static mut SB: SuperBlock = SuperBlock::new();
-const FSMAGIC: u32 = 0x10203040;
-
-unsafe fn read_super_block(dev: u32) {
-    let bp = BCACHE.bread(dev, 1);
-
-    ptr::copy_nonoverlapping(
-        bp.data_ptr() as *const SuperBlock,
-        &mut SB as *mut SuperBlock,
-        1,
-    );
-
-    if SB.magic != FSMAGIC {
-        panic!("invalid file system");
-    }
-
-    drop(bp);
-}
-
-#[repr(C)]
-pub struct SuperBlock {
-    magic: u32,
-    size: u32,
-    nblocks: u32,
-    ninodes: u32,
-    pub nlog: u32,
-    pub logstart: u32,
-    inodestart: u32,
-    bmapstart: u32,
-}
-
-impl SuperBlock {
-    const fn new() -> Self {
-        Self {
-            magic: 0,
-            size: 0,
-            nblocks: 0,
-            ninodes: 0,
-            nlog: 0,
-            logstart: 0,
-            inodestart: 0,
-            bmapstart: 0,
-        }
-    }
-
-    fn inode_block(&self, inum: u32) -> u32 {
-        inum / u32::try_from(IPB).unwrap() + self.inodestart
-    }
 }

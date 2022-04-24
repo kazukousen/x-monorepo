@@ -7,6 +7,7 @@
 extern crate alloc;
 
 mod bio;
+mod bmap;
 mod console;
 mod cpu;
 mod fs;
@@ -24,6 +25,7 @@ mod rmain;
 mod sleeplock;
 mod spinlock;
 mod start;
+mod superblock;
 mod test;
 mod trap;
 mod uart;
