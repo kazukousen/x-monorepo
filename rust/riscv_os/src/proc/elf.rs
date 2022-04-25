@@ -1,6 +1,10 @@
+use core::mem;
+
+use crate::{fs::INODE_TABLE, log::LOG, page_table::PageTable, println, proc::ProcessData};
+
 #[repr(C)]
 pub struct ELFHeader {
-    pub magic: u32,
+    magic: u32,
     elf: [u8; 12],
     typed: u16,
     machine: u16,
@@ -18,7 +22,7 @@ pub struct ELFHeader {
 }
 
 impl ELFHeader {
-    pub fn empty() -> Self {
+    fn empty() -> Self {
         Self {
             magic: 0,
             elf: [0; 12],
@@ -39,4 +43,54 @@ impl ELFHeader {
     }
 }
 
-pub const MAGIC: u32 = 0x464C457F;
+const MAGIC: u32 = 0x464C457F;
+
+pub fn load(p: &ProcessData, path: &[u8]) -> Result<(), &'static str> {
+    LOG.begin_op();
+
+    let inode = match INODE_TABLE.namei(&path) {
+        None => {
+            LOG.end_op();
+            return Err("sys_exec: cannot find inode by given path");
+        }
+        Some(inode) => inode,
+    };
+
+    let mut idata = inode.ilock();
+
+    println!("sys_exec: size={}", idata.size());
+
+    let mut elfhdr = ELFHeader::empty();
+    let elfhdr_ptr = &mut elfhdr as *mut ELFHeader as *mut u8;
+
+    idata
+        .readi(false, elfhdr_ptr, 0, mem::size_of::<ELFHeader>())
+        .or(Err("cannot read from inode"))?;
+
+    if elfhdr.magic != MAGIC {
+        drop(idata);
+        drop(inode);
+        LOG.end_op();
+        return Err("elf magic invalid");
+    }
+
+    /*
+    let pgt = match PageTable::alloc_user_page_table(p.tf as usize) {
+        None => {
+            drop(idata);
+            drop(inode);
+            LOG.end_op();
+            return Err("cannot alloc new user page table");
+        }
+        Some(pgt) => pgt,
+    };
+    */
+
+    // Load program into memory.
+
+    drop(idata);
+    drop(inode);
+    LOG.end_op();
+
+    Ok(())
+}
