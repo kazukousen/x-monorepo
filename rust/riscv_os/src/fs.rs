@@ -176,7 +176,7 @@ impl InodeTable {
                 break;
             }
 
-            let data_guard = ip.ilock();
+            let mut data_guard = ip.ilock();
 
             if data_guard.dinode.typed != InodeType::Directory {
                 drop(data_guard);
@@ -341,7 +341,7 @@ impl InodeData {
     }
 
     // Look for a directory entry in a directory.
-    fn dirlookup(&self, name: &mut [u8; DIRSIZ]) -> Option<Inode> {
+    fn dirlookup(&mut self, name: &mut [u8; DIRSIZ]) -> Option<Inode> {
         let (dev, _) = self.valid.unwrap();
         if self.dinode.typed != InodeType::Directory {
             panic!("dirlookup not DIR");
@@ -414,7 +414,7 @@ impl InodeData {
 
     /// Read data from inode.
     pub fn readi(
-        &self,
+        &mut self,
         is_user: bool,
         dst: *mut u8,
         mut offset: usize,
@@ -430,11 +430,11 @@ impl InodeData {
         let mut count: isize = count.try_into().unwrap();
 
         while count > 0 {
-            let buf = BCACHE.bread(dev, (offset / BSIZE).try_into().unwrap());
+            let buf = BCACHE.bread(dev, self.bmap(offset / BSIZE));
             let read_count = min(BSIZE - offset % BSIZE, count as usize);
             let src_ptr =
                 unsafe { (buf.data_ptr() as *const u8).offset((offset % BSIZE) as isize) };
-            either_copy_out(false, dst, src_ptr, count.try_into().unwrap());
+            either_copy_out(is_user, dst, src_ptr, count.try_into().unwrap());
             drop(buf);
             offset += read_count;
             count -= read_count as isize;
