@@ -47,32 +47,34 @@ impl Syscall for ProcessData {
 
         LOG.begin_op();
 
-        let ip = match INODE_TABLE.namei(&path) {
+        let inode = match INODE_TABLE.namei(&path) {
             None => {
                 LOG.end_op();
                 return Err("sys_exec: cannot find inode by given path");
             }
-            Some(ip) => ip,
+            Some(inode) => inode,
         };
 
-        let mut inode = ip.ilock();
+        let mut idata = inode.ilock();
 
-        println!("sys_exec: size={}", inode.size());
+        println!("sys_exec: size={}", idata.size());
 
         let mut elfhdr = elf::ELFHeader::empty();
         let elfhdr_ptr = &mut elfhdr as *mut elf::ELFHeader as *mut u8;
 
-        inode
+        idata
             .readi(false, elfhdr_ptr, 0, mem::size_of::<elf::ELFHeader>())
-            .or(Err("sys_exec: cannot read from inode"))?;
+            .or(Err("cannot read from inode"))?;
 
         if elfhdr.magic != elf::MAGIC {
-            // TODO
-            panic!("magic invalid");
+            drop(idata);
+            drop(inode);
+            LOG.end_op();
+            return Err("elf magic invalid");
         }
 
+        drop(idata);
         drop(inode);
-
         LOG.end_op();
         Ok(0)
     }

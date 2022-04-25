@@ -250,6 +250,38 @@ impl InodeTable {
     }
 }
 
+impl Inode {
+    /// Lock the inode.
+    /// Reads the inode from the disk if necessary.
+    pub fn ilock(&self) -> SleepLockGuard<InodeData> {
+        let mut guard = INODE_TABLE.data[self.index].lock();
+
+        if guard.valid.is_some() {
+            return guard;
+        }
+
+        let buf = unsafe { BCACHE.bread(self.dev, SB.inode_block(self.inum)) };
+        let dinode =
+            unsafe { (buf.data_ptr() as *const DiskInode).offset(inode_offset(self.inum)) };
+
+        guard.dinode = unsafe { dinode.as_ref().unwrap().clone() };
+        drop(buf);
+
+        if guard.dinode.typed == InodeType::Empty {
+            panic!("ilock: no type");
+        }
+
+        guard.valid = Some((self.dev, self.inum));
+        guard
+    }
+}
+
+impl Drop for Inode {
+    fn drop(&mut self) {
+        INODE_TABLE.iput(self.index);
+    }
+}
+
 struct InodeMeta {
     dev: u32,
     inum: u32,
@@ -438,38 +470,6 @@ impl InodeData {
     #[inline]
     pub fn size(&self) -> u32 {
         self.dinode.size
-    }
-}
-
-impl Inode {
-    /// Lock the inode.
-    /// Reads the inode from the disk if necessary.
-    pub fn ilock(&self) -> SleepLockGuard<InodeData> {
-        let mut guard = INODE_TABLE.data[self.index].lock();
-
-        if guard.valid.is_some() {
-            return guard;
-        }
-
-        let buf = unsafe { BCACHE.bread(self.dev, SB.inode_block(self.inum)) };
-        let dinode =
-            unsafe { (buf.data_ptr() as *const DiskInode).offset(inode_offset(self.inum)) };
-
-        guard.dinode = unsafe { dinode.as_ref().unwrap().clone() };
-        drop(buf);
-
-        if guard.dinode.typed == InodeType::Empty {
-            panic!("ilock: no type");
-        }
-
-        guard.valid = Some((self.dev, self.inum));
-        guard
-    }
-}
-
-impl Drop for Inode {
-    fn drop(&mut self) {
-        INODE_TABLE.iput(self.index);
     }
 }
 
