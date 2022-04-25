@@ -39,7 +39,7 @@ pub fn alloc(dev: u32) -> u32 {
             }
 
             // mark block in use
-            buf_data[index] = (buf_data[index] as usize | (1 << bit)).try_into().unwrap();
+            buf_data[index] |= 1 << bit;
 
             let blockno: u32 = (base + offset).try_into().unwrap();
 
@@ -56,8 +56,17 @@ pub fn alloc(dev: u32) -> u32 {
 }
 
 /// Frees a block.
-pub fn free(dev: u32, blockno: u32) {
-    // TODO:
+pub fn free(dev: u32, bn: u32) {
+    let mut buf = BCACHE.bread(dev, unsafe { SB.inode_block(bn as u32) });
+    let index = bn as usize / BPB;
+    let bit = bn as usize % BPB;
+    let buf_data = unsafe { buf.data_ptr_mut().as_mut().unwrap() };
+    if buf_data[index] & (1 << bit) == 0 {
+        panic!("bmap: freeing free block");
+    }
+    buf_data[index] &= !(1 << bit);
+    LOG.write(&mut buf);
+    drop(buf);
 }
 
 // zero a block.

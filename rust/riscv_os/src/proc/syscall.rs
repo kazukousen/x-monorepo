@@ -23,7 +23,7 @@ impl Syscall for ProcessData {
         let path_str = unsafe { str::from_utf8_unchecked(&path[0..nul_pos]) };
 
         if path_str == "/init" {
-            crate::test::run_tests();
+            // crate::test::run_tests();
         }
 
         let arg_base_addr = self.arg_raw(1)?;
@@ -54,6 +54,9 @@ impl Syscall for ProcessData {
             }
             Some(ip) => {
                 let inode = ip.ilock();
+
+                println!("sys_exec: size={}", inode.size());
+
                 drop(inode);
 
                 LOG.end_op();

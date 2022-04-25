@@ -50,7 +50,7 @@ use crate::{
     proc::either_copy_out,
     sleeplock::{SleepLock, SleepLockGuard},
     spinlock::SpinLock,
-    superblock::{read_super_block, SB}, print,
+    superblock::{read_super_block, SB},
 };
 
 pub unsafe fn init(dev: u32) {
@@ -163,46 +163,36 @@ impl InodeTable {
     }
 
     pub fn namex(&self, path: &[u8], name: &mut [u8; DIRSIZ], parent: bool) -> Option<Inode> {
-        let mut ip = if path[0] == b'/' {
+        let mut inode = if path[0] == b'/' {
             self.iget(ROOTDEV, ROOTINO)
         } else {
             let cwd = unsafe { CPU_TABLE.my_proc().data.get_mut().cwd.as_ref().unwrap() };
             self.idup(cwd)
         };
-        let mut cur = 0;
+        let mut path_pos = 0;
         loop {
-            cur = self.skip_elem(path, cur, name);
-            if cur == 0 {
+            path_pos = self.skip_elem(path, path_pos, name);
+            if path_pos == 0 {
                 break;
             }
 
-            let mut data_guard = ip.ilock();
+            let mut data_guard = inode.ilock();
 
             if data_guard.dinode.typed != InodeType::Directory {
                 drop(data_guard);
                 return None;
             }
 
-            if parent && path[cur] == 0 {
+            if parent && path[path_pos] == 0 {
                 // Stop one level early.
                 drop(data_guard);
-                return Some(ip);
+                return Some(inode);
             }
-
-            print!("namex: cur={} name=", cur);
-            for i in 0..DIRSIZ {
-                if name[i] == 0 {
-                    break;
-                }
-                let c = name[i] as char;
-                print!("{}", c);
-            }
-            println!();
 
             match data_guard.dirlookup(name) {
                 Some(next) => {
                     drop(data_guard);
-                    ip = next;
+                    inode = next;
                 }
                 None => {
                     drop(data_guard);
@@ -211,7 +201,7 @@ impl InodeTable {
             }
         }
 
-        Some(ip)
+        Some(inode)
     }
 
     /// Lookup and return the inode for a pathname.
@@ -416,7 +406,7 @@ impl InodeData {
     pub fn readi(
         &mut self,
         is_user: bool,
-        dst: *mut u8,
+        mut dst: *mut u8,
         mut offset: usize,
         count: usize,
     ) -> Result<(), ()> {
@@ -438,10 +428,16 @@ impl InodeData {
             drop(buf);
             offset += read_count;
             count -= read_count as isize;
-            unsafe { dst.offset(read_count as isize) };
+            dst = unsafe { dst.offset(read_count as isize) };
         }
 
         Ok(())
+    }
+
+    // NOTE: for debug
+    #[inline]
+    pub fn size(&self) -> u32 {
+        self.dinode.size
     }
 }
 
@@ -455,16 +451,17 @@ impl Inode {
             return guard;
         }
 
-        let bp = unsafe { BCACHE.bread(self.dev, SB.inode_block(self.inum)) };
-        let dip = unsafe { (bp.data_ptr() as *const DiskInode).offset(inode_offset(self.inum)) };
-        guard.dinode = unsafe { dip.as_ref().unwrap().clone() };
-        drop(bp);
-        guard.valid = Some((self.dev, self.inum));
+        let buf = unsafe { BCACHE.bread(self.dev, SB.inode_block(self.inum)) };
+        let dinode = unsafe { (buf.data_ptr() as *const DiskInode).offset(inode_offset(self.inum)) };
+
+        guard.dinode = unsafe { dinode.as_ref().unwrap().clone() };
+        drop(buf);
 
         if guard.dinode.typed == InodeType::Empty {
             panic!("ilock: no type");
         }
 
+        guard.valid = Some((self.dev, self.inum));
         guard
     }
 }
