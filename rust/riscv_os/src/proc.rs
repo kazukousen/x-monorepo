@@ -9,6 +9,7 @@ use crate::spinlock::{SpinLock, SpinLockGuard};
 use crate::{fs, println, trap};
 use alloc::boxed::Box;
 
+mod elf;
 mod syscall;
 
 use self::syscall::Syscall;

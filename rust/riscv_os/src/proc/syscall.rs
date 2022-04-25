@@ -3,7 +3,7 @@ use core::{mem, str};
 use alloc::boxed::Box;
 use array_macro::array;
 
-use crate::{fs::INODE_TABLE, log::LOG, println};
+use crate::{fs::INODE_TABLE, log::LOG, println, proc::elf};
 
 use super::ProcessData;
 
@@ -47,22 +47,34 @@ impl Syscall for ProcessData {
 
         LOG.begin_op();
 
-        match INODE_TABLE.namei(&path) {
+        let ip = match INODE_TABLE.namei(&path) {
             None => {
                 LOG.end_op();
-                Err("sys_exec: cannot find inode by given path")
+                return Err("sys_exec: cannot find inode by given path");
             }
-            Some(ip) => {
-                let inode = ip.ilock();
+            Some(ip) => ip,
+        };
 
-                println!("sys_exec: size={}", inode.size());
+        let mut inode = ip.ilock();
 
-                drop(inode);
+        println!("sys_exec: size={}", inode.size());
 
-                LOG.end_op();
-                Ok(0)
-            }
+        let mut elfhdr = elf::ELFHeader::empty();
+        let elfhdr_ptr = &mut elfhdr as *mut elf::ELFHeader as *mut u8;
+
+        inode
+            .readi(false, elfhdr_ptr, 0, mem::size_of::<elf::ELFHeader>())
+            .or(Err("sys_exec: cannot read from inode"))?;
+
+        if elfhdr.magic != elf::MAGIC {
+            // TODO
+            panic!("magic invalid");
         }
+
+        drop(inode);
+
+        LOG.end_op();
+        Ok(0)
     }
 }
 

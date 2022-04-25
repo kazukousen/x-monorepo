@@ -452,7 +452,8 @@ impl Inode {
         }
 
         let buf = unsafe { BCACHE.bread(self.dev, SB.inode_block(self.inum)) };
-        let dinode = unsafe { (buf.data_ptr() as *const DiskInode).offset(inode_offset(self.inum)) };
+        let dinode =
+            unsafe { (buf.data_ptr() as *const DiskInode).offset(inode_offset(self.inum)) };
 
         guard.dinode = unsafe { dinode.as_ref().unwrap().clone() };
         drop(buf);
