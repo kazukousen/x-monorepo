@@ -233,7 +233,7 @@ impl Proc {
                 println!("syscall error: {}", msg);
                 -1isize as usize
             }
-        }
+        };
     }
 
     pub unsafe fn yielding(&self) {

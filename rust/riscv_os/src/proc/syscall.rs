@@ -43,9 +43,7 @@ impl Syscall for ProcessData {
             self.fetch_str(uarg, argv[i].as_deref_mut().unwrap())?;
         }
 
-        elf::load(&self, &path, &argv)?;
-
-        Ok(0)
+        elf::load(self, &path, &argv)
     }
 }
 

@@ -16,10 +16,10 @@ use super::syscall::{MAXARG, MAXARGLEN};
 const MAGIC: u32 = 0x464C457F;
 
 pub fn load(
-    p: &ProcessData,
+    p: &mut ProcessData,
     path: &[u8],
     argv: &[Option<Box<[u8; MAXARGLEN]>>; MAXARG],
-) -> Result<(), &'static str> {
+) -> Result<usize, &'static str> {
     LOG.begin_op();
 
     let inode = match INODE_TABLE.namei(&path) {
@@ -125,8 +125,10 @@ pub fn load(
 
     // Push argument strings, prepare rest of stack in ustack.
     let mut ustack: [usize; MAXARG] = [0; MAXARG];
+    let mut argc = 0;
     for (i, arg) in argv.iter().enumerate() {
         if arg.is_none() {
+            argc = i;
             break;
         }
         let arg = arg.as_ref().unwrap();
@@ -142,10 +144,36 @@ pub fn load(
         };
         ustack[i] = sp;
     }
+    ustack[argc] = 0;
 
-    pgt.unmap_user_page_table(size);
+    // push the array of argv[] pointers.
+    sp -= (argc + 1) * mem::size_of::<u64>();
+    sp -= sp % 16;
+    if sp < stackbase {
+        pgt.unmap_user_page_table(size);
+        return Err("pushing arguments causes stack over flow");
+    }
+    if let Err(msg) = pgt.copy_out(
+        sp,
+        ustack.as_ptr() as usize,
+        (argc + 1) * mem::size_of::<u64>(),
+    ) {
+        pgt.unmap_user_page_table(size);
+        return Err(msg);
+    }
 
-    Ok(())
+    // arguments to user main(argc, argv)
+    unsafe { p.tf.as_mut().unwrap().a1 = sp };
+
+    // comit to the user image
+    let oldpgt = p.page_table.take();
+    p.page_table = Some(pgt);
+    p.sz = size;
+    unsafe { p.tf.as_mut().unwrap().epc = elfhdr.entry as usize };
+    unsafe { p.tf.as_mut().unwrap().sp = sp };
+    oldpgt.unwrap().unmap_user_page_table(oldsz);
+
+    Ok(argc)
 }
 
 fn strlen(s: &[u8]) -> usize {
