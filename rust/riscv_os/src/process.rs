@@ -30,7 +30,7 @@ impl ProcessTable {
     pub unsafe fn proc_init(&mut self) {
         for (i, p) in self.table.iter_mut().enumerate() {
             let va = kstack(i);
-            let pa = SinglePage::new_zeroed()
+            let pa = SinglePage::alloc_into_raw()
                 .expect("process_table: insufficient memory for process's kernel stack");
             // map
             kvm_map(
@@ -83,14 +83,14 @@ impl ProcessTable {
                     let pd = p.data.get_mut();
 
                     // hold trapframe pointer
-                    pd.tf = unsafe { SinglePage::new_zeroed().ok()? as *mut TrapFrame };
+                    pd.tf = unsafe { SinglePage::alloc_into_raw().ok()? as *mut TrapFrame };
                     // allocate trapframe page table
                     match PageTable::alloc_user_page_table(pd.tf as usize) {
                         Some(pgt) => {
                             pd.page_table = Some(pgt);
                         }
                         None => {
-                            unsafe { SinglePage::drop(pd.tf as *mut u8) };
+                            unsafe { SinglePage::free_from_raw(pd.tf as *mut SinglePage) };
                             return None;
                         }
                     }

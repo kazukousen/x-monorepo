@@ -440,7 +440,7 @@ impl InodeData {
         is_user: bool,
         mut dst: *mut u8,
         mut offset: usize,
-        count: usize,
+        mut count: usize,
     ) -> Result<(), ()> {
         let (dev, _) = self.valid.unwrap();
 
@@ -449,17 +449,41 @@ impl InodeData {
             return Err(());
         }
 
-        let mut count: isize = count.try_into().unwrap();
-
         while count > 0 {
+            // 0.
+            // read_count = min(1024 - 120%1024, 2600) = 904
+            // bmap(120 / 1024) = bmap(0)
+            // src_ptr = 120 % 1024 = +120
+            // dst = 0
+            // copy_out(dst=0, src=(bmap0)[120], 904);
+            // offset = 120 + 904 = 1024
+            // count = 2168 - 904 = 1264
+            // dst = u8+904
+            // 1.
+            // read_count = min(1024 - 1024%1024, 1264) = 1024
+            // bmap(1024 / 1024) = bmap(1)
+            // src_ptr = 1024 % 1024 = 0
+            // copy_out(dst=904, src=(bmap1)[0], 1024);
+            // offset = 1024 + 1024 = 2048
+            // count = 1264 - 1024 = 240
+            // dst = u8+904 + 1024 = 1932
+            // 2.
+            // read_count = min(1024 - 2048%1024, 240) = 240
+            // bmap(2048 / 1024) = bmap(2)
+            // src_ptr = 2048 % 1024 = 0
+            // copy_out(dst=1932, src=bmap2[0], 240);
+            // offset = 2048 + 1024 = 3072
+            // count = 240 - 240 = 0
+            // dst = 1932 + 240 = 2168
+            // 3.
+            let read_count = min(BSIZE - offset % BSIZE, count);
             let buf = BCACHE.bread(dev, self.bmap(offset / BSIZE));
-            let read_count = min(BSIZE - offset % BSIZE, count as usize);
             let src_ptr =
                 unsafe { (buf.data_ptr() as *const u8).offset((offset % BSIZE) as isize) };
-            either_copy_out(is_user, dst, src_ptr, count.try_into().unwrap());
+            either_copy_out(is_user, dst, src_ptr, read_count);
             drop(buf);
             offset += read_count;
-            count -= read_count as isize;
+            count -= read_count;
             dst = unsafe { dst.offset(read_count as isize) };
         }
 

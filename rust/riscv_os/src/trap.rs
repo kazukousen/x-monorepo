@@ -61,8 +61,7 @@ pub unsafe fn kerneltrap() {
             panic!("kerneltrap: handling syscall");
         }
         ScauseType::Unknown(v) => {
-            println!("kerneltrap: scause {}", v);
-            // panic!("kerneltrap");
+            panic!("kerneltrap: scause {:#x}", v);
         }
     }
 
@@ -166,7 +165,7 @@ unsafe extern "C" fn user_trap() {
             p.syscall();
         }
         ScauseType::Unknown(v) => {
-            println!("user_trap: scause {}", v);
+            panic!("user_trap: scause {:#x}", v);
         }
     }
 

@@ -20,13 +20,13 @@ bitflags! {
 }
 
 pub trait Page: Sized {
-    unsafe fn new_zeroed() -> Result<*mut u8, AllocError> {
+    unsafe fn alloc_into_raw() -> Result<*mut Self, AllocError> {
         let page = Box::<Self>::try_new_zeroed()?.assume_init();
-        Ok(Box::into_raw(page) as *mut u8)
+        Ok(Box::into_raw(page))
     }
 
-    unsafe fn drop(raw: *mut u8) {
-        drop(Box::from_raw(raw as *mut Self))
+    unsafe fn free_from_raw(raw: *mut Self) {
+        drop(Box::from_raw(raw))
     }
 }
 
@@ -78,6 +78,42 @@ impl PageTable {
         Some(pt)
     }
 
+    /// Unmap process's pages.
+    pub fn unmap_user_page_table(&mut self, sz: usize) {
+        self.unmap_pages(TRAMPOLINE, 1, false)
+            .expect("cannot unmap trampoline");
+        self.unmap_pages(TRAPFRAME, 1, false)
+            .expect("cannot unmap trampframe");
+        if sz > 0 {
+            self.unmap_pages(0, align_up(sz, PAGESIZE) / PAGESIZE, true)
+                .expect("cannot unmap process");
+        }
+    }
+
+    /// Allocate PTEs and physical memory to grow process from oldsz to newsz, which need not to be
+    /// aligned. returns new size or an error.
+    pub fn uvm_alloc(&mut self, oldsz: usize, newsz: usize) -> Result<usize, &'static str> {
+        if newsz < oldsz {
+            return Ok(oldsz);
+        }
+
+        let oldsz = align_up(oldsz, PAGESIZE);
+        for va in (oldsz..newsz).step_by(PAGESIZE) {
+            // TODO: dealloc when error occurs
+            let mem =
+                unsafe { SinglePage::alloc_into_raw().or(Err("uvm_alloc: insufficient memory"))? };
+            self.map_pages(
+                va,
+                mem as usize,
+                PAGESIZE,
+                PteFlag::READ | PteFlag::WRITE | PteFlag::EXEC | PteFlag::USER,
+            )?;
+            // ok, the mem pointer is leaked, but stored in the page table at virt address `va`.
+        }
+
+        Ok(newsz)
+    }
+
     /// Load the user initcode into address 0 of pagetable,
     /// for the very first process.
     /// sz must be less than a page.
@@ -86,7 +122,7 @@ impl PageTable {
             return Err("uvm_init: more than a page");
         }
 
-        let mem = unsafe { SinglePage::new_zeroed().or(Err("uvm_init: insufficient memory"))? };
+        let mem = unsafe { SinglePage::alloc_into_raw().or(Err("uvm_init: insufficient memory"))? };
         self.map_pages(
             0,
             mem as usize,
@@ -96,7 +132,7 @@ impl PageTable {
 
         // copy the code
         unsafe {
-            ptr::copy_nonoverlapping(code.as_ptr(), mem, code.len());
+            ptr::copy_nonoverlapping(code.as_ptr(), mem as *mut u8, code.len());
         }
 
         Ok(())
@@ -139,6 +175,40 @@ impl PageTable {
         Ok(())
     }
 
+    fn unmap_pages(
+        &mut self,
+        va_start: usize,
+        n: usize,
+        freeing: bool,
+    ) -> Result<(), &'static str> {
+        if va_start % PAGESIZE != 0 {
+            panic!("unmap_pages: not aligned");
+        }
+
+        for va in (va_start..(va_start + n * PAGESIZE)).step_by(PAGESIZE) {
+            match self.walk_mut(va) {
+                Some(pte) => {
+                    if !pte.is_valid() {
+                        return Err("not mapped");
+                    }
+                    if !pte.is_leaf() {
+                        return Err("not a leaf");
+                    }
+                    if freeing {
+                        let pa = pte.as_phys_addr();
+                        unsafe { SinglePage::free_from_raw(pa as *mut SinglePage) };
+                    }
+                    pte.data = 0;
+                }
+                None => {
+                    return Err("unmap_pages: pte not found");
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn walk_addr(&self, va: usize) -> Result<usize, &'static str> {
         match self.walk(va) {
             Some(pte) => {
@@ -170,6 +240,22 @@ impl PageTable {
         unsafe { Some(&page_table.as_ref().unwrap()[get_index(va, 0)]) }
     }
 
+    fn walk_mut(&mut self, va: usize) -> Option<&mut PageTableEntry> {
+        let mut page_table = self as *mut PageTable;
+
+        for level in (1..=2).rev() {
+            let pte = unsafe { &page_table.as_ref().unwrap()[get_index(va, level)] };
+
+            if !pte.is_valid() {
+                return None;
+            }
+
+            page_table = pte.as_page_table();
+        }
+
+        unsafe { Some(&mut page_table.as_mut().unwrap()[get_index(va, 0)]) }
+    }
+
     fn walk_alloc(&mut self, va: usize) -> Option<&mut PageTableEntry> {
         let mut page_table = self as *mut PageTable;
 
@@ -178,7 +264,7 @@ impl PageTable {
 
             if !pte.is_valid() {
                 // The raw page_table pointer is leaked but kept in the page table entry that can calculate later.
-                let page_table_ptr = unsafe { PageTable::new_zeroed().ok()? };
+                let page_table_ptr = unsafe { PageTable::alloc_into_raw().ok()? };
 
                 pte.set_addr(as_pte_addr(page_table_ptr as usize), PteFlag::VALID);
             }
@@ -330,6 +416,7 @@ impl PageTableEntry {
     fn free(&mut self) {
         if self.is_valid() {
             if self.is_leaf() {
+                // phys memory should already be freed.
                 panic!("freeing a PTE leaf")
             }
             drop(unsafe { Box::from_raw(self.as_page_table()) })

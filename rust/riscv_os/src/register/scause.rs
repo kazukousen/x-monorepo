@@ -28,6 +28,6 @@ pub unsafe fn get_type() -> ScauseType {
         INTERRUPT_SUPERVISOR_SOFTWARE => ScauseType::IntSSoft,
         INTERRUPT_SUPERVISOR_EXTERNAL => ScauseType::IntSExt,
         EXCEPTION_ENVIRONMENT_CALL => ScauseType::ExcEcall,
-        v => ScauseType::Unknown(v - INTERRUPT),
+        v => ScauseType::Unknown(v),
     }
 }
