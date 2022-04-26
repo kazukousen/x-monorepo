@@ -218,6 +218,8 @@ impl Proc {
         let pd = self.data.get_mut();
         let tf = pd.tf.as_mut().unwrap();
 
+        tf.epc += 4;
+
         let num = tf.a7;
 
         let ret = match num {

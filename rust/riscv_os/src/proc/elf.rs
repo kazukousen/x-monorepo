@@ -108,8 +108,6 @@ pub fn load(
     drop(inode);
     LOG.end_op();
 
-    let oldsz = p.sz;
-
     // Allocate two pages.
     // Use the second as the user stack.
     size = match pgt.uvm_alloc(size, size + PAGESIZE * 2) {
@@ -163,15 +161,16 @@ pub fn load(
     }
 
     // arguments to user main(argc, argv)
-    unsafe { p.tf.as_mut().unwrap().a1 = sp };
+    let tf = unsafe { p.tf.as_mut().unwrap() };
+    tf.a1 = sp;
 
     // comit to the user image
-    let oldpgt = p.page_table.take();
-    p.page_table = Some(pgt);
+    let mut oldpgt = p.page_table.replace(pgt).unwrap();
+    let oldsz = p.sz;
     p.sz = size;
-    unsafe { p.tf.as_mut().unwrap().epc = elfhdr.entry as usize };
-    unsafe { p.tf.as_mut().unwrap().sp = sp };
-    oldpgt.unwrap().unmap_user_page_table(oldsz);
+    tf.epc = elfhdr.entry as usize;
+    tf.sp = sp;
+    oldpgt.unmap_user_page_table(oldsz);
 
     Ok(argc)
 }
