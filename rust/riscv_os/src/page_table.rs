@@ -52,6 +52,10 @@ impl PageTable {
         }
     }
 
+    pub fn as_satp(&self) -> usize {
+        (8 << 60) | ((self as *const PageTable as usize) >> 12)
+    }
+
     // Allocate a new user page table.
     pub fn alloc_user_page_table(trapframe: usize) -> Option<Box<Self>> {
         extern "C" {
@@ -114,6 +118,11 @@ impl PageTable {
         Ok(newsz)
     }
 
+    pub fn uvm_clear(&mut self, va: usize) {
+        let pte = self.walk_mut(va).expect("uvm_clear");
+        pte.data &= !PteFlag::USER.bits();
+    }
+
     /// Load the user initcode into address 0 of pagetable,
     /// for the very first process.
     /// sz must be less than a page.
@@ -136,10 +145,6 @@ impl PageTable {
         }
 
         Ok(())
-    }
-
-    pub fn as_satp(&self) -> usize {
-        (8 << 60) | ((self as *const PageTable as usize) >> 12)
     }
 
     pub fn map_pages(
@@ -333,6 +338,34 @@ impl PageTable {
         }
 
         Err("copy_in_str: dst not enough space")
+    }
+
+    pub fn copy_out(
+        &self,
+        mut dstva: usize,
+        mut src: usize,
+        mut count: usize,
+    ) -> Result<(), &'static str> {
+        loop {
+            let va_base = align_down(dstva, PAGESIZE);
+            let distance = dstva as usize - va_base;
+            let pa_ptr = unsafe { (self.walk_addr(va_base)? as *mut u8).offset(distance as isize) };
+
+            let n = PAGESIZE - distance;
+            if n > count {
+                unsafe {
+                    ptr::copy_nonoverlapping(src as *const u8, pa_ptr, count);
+                }
+                return Ok(());
+            }
+
+            unsafe {
+                ptr::copy_nonoverlapping(src as *const u8, pa_ptr, n);
+            }
+            count -= n;
+            src += n;
+            dstva = va_base + PAGESIZE;
+        }
     }
 }
 

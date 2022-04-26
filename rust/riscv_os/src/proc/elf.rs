@@ -1,4 +1,6 @@
-use core::{mem, cmp};
+use core::{cmp, mem};
+
+use alloc::boxed::Box;
 
 use crate::{
     fs::{InodeData, INODE_TABLE},
@@ -9,9 +11,15 @@ use crate::{
     sleeplock::SleepLockGuard,
 };
 
+use super::syscall::{MAXARG, MAXARGLEN};
+
 const MAGIC: u32 = 0x464C457F;
 
-pub fn load(p: &ProcessData, path: &[u8]) -> Result<(), &'static str> {
+pub fn load(
+    p: &ProcessData,
+    path: &[u8],
+    argv: &[Option<Box<[u8; MAXARGLEN]>>; MAXARG],
+) -> Result<(), &'static str> {
     LOG.begin_op();
 
     let inode = match INODE_TABLE.namei(&path) {
@@ -104,17 +112,49 @@ pub fn load(p: &ProcessData, path: &[u8]) -> Result<(), &'static str> {
 
     // Allocate two pages.
     // Use the second as the user stack.
-    size = match pgt.uvm_alloc(size, size + PAGESIZE*2) {
+    size = match pgt.uvm_alloc(size, size + PAGESIZE * 2) {
         Err(msg) => {
             pgt.unmap_user_page_table(size);
             return Err(msg);
-        },
+        }
         Ok(size) => size,
     };
+    pgt.uvm_clear(size - 2 * PAGESIZE);
+    let mut sp = size;
+    let stackbase = sp - PAGESIZE;
+
+    // Push argument strings, prepare rest of stack in ustack.
+    let mut ustack: [usize; MAXARG] = [0; MAXARG];
+    for (i, arg) in argv.iter().enumerate() {
+        if arg.is_none() {
+            break;
+        }
+        let arg = arg.as_ref().unwrap();
+        sp -= strlen(&**arg) + 1;
+        sp -= sp % 16; // riscv sp must be 16-byte aligned.
+        if sp < stackbase {
+            pgt.unmap_user_page_table(size);
+            return Err("pushing arguments causes stack over flow");
+        }
+        if let Err(msg) = pgt.copy_out(sp, &**arg as *const u8 as usize, strlen(&**arg) + 1) {
+            pgt.unmap_user_page_table(size);
+            return Err(msg);
+        };
+        ustack[i] = sp;
+    }
 
     pgt.unmap_user_page_table(size);
 
     Ok(())
+}
+
+fn strlen(s: &[u8]) -> usize {
+    for i in 0..s.len() {
+        if s[i] == 0 {
+            return i;
+        }
+    }
+    panic!("strlen: not null-terminated");
 }
 
 fn load_segment(

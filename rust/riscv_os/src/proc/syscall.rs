@@ -11,8 +11,8 @@ pub trait Syscall {
     fn sys_exec(&mut self) -> SysResult;
 }
 
-const MAXARG: usize = 16;
-const MAXARGLEN: usize = 64;
+pub const MAXARG: usize = 16;
+pub const MAXARGLEN: usize = 64;
 
 impl Syscall for ProcessData {
     fn sys_exec(&mut self) -> SysResult {
@@ -43,7 +43,7 @@ impl Syscall for ProcessData {
             self.fetch_str(uarg, argv[i].as_deref_mut().unwrap())?;
         }
 
-        elf::load(&self, &path)?;
+        elf::load(&self, &path, &argv)?;
 
         Ok(0)
     }
