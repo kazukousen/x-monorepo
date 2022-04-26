@@ -5,7 +5,6 @@ use crate::{
     log::LOG,
     page_table::PageTable,
     param::PAGESIZE,
-    println,
     proc::ProcessData,
     sleeplock::SleepLockGuard,
 };
@@ -24,8 +23,6 @@ pub fn load(p: &ProcessData, path: &[u8]) -> Result<(), &'static str> {
     };
 
     let mut idata = inode.ilock();
-
-    println!("sys_exec: size={}", idata.size());
 
     // read elf header
     let mut elfhdr = mem::MaybeUninit::<ELFHeader>::uninit();

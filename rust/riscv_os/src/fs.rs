@@ -17,18 +17,19 @@
 //! and kernel discards the inode from memory if the reference count drops to zero.
 //! The `iget()` and `iput()` acquire and release an instance referring to an inode, modifying the reference count.
 //!
-//! the information in an node table entry is only correct when InodeData->valid is some.
-//! ilock() reads the inode from the disk and sets InodeData->valid
-//! while iput() clears InodeData->valid if refcnt has fallen to zero.
+//! the information in an node table entry is only correct when `valid` is some.
+//! ilock() reads the inode from the disk and sets `valid`
+//! while iput() clears `valid` if refcnt has fallen to zero.
 //!
 //! a typical sequence is:
-//!     let ip = INODE_TABLE.iget(dev, inum);
-//!     let guard = ip.ilock();
-//!     // examine and modify guard->xxx ...
-//!     drop(guard); // iunlock()
-//!     // and iput() when ip is dropped
 //!
-//! ilock() is separate from iget() so that ststem calls can
+//!     let inode = INODE_TABLE.iget(dev, inum); // iget()
+//!     let idata = node.ilock(); // ilock()
+//!     // examine and modify idata->xxx ...
+//!     drop(idata); // iunlock()
+//!     drop(inode); // iput()
+//!
+//! ilock() is separate from iget() so that system calls can
 //! get a long-term reference to an inode (as for an open file)
 //! and only lock it for shot periods (e.g. in read()).
 //! The separation helps avoid deadlock and races during pathname lookup.
@@ -449,33 +450,9 @@ impl InodeData {
             return Err(());
         }
 
+        // copy the file to dst by separating it into multiparts.
+        // [offset:BSIZE], [BSIZE:BSIZE*2], [BSIZE*N:count-BSIZE*N]
         while count > 0 {
-            // 0.
-            // read_count = min(1024 - 120%1024, 2600) = 904
-            // bmap(120 / 1024) = bmap(0)
-            // src_ptr = 120 % 1024 = +120
-            // dst = 0
-            // copy_out(dst=0, src=(bmap0)[120], 904);
-            // offset = 120 + 904 = 1024
-            // count = 2168 - 904 = 1264
-            // dst = u8+904
-            // 1.
-            // read_count = min(1024 - 1024%1024, 1264) = 1024
-            // bmap(1024 / 1024) = bmap(1)
-            // src_ptr = 1024 % 1024 = 0
-            // copy_out(dst=904, src=(bmap1)[0], 1024);
-            // offset = 1024 + 1024 = 2048
-            // count = 1264 - 1024 = 240
-            // dst = u8+904 + 1024 = 1932
-            // 2.
-            // read_count = min(1024 - 2048%1024, 240) = 240
-            // bmap(2048 / 1024) = bmap(2)
-            // src_ptr = 2048 % 1024 = 0
-            // copy_out(dst=1932, src=bmap2[0], 240);
-            // offset = 2048 + 1024 = 3072
-            // count = 240 - 240 = 0
-            // dst = 1932 + 240 = 2168
-            // 3.
             let read_count = min(BSIZE - offset % BSIZE, count);
             let buf = BCACHE.bread(dev, self.bmap(offset / BSIZE));
             let src_ptr =
@@ -488,12 +465,6 @@ impl InodeData {
         }
 
         Ok(())
-    }
-
-    // NOTE: for debug
-    #[inline]
-    pub fn size(&self) -> u32 {
-        self.dinode.size
     }
 }
 
