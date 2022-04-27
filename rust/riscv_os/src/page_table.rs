@@ -1,5 +1,4 @@
 use crate::param::{PAGESIZE, TRAMPOLINE, TRAPFRAME};
-use crate::println;
 use alloc::boxed::Box;
 use bitflags::bitflags;
 use core::alloc::AllocError;
@@ -64,7 +63,7 @@ impl PageTable {
         (8 << 60) | ((self as *const PageTable as usize) >> 12)
     }
 
-    // Allocate a new user page table.
+    /// Allocate a new user page table.
     pub fn alloc_user_page_table(trapframe: usize) -> Option<Box<Self>> {
         extern "C" {
             fn trampoline();

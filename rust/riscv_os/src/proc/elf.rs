@@ -108,7 +108,7 @@ pub fn load(
     drop(inode);
     LOG.end_op();
 
-    size = align_up(size, PAGESIZE);
+    size = align_up(size, PAGESIZE); // must be aligned
     // Allocate two pages.
     // Use the second as the user stack.
     size = match pgt.uvm_alloc(size, size + PAGESIZE * 2) {
