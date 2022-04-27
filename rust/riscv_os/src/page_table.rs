@@ -1,4 +1,5 @@
 use crate::param::{PAGESIZE, TRAMPOLINE, TRAPFRAME};
+use crate::println;
 use alloc::boxed::Box;
 use bitflags::bitflags;
 use core::alloc::AllocError;
@@ -36,6 +37,13 @@ pub struct SinglePage {
 }
 
 impl Page for SinglePage {}
+
+#[repr(C, align(4096))]
+pub struct QuadPage {
+    data: [u8; PAGESIZE * 4],
+}
+
+impl Page for QuadPage {}
 
 #[repr(C, align(4096))]
 pub struct PageTable {
@@ -97,22 +105,50 @@ impl PageTable {
     /// Allocate PTEs and physical memory to grow process from oldsz to newsz, which need not to be
     /// aligned. returns new size or an error.
     pub fn uvm_alloc(&mut self, oldsz: usize, newsz: usize) -> Result<usize, &'static str> {
-        if newsz < oldsz {
+        if newsz <= oldsz {
             return Ok(oldsz);
         }
 
         let oldsz = align_up(oldsz, PAGESIZE);
         for va in (oldsz..newsz).step_by(PAGESIZE) {
-            // TODO: dealloc when error occurs
-            let mem =
-                unsafe { SinglePage::alloc_into_raw().or(Err("uvm_alloc: insufficient memory"))? };
-            self.map_pages(
+            let mem = unsafe {
+                match SinglePage::alloc_into_raw() {
+                    Ok(mem) => mem,
+                    Err(_) => {
+                        self.uvm_dealloc(oldsz, newsz)?;
+                        return Err("uvm_alloc: insufficient memory");
+                    }
+                }
+            };
+            match self.map_pages(
                 va,
                 mem as usize,
                 PAGESIZE,
                 PteFlag::READ | PteFlag::WRITE | PteFlag::EXEC | PteFlag::USER,
-            )?;
-            // ok, the mem pointer is leaked, but stored in the page table at virt address `va`.
+            ) {
+                Err(msg) => {
+                    unsafe { SinglePage::free_from_raw(mem) };
+                    self.uvm_dealloc(oldsz, newsz)?;
+                    return Err(msg);
+                }
+                Ok(_) => {
+                    // ok, the mem pointer is leaked, but stored in the page table at virt address `va`.
+                }
+            };
+        }
+
+        Ok(newsz)
+    }
+
+    fn uvm_dealloc(&mut self, mut oldsz: usize, mut newsz: usize) -> Result<usize, &'static str> {
+        if newsz >= oldsz {
+            return Ok(oldsz);
+        }
+
+        oldsz = align_up(oldsz, PAGESIZE);
+        newsz = align_up(newsz, PAGESIZE);
+        if newsz < oldsz {
+            self.unmap_pages(newsz, (oldsz - newsz) / PAGESIZE, true)?;
         }
 
         Ok(newsz)
@@ -280,33 +316,49 @@ impl PageTable {
         unsafe { Some(&mut page_table.as_mut().unwrap()[get_index(va, 0)]) }
     }
 
+    pub fn copy_out(
+        &self,
+        mut dstva: usize,
+        mut src: *const u8,
+        mut count: usize,
+    ) -> Result<(), &'static str> {
+        while count > 0 {
+            let va_base = align_down(dstva, PAGESIZE);
+            let distance = dstva as usize - va_base;
+            let dstpa = unsafe { (self.walk_addr(va_base)? as *mut u8).offset(distance as isize) };
+
+            let n = min(PAGESIZE - distance, count);
+            unsafe {
+                ptr::copy_nonoverlapping(src, dstpa, n);
+            }
+            count -= n;
+            src = unsafe { src.offset(n as isize) };
+            dstva = va_base + PAGESIZE;
+        }
+        Ok(())
+    }
+
     pub fn copy_in(
         &self,
         mut dst: *mut u8,
         mut srcva: usize,
         mut count: usize,
     ) -> Result<(), &'static str> {
-        loop {
+        while count > 0 {
             let va_base = align_down(srcva, PAGESIZE);
             let distance = srcva - va_base;
-            let pa_ptr =
+            let srcpa =
                 unsafe { (self.walk_addr(va_base)? as *const u8).offset(distance as isize) };
 
-            let n = PAGESIZE - distance;
-            if n > count {
-                unsafe {
-                    ptr::copy_nonoverlapping(pa_ptr, dst, count);
-                }
-                return Ok(());
-            }
-
+            let n = min(PAGESIZE - distance, count);
             unsafe {
-                ptr::copy_nonoverlapping(pa_ptr, dst, n);
+                ptr::copy_nonoverlapping(srcpa, dst, n);
             }
             count -= n;
             dst = unsafe { dst.offset(n as isize) };
             srcva = va_base + PAGESIZE;
         }
+        Ok(())
     }
 
     /// Copy a null-terminated string from user to kernel.
@@ -318,17 +370,17 @@ impl PageTable {
         while i < dst.len() {
             let va_base = align_down(srcva, PAGESIZE);
             let distance = srcva - va_base;
-            let mut pa_ptr =
+            let mut srcpa =
                 unsafe { (self.walk_addr(va_base)? as *const u8).offset(distance as isize) };
 
             let mut count = min(PAGESIZE - distance, dst.len() - 1);
             while count > 0 {
                 unsafe {
-                    dst[i] = ptr::read(pa_ptr);
+                    dst[i] = ptr::read(srcpa);
                     if dst[i] == 0 {
                         return Ok(i);
                     }
-                    pa_ptr = pa_ptr.add(1);
+                    srcpa = srcpa.add(1);
                     i += 1;
                     count -= 1;
                 }
@@ -338,34 +390,6 @@ impl PageTable {
         }
 
         Err("copy_in_str: dst not enough space")
-    }
-
-    pub fn copy_out(
-        &self,
-        mut dstva: usize,
-        mut src: usize,
-        mut count: usize,
-    ) -> Result<(), &'static str> {
-        loop {
-            let va_base = align_down(dstva, PAGESIZE);
-            let distance = dstva as usize - va_base;
-            let pa_ptr = unsafe { (self.walk_addr(va_base)? as *mut u8).offset(distance as isize) };
-
-            let n = PAGESIZE - distance;
-            if n > count {
-                unsafe {
-                    ptr::copy_nonoverlapping(src as *const u8, pa_ptr, count);
-                }
-                return Ok(());
-            }
-
-            unsafe {
-                ptr::copy_nonoverlapping(src as *const u8, pa_ptr, n);
-            }
-            count -= n;
-            src += n;
-            dstva = va_base + PAGESIZE;
-        }
     }
 }
 

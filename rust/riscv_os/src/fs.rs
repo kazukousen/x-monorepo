@@ -451,7 +451,7 @@ impl InodeData {
         }
 
         // copy the file to dst by separating it into multiparts.
-        // [offset:BSIZE], [BSIZE:BSIZE*2], [BSIZE*N:count-BSIZE*N]
+        // [offset:BSIZE], [BSIZE:BSIZE*2], [BSIZE*N:count]
         while count > 0 {
             let read_count = min(BSIZE - offset % BSIZE, count);
             let buf = BCACHE.bread(dev, self.bmap(offset / BSIZE));

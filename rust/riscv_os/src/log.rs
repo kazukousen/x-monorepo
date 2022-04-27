@@ -180,7 +180,6 @@ impl Log {
         unsafe {
             ptr::copy_nonoverlapping(buf.data_ptr() as *const LogHeader, &mut self.header, 1);
         }
-        // TODO: brelse?
         drop(buf);
     }
 
@@ -198,7 +197,6 @@ impl Log {
                     dbuf.bunpin();
                 }
             }
-            // TODO: brelse?
             drop(lbuf);
             drop(dbuf);
         }
@@ -211,7 +209,6 @@ impl Log {
             ptr::copy_nonoverlapping(&self.header, buf.data_ptr_mut() as *mut LogHeader, 1);
         }
         buf.bwrite();
-        // TODO: brelse?
         drop(buf);
     }
 
@@ -233,9 +230,7 @@ impl Log {
                 ptr::copy_nonoverlapping(from.data_ptr(), to.data_ptr_mut(), 1);
             }
             to.bwrite();
-            // TODO: brelse?
             drop(from);
-            // TODO: brelse?
             drop(to);
         }
     }

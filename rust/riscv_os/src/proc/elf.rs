@@ -108,6 +108,7 @@ pub fn load(
     drop(inode);
     LOG.end_op();
 
+    size = align_up(size, PAGESIZE);
     // Allocate two pages.
     // Use the second as the user stack.
     size = match pgt.uvm_alloc(size, size + PAGESIZE * 2) {
@@ -122,30 +123,32 @@ pub fn load(
     let stackbase = sp - PAGESIZE;
 
     // Push argument strings, prepare rest of stack in ustack.
-    let mut ustack: [usize; MAXARG] = [0; MAXARG];
+    let mut ustack: [usize; MAXARG + 1] = [0; MAXARG + 1];
     let mut argc = 0;
-    for (i, arg) in argv.iter().enumerate() {
+    for i in 0..MAXARG {
+        let arg = argv[i].as_deref();
         if arg.is_none() {
             argc = i;
             break;
         }
-        let arg = arg.as_ref().unwrap();
-        sp -= strlen(&**arg) + 1;
+        let arg = arg.unwrap();
+        let count = arg.iter().position(|v| *v == 0).unwrap() + 1;
+        sp -= count;
         sp -= sp % 16; // riscv sp must be 16-byte aligned.
         if sp < stackbase {
             pgt.unmap_user_page_table(size);
             return Err("pushing arguments causes stack over flow");
         }
-        if let Err(msg) = pgt.copy_out(sp, &**arg as *const u8 as usize, strlen(&**arg) + 1) {
+        if let Err(msg) = pgt.copy_out(sp, arg.as_ptr(), count) {
             pgt.unmap_user_page_table(size);
             return Err(msg);
         };
         ustack[i] = sp;
     }
-    ustack[argc] = 0;
+    // ustack[argc] = 0;
 
     // push the array of argv[] pointers.
-    sp -= (argc + 1) * mem::size_of::<u64>();
+    sp -= (argc + 1) * mem::size_of::<usize>();
     sp -= sp % 16;
     if sp < stackbase {
         pgt.unmap_user_page_table(size);
@@ -153,8 +156,8 @@ pub fn load(
     }
     if let Err(msg) = pgt.copy_out(
         sp,
-        ustack.as_ptr() as usize,
-        (argc + 1) * mem::size_of::<u64>(),
+        ustack.as_ptr() as *const u8,
+        (argc + 1) * mem::size_of::<usize>(),
     ) {
         pgt.unmap_user_page_table(size);
         return Err(msg);
@@ -173,15 +176,6 @@ pub fn load(
     oldpgt.unmap_user_page_table(oldsz);
 
     Ok(argc)
-}
-
-fn strlen(s: &[u8]) -> usize {
-    for i in 0..s.len() {
-        if s[i] == 0 {
-            return i;
-        }
-    }
-    panic!("strlen: not null-terminated");
 }
 
 fn load_segment(
@@ -235,4 +229,9 @@ struct ProgHeader {
     filesz: u64,
     memsz: u64,
     align: u64,
+}
+
+#[inline]
+pub fn align_up(addr: usize, align: usize) -> usize {
+    (addr + (align - 1)) & !(align - 1)
 }

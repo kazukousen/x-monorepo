@@ -2,7 +2,7 @@ use core::ptr;
 
 use crate::cpu::CPU_TABLE;
 use crate::kvm::kvm_map;
-use crate::page_table::{Page, PageTable, PteFlag, SinglePage};
+use crate::page_table::{Page, PageTable, PteFlag, QuadPage, SinglePage};
 use crate::param::{kstack, NPROC, PAGESIZE};
 use crate::println;
 use crate::proc::{Proc, ProcState, TrapFrame};
@@ -30,7 +30,7 @@ impl ProcessTable {
     pub unsafe fn proc_init(&mut self) {
         for (i, p) in self.table.iter_mut().enumerate() {
             let va = kstack(i);
-            let pa = SinglePage::alloc_into_raw()
+            let pa = QuadPage::alloc_into_raw()
                 .expect("process_table: insufficient memory for process's kernel stack");
             // map
             kvm_map(

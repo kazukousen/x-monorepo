@@ -125,10 +125,23 @@ pub unsafe fn user_trap_ret() -> ! {
 
 #[no_mangle]
 unsafe extern "C" fn user_trap() {
+    if register::sstatus::is_from_supervisor() {
+        panic!("usertrap: not from user mode");
+    }
+
+    // send interrupts and exceptions to kerneltrap(),
+    // since we're now in the kernel.
     extern "C" {
         fn kernelvec();
     }
     register::stvec::write(kernelvec as usize);
+
+    let p = cpu::CPU_TABLE.my_proc();
+    let tf = p.data.get_mut().tf.as_mut().unwrap();
+
+    // save user program counter.
+    tf.epc = register::sepc::read();
+
     let scause = register::scause::get_type();
 
     match scause {
@@ -159,13 +172,22 @@ unsafe extern "C" fn user_trap() {
             CPU_TABLE.my_cpu_mut().yielding();
         }
         ScauseType::ExcEcall => {
+            // sepc points to the ecall instruction,
+            // but we want to return to the next instruction.
+            tf.epc += 4;
+
+            // an interrupt will change sstatus &c registers,
+            // so don't enable until done with those registers.
             register::sstatus::intr_on();
 
-            let p = cpu::CPU_TABLE.my_proc();
             p.syscall();
         }
         ScauseType::Unknown(v) => {
-            panic!("user_trap: scause {:#x}", v);
+            panic!(
+                "user_trap: scause={:#x} sepc={:#x}",
+                v,
+                register::sepc::read()
+            );
         }
     }
 
