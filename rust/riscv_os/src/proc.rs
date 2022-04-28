@@ -225,9 +225,11 @@ impl Proc {
         let num = tf.a7;
 
         let ret = match num {
+            1 => pd.sys_fork(),
             7 => pd.sys_exec(),
-            15 => pd.sys_open(),
             10 => pd.sys_dup(),
+            15 => pd.sys_open(),
+            16 => pd.sys_write(),
             _ => {
                 panic!("unknown syscall: {}", num);
             }

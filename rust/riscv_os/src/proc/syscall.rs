@@ -10,15 +10,21 @@ use super::{elf, ProcessData};
 type SysResult = Result<usize, &'static str>;
 
 pub trait Syscall {
-    fn sys_exec(&mut self) -> SysResult;
-    fn sys_open(&mut self) -> SysResult;
-    fn sys_dup(&mut self) -> SysResult;
+    fn sys_fork(&mut self) -> SysResult; // 1
+    fn sys_exec(&mut self) -> SysResult; // 7
+    fn sys_open(&mut self) -> SysResult; // 10
+    fn sys_dup(&mut self) -> SysResult; // 15
+    fn sys_write(&mut self) -> SysResult; // 16
 }
 
 pub const MAXARG: usize = 16;
 pub const MAXARGLEN: usize = 64;
 
 impl Syscall for ProcessData {
+    fn sys_fork(&mut self) -> SysResult {
+        Ok(0)
+    }
+
     fn sys_exec(&mut self) -> SysResult {
         let mut path: [u8; 128] = unsafe { mem::MaybeUninit::uninit().assume_init() };
         let nul_pos = self.arg_str(0, &mut path)?;
@@ -62,6 +68,10 @@ impl Syscall for ProcessData {
     }
 
     fn sys_dup(&mut self) -> SysResult {
+        Ok(0)
+    }
+
+    fn sys_write(&mut self) -> SysResult {
         Ok(0)
     }
 }
