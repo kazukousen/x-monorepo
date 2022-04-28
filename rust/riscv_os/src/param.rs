@@ -31,6 +31,7 @@ pub const fn kstack(p: usize) -> usize {
 pub const TRAPFRAME: usize = TRAMPOLINE - PAGESIZE;
 
 pub const NCPU: usize = 8;
+pub const NOFILE: usize = 16;
 pub const NPROC: usize = 64;
 
 pub const ROOTDEV: u32 = 1; // device number of file system root disk

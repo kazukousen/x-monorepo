@@ -24,7 +24,7 @@
 //! a typical sequence is:
 //!
 //!     let inode = INODE_TABLE.iget(dev, inum); // iget()
-//!     let idata = node.ilock(); // ilock()
+//!     let idata = inode.ilock(); // ilock()
 //!     // examine and modify idata->xxx ...
 //!     drop(idata); // iunlock()
 //!     drop(inode); // iput()
@@ -67,14 +67,14 @@ const DIRSIZ: usize = 14;
 pub static INODE_TABLE: InodeTable = InodeTable::new();
 
 pub struct InodeTable {
-    info: SpinLock<[InodeMeta; NINODE]>,
+    meta: SpinLock<[InodeMeta; NINODE]>,
     data: [SleepLock<InodeData>; NINODE],
 }
 
 impl InodeTable {
     pub const fn new() -> Self {
         Self {
-            info: SpinLock::new(array![_ => InodeMeta::new(); NINODE]),
+            meta: SpinLock::new(array![_ => InodeMeta::new(); NINODE]),
             data: array![_ => SleepLock::new(InodeData::new()); NINODE],
         }
     }
@@ -83,7 +83,7 @@ impl InodeTable {
     /// and return the in-memory copy.
     /// does not lock the inode and does not read it from disk.
     pub fn iget(&self, dev: u32, inum: u32) -> Inode {
-        let mut guard = self.info.lock();
+        let mut guard = self.meta.lock();
         let mut empty: Option<usize> = None;
         for (i, ip) in guard.iter_mut().enumerate() {
             if ip.dev == dev && ip.inum == inum {
@@ -124,7 +124,7 @@ impl InodeTable {
     /// free the inode (and its content) on disk.
     /// all calls to iput() must be inside a transaction in case it has to free the inode.
     pub fn iput(&self, index: usize) {
-        let mut guard = self.info.lock();
+        let mut guard = self.meta.lock();
 
         if guard[index].refcnt == 1 {
             // refcnt == 1 means no other process can have the inode locked,
@@ -142,7 +142,7 @@ impl InodeTable {
                 data_guard.valid.take();
                 drop(data_guard);
 
-                guard = self.info.lock();
+                guard = self.meta.lock();
             } else {
                 drop(data_guard);
             }
@@ -153,7 +153,7 @@ impl InodeTable {
     }
 
     pub fn idup(&self, ip: &Inode) -> Inode {
-        let mut guard = self.info.lock();
+        let mut guard = self.meta.lock();
         let i = ip.index;
         guard[i].refcnt += 1;
         Inode {
@@ -163,6 +163,32 @@ impl InodeTable {
         }
     }
 
+    /// if the path begins with a slash, evalution begins at the root, otherwise, the current
+    /// directory.
+    ///
+    /// The procedure `namex` may take a long time to complete:
+    ///     it could involve several disk operations to read inodes and directory blocks for the
+    ///     directories traversed in the pathname (if they are not in the buffer cache).
+    /// xv6 is carefully designed so that if invocation of `namex` by one kernel thread is blocked
+    /// on a disk I/O, another kernel thread locking up a different pathname can proceed
+    /// concurrency. `namex` locks each directory in the path separately so that lookups in
+    /// different directories can proceed in parallel.
+    ///
+    /// The concurrency introduces some challenges. for example, while one kernel thread is locking
+    /// up a pathname another kernel thread may be changing the directory tree unlinking a
+    /// directory.
+    /// A potential risk is that a lookup may be searching a directory that has been deleted by
+    /// another kernel thread and its blocks have been re-used for another directory or file.
+    /// `xv6` avoids such races. for example, when executing `dirlookup` in `namex`, the lookup
+    /// thread holds the lock on the directory and `dirlookup` returns an inode that was obtained
+    /// using `iget`. `iget` increases the reference count of the inode.
+    /// only after receiving the inode from `dirlookup` does `namex` release the lock on the
+    /// directory. now another thread may unlink the inode from the directory but xv6 will not
+    /// delete the inode yet, because the reference count of the inode is still larger than zero.
+    /// Another risk is deadlock. for example, `next` points to the same inode as `inode` when
+    /// locking up ".". locking `next` before releasing the lock on `inode` would result in a
+    /// deadlock. to avoid this deadlock, `namex` unlocks the directory before obtaining a lock on
+    /// `next`. here again we see why the separation between `iget` and `ilock` is important.
     pub fn namex(&self, path: &[u8], name: &mut [u8; DIRSIZ], parent: bool) -> Option<Inode> {
         let mut inode = if path[0] == b'/' {
             self.iget(ROOTDEV, ROOTINO)
@@ -177,6 +203,7 @@ impl InodeTable {
                 break;
             }
 
+            // inode type is not guaranteed to have been loaded from disk until `ilock` runs.
             let mut data_guard = inode.ilock();
 
             if data_guard.dinode.typed != InodeType::Directory {
@@ -261,10 +288,10 @@ impl Inode {
             return guard;
         }
 
+        // load on-disk structure inode.
         let buf = unsafe { BCACHE.bread(self.dev, SB.inode_block(self.inum)) };
         let dinode =
             unsafe { (buf.data_ptr() as *const DiskInode).offset(inode_offset(self.inum)) };
-
         guard.dinode = unsafe { dinode.as_ref().unwrap().clone() };
         drop(buf);
 
@@ -363,7 +390,7 @@ impl InodeData {
         LOG.write(&mut bp);
     }
 
-    // Look for a directory entry in a directory.
+    /// Look for a directory entry in a directory.
     fn dirlookup(&mut self, name: &mut [u8; DIRSIZ]) -> Option<Inode> {
         let (dev, _) = self.valid.unwrap();
         if self.dinode.typed != InodeType::Directory {

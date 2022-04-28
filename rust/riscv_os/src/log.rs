@@ -224,8 +224,8 @@ impl Log {
 
     fn write_log(&mut self) {
         for tail in 0..self.header.n {
-            let mut to = BCACHE.bread(self.dev, self.start + tail + 1);
             let from = BCACHE.bread(self.dev, self.header.blocknos[tail as usize]);
+            let mut to = BCACHE.bread(self.dev, self.start + tail + 1);
             unsafe {
                 ptr::copy_nonoverlapping(from.data_ptr(), to.data_ptr_mut(), 1);
             }

@@ -2,12 +2,14 @@ use core::cell::UnsafeCell;
 use core::ptr;
 
 use crate::cpu::{Cpu, CPU_TABLE};
+use crate::file::File;
 use crate::fs::{Inode, INODE_TABLE};
 use crate::page_table::PageTable;
-use crate::param::{PAGESIZE, ROOTDEV, ROOTIPATH};
+use crate::param::{NOFILE, PAGESIZE, ROOTDEV, ROOTIPATH};
 use crate::spinlock::{SpinLock, SpinLockGuard};
 use crate::{fs, println, trap};
 use alloc::boxed::Box;
+use array_macro::array;
 
 mod elf;
 mod syscall;
@@ -119,6 +121,7 @@ pub struct ProcessData {
     pub tf: *mut TrapFrame,
     pub page_table: Option<Box<PageTable>>,
     pub cwd: Option<Inode>,
+    pub open_files: [Option<Box<File>>; NOFILE],
 }
 
 impl ProcessData {
@@ -131,6 +134,7 @@ impl ProcessData {
             tf: ptr::null_mut(),
             page_table: None,
             cwd: None,
+            open_files: array![_ => None; NOFILE],
         }
     }
 
@@ -222,6 +226,8 @@ impl Proc {
 
         let ret = match num {
             7 => pd.sys_exec(),
+            15 => pd.sys_open(),
+            10 => pd.sys_dup(),
             _ => {
                 panic!("unknown syscall: {}", num);
             }

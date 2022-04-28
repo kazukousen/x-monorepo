@@ -1,7 +1,9 @@
-use core::{mem, str};
+use core::{mem, ptr, str};
 
 use alloc::boxed::Box;
 use array_macro::array;
+
+use crate::{param::NOFILE, println};
 
 use super::{elf, ProcessData};
 
@@ -9,6 +11,8 @@ type SysResult = Result<usize, &'static str>;
 
 pub trait Syscall {
     fn sys_exec(&mut self) -> SysResult;
+    fn sys_open(&mut self) -> SysResult;
+    fn sys_dup(&mut self) -> SysResult;
 }
 
 pub const MAXARG: usize = 16;
@@ -45,6 +49,21 @@ impl Syscall for ProcessData {
 
         elf::load(self, &path, &argv)
     }
+
+    fn sys_open(&mut self) -> SysResult {
+        let mut path: [u8; 128] = unsafe { mem::MaybeUninit::uninit().assume_init() };
+        let nul_pos = self.arg_str(0, &mut path)?;
+        let path_str = unsafe { str::from_utf8_unchecked(&path[0..nul_pos]) };
+        let omode = self.arg_i32(1)?;
+
+        println!("sys_open: path={} omode={}", path_str, omode);
+
+        Ok(0)
+    }
+
+    fn sys_dup(&mut self) -> SysResult {
+        Ok(0)
+    }
 }
 
 impl ProcessData {
@@ -71,6 +90,24 @@ impl ProcessData {
             5 => Ok(tf.a5),
             _ => Err("arg raw"),
         }
+    }
+
+    #[inline]
+    fn arg_i32(&self, n: usize) -> Result<i32, &'static str> {
+        let addr = self.arg_raw(n)?;
+        Ok(addr as i32)
+    }
+
+    fn arg_fd(&self, n: usize) -> Result<(), &'static str> {
+        let fd = self.arg_i32(n)?;
+        if fd < 0 {
+            return Err("file descriptor must be greater than or equal to 0");
+        }
+        if fd >= NOFILE.try_into().unwrap() {
+            return Err("file descriptor must be less than NOFILE");
+        }
+
+        Ok(())
     }
 
     fn fetch_addr(&self, addr: usize) -> Result<usize, &'static str> {

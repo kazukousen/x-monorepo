@@ -10,6 +10,7 @@ mod bio;
 mod bmap;
 mod console;
 mod cpu;
+mod file;
 mod fs;
 mod kalloc;
 mod kvm;

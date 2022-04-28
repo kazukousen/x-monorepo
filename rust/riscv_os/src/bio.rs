@@ -22,14 +22,14 @@ pub const BSIZE: usize = 1024; // size of disk block
 pub static BCACHE: BCache = BCache::new();
 
 pub struct BCache {
-    lru: SpinLock<BufLru>,
+    lru: SpinLock<BufMetaLru>,
     bufs: [Buf; NBUF],
 }
 
 impl BCache {
     const fn new() -> Self {
         Self {
-            lru: SpinLock::new(BufLru::new()),
+            lru: SpinLock::new(BufMetaLru::new()),
             bufs: array![_ => Buf::new(); NBUF],
         }
     }
@@ -163,19 +163,19 @@ impl IndexMut<usize> for BufData {
     }
 }
 
-struct BufLru {
-    inner: [BufInfo; NBUF],
-    head: *mut BufInfo, // most-recently-used
-    tail: *mut BufInfo,
+struct BufMetaLru {
+    inner: [BufMeta; NBUF],
+    head: *mut BufMeta, // most-recently-used
+    tail: *mut BufMeta,
 }
 
 // https://doc.rust-lang.org/nomicon/send-and-sync.html
-unsafe impl Send for BufLru {}
+unsafe impl Send for BufMetaLru {}
 
-impl BufLru {
+impl BufMetaLru {
     const fn new() -> Self {
         Self {
-            inner: array![i => BufInfo::new(i); NBUF],
+            inner: array![i => BufMeta::new(i); NBUF],
             head: ptr::null_mut(),
             tail: ptr::null_mut(),
         }
@@ -256,16 +256,16 @@ impl BufLru {
     }
 }
 
-struct BufInfo {
+struct BufMeta {
     index: usize,
     dev: u32,
     blockno: u32,
     refcnt: usize,
-    prev: *mut BufInfo,
-    next: *mut BufInfo,
+    prev: *mut BufMeta,
+    next: *mut BufMeta,
 }
 
-impl BufInfo {
+impl BufMeta {
     const fn new(index: usize) -> Self {
         Self {
             index,
