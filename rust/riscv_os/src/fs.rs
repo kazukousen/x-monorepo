@@ -137,7 +137,7 @@ impl InodeTable {
                 drop(guard);
 
                 data_guard.itrunc();
-                data_guard.dinode.typed = InodeType::Empty;
+                data_guard.dinode.typ = InodeType::Empty;
                 data_guard.iupdate();
                 data_guard.valid.take();
                 drop(data_guard);
@@ -161,6 +161,89 @@ impl InodeTable {
             inum: guard[i].inum,
             index: i,
         }
+    }
+
+    /// Allocate an inode on device dev.
+    /// Mark it as allocated by giving it type type.
+    /// Returns an unlocked but allocated and referenced inode.
+    ///
+    /// it panics if the table have no inodes.
+    fn ialloc(&self, dev: u32, typ: InodeType) -> Inode {
+        for inum in 1..unsafe { SB.ninodes } {
+            let mut buf = BCACHE.bread(dev, inum);
+            let dinode_ptr =
+                unsafe { (buf.data_ptr_mut() as *mut DiskInode).offset(inode_offset(inum)) };
+            let mut dinode = unsafe { dinode_ptr.as_mut().unwrap() };
+            if dinode.typ == InodeType::Empty {
+                // found a free inode
+                unsafe { ptr::write_bytes(dinode_ptr, 0, 1) };
+                dinode.typ = typ;
+                // mark it allocated on the disk
+                LOG.write(&mut buf);
+                drop(buf);
+                return self.iget(dev, inum);
+            }
+            drop(buf);
+        }
+
+        panic!("ialloc: no inodes");
+    }
+
+    // NOTE: returning an unlocked is correct?
+    pub fn create(
+        &self,
+        path: &[u8],
+        typ: InodeType,
+        major: u16,
+        minor: u16,
+    ) -> Result<Inode, &'static str> {
+        let mut name = [0u8; DIRSIZ];
+        let dir = self.nameiparent(&path, &mut name).ok_or("create: parent")?;
+        let mut dirdata = dir.ilock();
+
+        if let Some(inode) = dirdata.dirlookup(&name) {
+            // reuse?
+            let idata = inode.ilock();
+            if typ == InodeType::File
+                && (idata.dinode.typ == InodeType::File || idata.dinode.typ == InodeType::Device)
+            {
+                drop(idata);
+                return Ok(inode);
+            }
+            drop(idata);
+            return Err("create: already exists and cannot reuse");
+        }
+
+        let inode = self.ialloc(dir.dev, typ);
+        let mut idata = inode.ilock();
+        idata.dinode.major = major;
+        idata.dinode.minor = minor;
+        idata.dinode.nlink = 1;
+        idata.iupdate();
+
+        if typ == InodeType::Directory {
+            // Create . and .. entries.
+            dirdata.dinode.nlink += 1; // for ".."
+            dirdata.iupdate();
+            // No nlink++ for "." because avoid cyclic ref count.
+            let name: [u8; DIRSIZ] = [b'.', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            idata
+                .dirlink(&name, inode.inum)
+                .or(Err("create: create dot '.'"))?;
+            let name: [u8; DIRSIZ] = [b'.', b'.', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            idata
+                .dirlink(&name, inode.inum)
+                .or(Err("create: create dot '..'"))?;
+        }
+        drop(idata);
+
+        dirdata
+            .dirlink(&name, inode.inum)
+            .or(Err("create: dirlink"))?;
+        drop(dirdata);
+        drop(dir);
+
+        Ok(inode)
     }
 
     /// if the path begins with a slash, evalution begins at the root, otherwise, the current
@@ -206,7 +289,7 @@ impl InodeTable {
             // inode type is not guaranteed to have been loaded from disk until `ilock` runs.
             let mut data_guard = inode.ilock();
 
-            if data_guard.dinode.typed != InodeType::Directory {
+            if data_guard.dinode.typ != InodeType::Directory {
                 drop(data_guard);
                 return None;
             }
@@ -237,6 +320,10 @@ impl InodeTable {
     pub fn namei(&self, path: &[u8]) -> Option<Inode> {
         let mut name: [u8; DIRSIZ] = [0; DIRSIZ];
         self.namex(path, &mut name, false)
+    }
+
+    pub fn nameiparent(&self, path: &[u8], name: &mut [u8; DIRSIZ]) -> Option<Inode> {
+        self.namex(path, name, true)
     }
 
     /// Copy the next path element from path into name.
@@ -295,7 +382,7 @@ impl Inode {
         guard.dinode = unsafe { dinode.as_ref().unwrap().clone() };
         drop(buf);
 
-        if guard.dinode.typed == InodeType::Empty {
+        if guard.dinode.typ == InodeType::Empty {
             panic!("ilock: no type");
         }
 
@@ -391,9 +478,9 @@ impl InodeData {
     }
 
     /// Look for a directory entry in a directory.
-    fn dirlookup(&mut self, name: &mut [u8; DIRSIZ]) -> Option<Inode> {
+    pub fn dirlookup(&mut self, name: &[u8; DIRSIZ]) -> Option<Inode> {
         let (dev, _) = self.valid.unwrap();
-        if self.dinode.typed != InodeType::Directory {
+        if self.dinode.typ != InodeType::Directory {
             panic!("dirlookup not DIR");
         }
 
@@ -493,6 +580,49 @@ impl InodeData {
 
         Ok(())
     }
+
+    fn writei(
+        &mut self,
+        is_user: bool,
+        mut src: *const u8,
+        mut offset: usize,
+        mut count: usize,
+    ) -> Result<(), ()> {
+        // TODO
+        Err(())
+    }
+
+    /// Write a new directory entry (name, inum) into the directory this.
+    fn dirlink(&mut self, name: &[u8; DIRSIZ], inum: u32) -> Result<(), ()> {
+        // Check that name is not present.
+        if let Some(inode) = self.dirlookup(&name) {
+            drop(inode);
+            return Err(());
+        }
+
+        // Look for an empty DirEnt.
+        let de_size = mem::size_of::<DirEnt>();
+        let mut de = DirEnt::empty();
+        let de_ptr = &mut de as *mut DirEnt as *mut u8;
+        let mut offset = 0;
+        for off in (0..self.dinode.size as usize).step_by(de_size) {
+            self.readi(false, de_ptr, off, de_size)?;
+            if de.inum == 0 {
+                offset = off;
+                break;
+            }
+        }
+
+        for i in 0..DIRSIZ {
+            de.name[i] = name[i];
+            if name[i] == 0 {
+                break;
+            }
+        }
+        de.inum = inum.try_into().unwrap();
+
+        self.writei(false, de_ptr as *const u8, offset, de_size)
+    }
 }
 
 const NDIRECT: usize = 12;
@@ -503,7 +633,7 @@ const MAXFILE: usize = NDIRECT + NINDIRECT;
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct DiskInode {
-    typed: InodeType,          // file type
+    typ: InodeType,            // file type
     major: u16,                // major device number (Device Type only)
     minor: u16,                // minor device number (Device Type only)
     nlink: u16,                // number of directory entries that refer to a file
@@ -514,7 +644,7 @@ struct DiskInode {
 impl DiskInode {
     const fn new() -> Self {
         Self {
-            typed: InodeType::Empty,
+            typ: InodeType::Empty,
             major: 0,
             minor: 0,
             nlink: 0,
@@ -526,7 +656,7 @@ impl DiskInode {
 
 #[repr(u16)]
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum InodeType {
+pub enum InodeType {
     Empty = 0,
     Directory = 1,
     File = 2,

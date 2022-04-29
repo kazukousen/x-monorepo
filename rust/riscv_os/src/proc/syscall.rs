@@ -3,7 +3,7 @@ use core::{mem, ptr, str};
 use alloc::boxed::Box;
 use array_macro::array;
 
-use crate::{param::NOFILE, println};
+use crate::{log::LOG, param::NOFILE, println};
 
 use super::{elf, ProcessData};
 
@@ -22,7 +22,7 @@ pub const MAXARGLEN: usize = 64;
 
 impl Syscall for ProcessData {
     fn sys_fork(&mut self) -> SysResult {
-        Ok(0)
+        panic!("sys_fork: unimplemented");
     }
 
     fn sys_exec(&mut self) -> SysResult {

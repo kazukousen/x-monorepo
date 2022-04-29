@@ -26,7 +26,7 @@ pub struct SuperBlock {
     magic: u32,
     pub size: u32,
     nblocks: u32,
-    ninodes: u32,
+    pub ninodes: u32,
     pub nlog: u32,
     pub logstart: u32,
     inodestart: u32,
