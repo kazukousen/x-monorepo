@@ -193,7 +193,6 @@ impl InodeTable {
     /// if the new inode is a directory, `create` initializes it with `.` and `..` entries.
     /// finally, now that the data is initialized properly, `create` can link it into the parent
     /// directory.
-    // NOTE: returning an unlocked is correct?
     pub fn create(
         &self,
         path: &[u8],

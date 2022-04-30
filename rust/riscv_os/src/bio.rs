@@ -38,7 +38,7 @@ impl BCache {
         self.lru.lock().init();
     }
 
-    pub fn bread(&self, dev: u32, blockno: u32) -> GuardBuf {
+    pub fn bread(&self, dev: u32, blockno: u32) -> BufGuard {
         let mut buf = self.bget(dev, blockno);
 
         if !self.bufs[buf.index].valid.load(Ordering::Relaxed) {
@@ -52,13 +52,13 @@ impl BCache {
         self.lru.lock().brelse(index);
     }
 
-    fn bget(&self, dev: u32, blockno: u32) -> GuardBuf {
+    fn bget(&self, dev: u32, blockno: u32) -> BufGuard {
         let lru = self.lru.lock();
 
         if let Some((index, rc_ptr)) = lru.find(dev, blockno) {
             // found cached block
             drop(lru);
-            return GuardBuf {
+            return BufGuard {
                 index,
                 dev,
                 blockno,
@@ -71,7 +71,7 @@ impl BCache {
             // not cached block
             self.bufs[index].valid.store(false, Ordering::Relaxed);
             drop(lru);
-            return GuardBuf {
+            return BufGuard {
                 index,
                 dev,
                 blockno,
@@ -84,7 +84,7 @@ impl BCache {
     }
 }
 
-pub struct GuardBuf<'a> {
+pub struct BufGuard<'a> {
     index: usize,
     dev: u32,
     pub blockno: u32,
@@ -92,7 +92,7 @@ pub struct GuardBuf<'a> {
     data: Option<SleepLockGuard<'a, BufData>>,
 }
 
-impl<'a> GuardBuf<'a> {
+impl<'a> BufGuard<'a> {
     pub fn data_ptr_mut(&mut self) -> *mut BufData {
         let guard = self.data.as_mut().unwrap();
         guard.deref_mut()
@@ -104,7 +104,7 @@ impl<'a> GuardBuf<'a> {
     }
 }
 
-impl<'a> GuardBuf<'a> {
+impl<'a> BufGuard<'a> {
     pub fn bwrite(&mut self) {
         DISK.rw(self, true);
     }
@@ -118,7 +118,7 @@ impl<'a> GuardBuf<'a> {
     }
 }
 
-impl<'a> Drop for GuardBuf<'a> {
+impl<'a> Drop for BufGuard<'a> {
     fn drop(&mut self) {
         drop(self.data.take());
         BCACHE.brelse(self.index);
@@ -234,6 +234,8 @@ impl BufMetaLru {
     /// Move the buffer to the head of the most-recently-used list.
     fn brelse(&mut self, index: usize) {
         let buf = &mut self.inner[index];
+        // no other process can have the  locked,
+        // so this sleep-lock won't block/deadlock.
         buf.refcnt -= 1;
 
         if buf.refcnt == 0 && !ptr::eq(self.head, buf) {

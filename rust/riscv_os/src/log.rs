@@ -1,7 +1,7 @@
 use core::{ops::DerefMut, ptr};
 
 use crate::{
-    bio::{GuardBuf, BCACHE},
+    bio::{BufGuard, BCACHE},
     cpu::CPU_TABLE,
     param::{LOGSIZE, MAXOPBLOCKS},
     println,
@@ -80,7 +80,7 @@ impl SpinLock<Log> {
     /// Caller has modified buf->data and is done with the buffer.
     /// Record the block number and pin in the cache by increasing refcnt.
     /// commit()/write_log() will do the disk write.
-    pub fn write(&self, buf: &mut GuardBuf) {
+    pub fn write(&self, buf: &mut BufGuard) {
         let mut guard = self.lock();
 
         if (guard.header.n as usize) >= LOGSIZE || guard.header.n >= guard.size - 1 {

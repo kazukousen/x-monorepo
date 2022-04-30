@@ -7,7 +7,7 @@ use core::{
 };
 
 use crate::{
-    bio::{GuardBuf, BSIZE},
+    bio::{BufGuard, BSIZE},
     cpu::CPU_TABLE,
     param::{PAGESIZE, VIRTIO0},
     println,
@@ -292,7 +292,7 @@ impl SpinLock<Disk> {
     /// one for type/reserved/sector
     /// one for the data
     /// one for a 1-byte status result
-    pub fn rw(&self, buf: &mut GuardBuf, writing: bool) {
+    pub fn rw(&self, buf: &mut BufGuard, writing: bool) {
         let mut locked = self.lock();
 
         // allocate three descriptors
