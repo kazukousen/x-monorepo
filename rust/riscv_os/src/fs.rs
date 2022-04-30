@@ -129,6 +129,7 @@ impl InodeTable {
         if guard[index].refcnt == 1 {
             // refcnt == 1 means no other process can have the inode locked,
             // so this sleep-lock won't block/deadlock.
+            // that `1` is the reference owned by the thread calling `iput`.
             let mut data_guard = self.data[index].lock();
             if data_guard.valid.is_some() && data_guard.dinode.nlink == 0 {
                 // inode has no links and no other references
@@ -205,7 +206,7 @@ impl InodeTable {
         // get the parent inode.
         let dir = self
             .nameiparent(&path, &mut name)
-            .ok_or("create: parent not found")?;
+            .ok_or_else(|| "create: parent not found")?;
         let mut dirdata = dir.ilock();
 
         if let Some(inode) = dirdata.dirlookup(&name) {
@@ -377,6 +378,12 @@ impl InodeTable {
 
         return cur;
     }
+}
+
+pub struct Inode {
+    dev: u32,
+    inum: u32,
+    index: usize,
 }
 
 impl Inode {
@@ -717,12 +724,6 @@ impl DirEnt {
             name: [0; DIRSIZ],
         }
     }
-}
-
-pub struct Inode {
-    dev: u32,
-    inum: u32,
-    index: usize,
 }
 
 // number of inodes in a single block
