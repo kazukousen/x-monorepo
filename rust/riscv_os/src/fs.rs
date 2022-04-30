@@ -48,7 +48,7 @@ use crate::{
     log::LOG,
     param::ROOTDEV,
     println,
-    proc::either_copy_out,
+    proc::either_copy,
     sleeplock::{SleepLock, SleepLockGuard},
     spinlock::SpinLock,
     superblock::{read_super_block, SB},
@@ -226,11 +226,12 @@ impl InodeTable {
             dirdata.dinode.nlink += 1; // for ".."
             dirdata.iupdate();
             // No nlink++ for "." because avoid cyclic ref count.
-            let name: [u8; DIRSIZ] = [b'.', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            let mut name = [0u8; DIRSIZ];
+            name[0] = b'.';
             idata
                 .dirlink(&name, inode.inum)
                 .or(Err("create: create dot '.'"))?;
-            let name: [u8; DIRSIZ] = [b'.', b'.', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            name[1] = b'.';
             idata
                 .dirlink(&name, inode.inum)
                 .or(Err("create: create dot '..'"))?;
@@ -433,6 +434,10 @@ impl InodeData {
         }
     }
 
+    pub fn get_type(&self) -> InodeType {
+        self.dinode.typ
+    }
+
     /// Truncate inode (discard contents).
     /// Caller must hold sleep-lock.
     fn itrunc(&mut self) {
@@ -478,7 +483,7 @@ impl InodeData {
     }
 
     /// Look for a directory entry in a directory.
-    pub fn dirlookup(&mut self, name: &[u8; DIRSIZ]) -> Option<Inode> {
+    fn dirlookup(&mut self, name: &[u8; DIRSIZ]) -> Option<Inode> {
         let (dev, _) = self.valid.unwrap();
         if self.dinode.typ != InodeType::Directory {
             panic!("dirlookup not DIR");
@@ -555,41 +560,61 @@ impl InodeData {
         is_user: bool,
         mut dst: *mut u8,
         mut offset: usize,
-        mut count: usize,
+        mut n: usize,
     ) -> Result<(), ()> {
         let (dev, _) = self.valid.unwrap();
 
-        let end = offset.checked_add(count).ok_or(())?;
+        let end = offset.checked_add(n).ok_or_else(|| ())?;
         if end > self.dinode.size as usize {
             return Err(());
         }
 
         // copy the file to dst by separating it into multiparts.
-        // [offset:BSIZE], [BSIZE:BSIZE*2], [BSIZE*N:count]
-        while count > 0 {
-            let read_count = min(BSIZE - offset % BSIZE, count);
+        // [offset:BSIZE], [BSIZE:BSIZE*2], [BSIZE*N:n]
+        while n > 0 {
+            let read_n = min(BSIZE - offset % BSIZE, n);
             let buf = BCACHE.bread(dev, self.bmap(offset / BSIZE));
             let src_ptr =
                 unsafe { (buf.data_ptr() as *const u8).offset((offset % BSIZE) as isize) };
-            either_copy_out(is_user, dst, src_ptr, read_count);
+            either_copy(is_user, src_ptr, dst, read_n);
             drop(buf);
-            offset += read_count;
-            count -= read_count;
-            dst = unsafe { dst.offset(read_count as isize) };
+            offset += read_n;
+            n -= read_n;
+            dst = unsafe { dst.offset(read_n as isize) };
         }
 
         Ok(())
     }
 
+    /// Write data to inode.
+    /// returns the number of bytes successfully written.
     fn writei(
         &mut self,
         is_user: bool,
         mut src: *const u8,
         mut offset: usize,
-        mut count: usize,
+        mut n: usize,
     ) -> Result<(), ()> {
-        // TODO
-        Err(())
+        let (dev, _) = *self.valid.as_ref().unwrap();
+
+        let end = offset.checked_add(n).ok_or_else(|| ())?;
+        if end > self.dinode.size as usize || end > MAXFILE * BSIZE {
+            return Err(());
+        }
+
+        while n > 0 {
+            let write_n = min(n, BSIZE - offset % BSIZE);
+            let mut buf = BCACHE.bread(dev, self.bmap(offset / BSIZE));
+            let dst_ptr =
+                unsafe { (buf.data_ptr_mut() as *mut u8).offset((offset % BSIZE) as isize) };
+            either_copy(is_user, src, dst_ptr, write_n);
+            drop(buf);
+            offset += write_n;
+            n -= write_n;
+            src = unsafe { src.offset(write_n as isize) };
+        }
+
+        Ok(())
     }
 
     /// Write a new directory entry (name, inum) into the directory this.

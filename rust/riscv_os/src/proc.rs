@@ -121,7 +121,7 @@ pub struct ProcessData {
     pub tf: *mut TrapFrame,
     pub page_table: Option<Box<PageTable>>,
     pub cwd: Option<Inode>,
-    pub open_files: [Option<Box<File>>; NOFILE],
+    pub o_files: [Option<Box<File>>; NOFILE],
 }
 
 impl ProcessData {
@@ -134,7 +134,7 @@ impl ProcessData {
             tf: ptr::null_mut(),
             page_table: None,
             cwd: None,
-            open_files: array![_ => None; NOFILE],
+            o_files: array![_ => None; NOFILE],
         }
     }
 
@@ -277,7 +277,7 @@ impl Proc {
     }
 }
 
-pub fn either_copy_out(is_user: bool, dst: *mut u8, src: *const u8, count: usize) {
+pub fn either_copy(is_user: bool, src: *const u8, dst: *mut u8, count: usize) {
     if is_user {
         // TODO:
         panic!("either_copy_out: not implemented");
