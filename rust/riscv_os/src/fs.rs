@@ -189,6 +189,10 @@ impl InodeTable {
         panic!("ialloc: no inodes");
     }
 
+    /// if the name does not already exist, `create` now allocates a new inode with `ialloc`.
+    /// if the new inode is a directory, `create` initializes it with `.` and `..` entries.
+    /// finally, now that the data is initialized properly, `create` can link it into the parent
+    /// directory.
     // NOTE: returning an unlocked is correct?
     pub fn create(
         &self,
@@ -198,7 +202,11 @@ impl InodeTable {
         minor: u16,
     ) -> Result<Inode, &'static str> {
         let mut name = [0u8; DIRSIZ];
-        let dir = self.nameiparent(&path, &mut name).ok_or("create: parent")?;
+
+        // get the parent inode.
+        let dir = self
+            .nameiparent(&path, &mut name)
+            .ok_or("create: parent not found")?;
         let mut dirdata = dir.ilock();
 
         if let Some(inode) = dirdata.dirlookup(&name) {
@@ -214,6 +222,10 @@ impl InodeTable {
             return Err("create: already exists and cannot reuse");
         }
 
+        // NOTE: it holds two inode locks simultaneously: `inode` and `dir`.
+        // there is no possibility of deadlock because the `inode` is freshly allocated: no other
+        // process in the system will hold `inode`'s lock and then try to lock `dir`.
+
         let inode = self.ialloc(dir.dev, typ);
         let mut idata = inode.ilock();
         idata.dinode.major = major;
@@ -223,24 +235,26 @@ impl InodeTable {
 
         if typ == InodeType::Directory {
             // Create . and .. entries.
+            // No nlink++ for "." because avoid cyclic ref count.
             dirdata.dinode.nlink += 1; // for ".."
             dirdata.iupdate();
-            // No nlink++ for "." because avoid cyclic ref count.
+
             let mut name = [0u8; DIRSIZ];
             name[0] = b'.';
             idata
                 .dirlink(&name, inode.inum)
-                .or(Err("create: create dot '.'"))?;
+                .or_else(|_| Err("create: create with '.'"))?;
             name[1] = b'.';
             idata
                 .dirlink(&name, inode.inum)
-                .or(Err("create: create dot '..'"))?;
+                .or_else(|_| Err("create: create with '..'"))?;
         }
         drop(idata);
 
+        // link the new inode into the parent dir.
         dirdata
             .dirlink(&name, inode.inum)
-            .or(Err("create: dirlink"))?;
+            .or_else(|_| Err("create: dirlink"))?;
         drop(dirdata);
         drop(dir);
 
@@ -587,7 +601,6 @@ impl InodeData {
     }
 
     /// Write data to inode.
-    /// returns the number of bytes successfully written.
     fn writei(
         &mut self,
         is_user: bool,
@@ -619,6 +632,10 @@ impl InodeData {
 
     /// Write a new directory entry (name, inum) into the directory this.
     fn dirlink(&mut self, name: &[u8; DIRSIZ], inum: u32) -> Result<(), ()> {
+        if self.dinode.typ != InodeType::Directory {
+            panic!("dirlink: not DIR");
+        }
+
         // Check that name is not present.
         if let Some(inode) = self.dirlookup(&name) {
             drop(inode);

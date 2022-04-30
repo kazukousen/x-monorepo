@@ -166,7 +166,9 @@ impl PageTable {
             return Err("uvm_init: more than a page");
         }
 
-        let mem = unsafe { SinglePage::alloc_into_raw().or(Err("uvm_init: insufficient memory"))? };
+        let mem = unsafe {
+            SinglePage::alloc_into_raw().or_else(|_| Err("uvm_init: insufficient memory"))?
+        };
         self.map_pages(
             0,
             mem as usize,
