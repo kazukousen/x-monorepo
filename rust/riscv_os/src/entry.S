@@ -9,6 +9,3 @@ _entry:
     add sp, sp, a0
 
     call start
-
-spin:
-    j spin
