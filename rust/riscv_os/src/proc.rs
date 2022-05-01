@@ -1,7 +1,7 @@
 use core::cell::UnsafeCell;
 use core::ptr;
 
-use crate::cpu::{Cpu, CPU_TABLE};
+use crate::cpu::CPU_TABLE;
 use crate::file::File;
 use crate::fs::{Inode, INODE_TABLE};
 use crate::page_table::PageTable;
@@ -9,6 +9,7 @@ use crate::param::{NOFILE, PAGESIZE, ROOTDEV, ROOTIPATH};
 use crate::spinlock::{SpinLock, SpinLockGuard};
 use crate::{fs, println, trap};
 use alloc::boxed::Box;
+use alloc::sync::Arc;
 use array_macro::array;
 
 mod elf;
@@ -121,7 +122,7 @@ pub struct ProcessData {
     pub tf: *mut TrapFrame,
     pub page_table: Option<Box<PageTable>>,
     pub cwd: Option<Inode>,
-    pub o_files: [Option<Box<File>>; NOFILE],
+    pub o_files: [Option<Arc<File>>; NOFILE],
 }
 
 impl ProcessData {
@@ -279,8 +280,14 @@ impl Proc {
 
 pub fn either_copy(is_user: bool, src: *const u8, dst: *mut u8, count: usize) {
     if is_user {
-        // TODO:
-        panic!("either_copy_out: not implemented");
+        unsafe {
+            (*CPU_TABLE.my_proc().data.get())
+                .page_table
+                .as_ref()
+                .unwrap()
+                .copy_in(dst, src as usize, count)
+                .expect("either_copy: user")
+        }
     } else {
         unsafe { ptr::copy(src, dst, count) };
     }

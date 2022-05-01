@@ -1,9 +1,9 @@
-use core::{mem, ptr, str};
+use core::{mem, str};
 
 use alloc::boxed::Box;
 use array_macro::array;
 
-use crate::{log::LOG, param::NOFILE, println};
+use crate::{file::File, param::NOFILE, println};
 
 use super::{elf, ProcessData};
 
@@ -60,19 +60,48 @@ impl Syscall for ProcessData {
         let mut path: [u8; 128] = unsafe { mem::MaybeUninit::uninit().assume_init() };
         let nul_pos = self.arg_str(0, &mut path)?;
         let path_str = unsafe { str::from_utf8_unchecked(&path[0..nul_pos]) };
-        let omode = self.arg_i32(1)?;
+        let o_mode = self.arg_i32(1)?;
 
-        println!("sys_open: path={} omode={}", path_str, omode);
+        let f = File::open(&path, o_mode).ok_or_else(|| "sys_open: cannot open file")?;
+        let fd = self
+            .alloc_fd()
+            .or_else(|_| Err("sys_open: cannot allocate fd"))?;
+        self.o_files[fd].replace(f);
 
-        Ok(0)
+        println!("sys_open: path={} o_mode={} fd={}", path_str, o_mode, fd);
+
+        Ok(fd)
     }
 
     fn sys_dup(&mut self) -> SysResult {
-        Ok(0)
+        let old_fd = 0;
+        self.arg_fd(old_fd)?;
+        let new_fd = self
+            .alloc_fd()
+            .or_else(|_| Err("sys_dup: cannot allocate new fd"))?;
+
+        let old_f = self.o_files[0].as_ref().unwrap();
+        let new_f = old_f.clone();
+        self.o_files[new_fd].replace(new_f);
+
+        println!("sys_dup: old_fd={} fd={}", old_fd, new_fd);
+
+        Ok(new_fd)
     }
 
     fn sys_write(&mut self) -> SysResult {
-        Ok(0)
+        let fd = 0;
+        self.arg_fd(fd)?;
+        let addr = self.arg_raw(1)?;
+        let n = self.arg_i32(2)?;
+
+        match self.o_files[fd as usize].as_ref() {
+            None => Err("sys_write"),
+            Some(f) => {
+                let n = n as usize;
+                f.fwrite(addr as *const u8, n)
+            }
+        }
     }
 }
 
@@ -108,6 +137,17 @@ impl ProcessData {
         Ok(addr as i32)
     }
 
+    #[inline]
+    fn alloc_fd(&self) -> Result<usize, ()> {
+        for (i, f) in self.o_files.iter().enumerate() {
+            if f.is_none() {
+                return Ok(i);
+            }
+        }
+        Err(())
+    }
+
+    #[inline]
     fn arg_fd(&self, n: usize) -> Result<(), &'static str> {
         let fd = self.arg_i32(n)?;
         if fd < 0 {
@@ -115,6 +155,10 @@ impl ProcessData {
         }
         if fd >= NOFILE.try_into().unwrap() {
             return Err("file descriptor must be less than NOFILE");
+        }
+
+        if self.o_files[fd as usize].is_none() {
+            return Err("file descriptor not allocated");
         }
 
         Ok(())

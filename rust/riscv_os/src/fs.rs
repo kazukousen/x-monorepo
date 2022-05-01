@@ -460,7 +460,7 @@ impl InodeData {
 
     /// Truncate inode (discard contents).
     /// Caller must hold sleep-lock.
-    fn itrunc(&mut self) {
+    pub fn itrunc(&mut self) {
         let (dev, _) = self.valid.unwrap();
 
         // direct blocks
@@ -607,7 +607,7 @@ impl InodeData {
     }
 
     /// Write data to inode.
-    fn writei(
+    pub fn writei(
         &mut self,
         is_user: bool,
         mut src: *const u8,

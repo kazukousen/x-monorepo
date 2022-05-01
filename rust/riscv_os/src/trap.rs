@@ -5,6 +5,7 @@ use crate::{
     param, plic, println,
     register::{self, scause::ScauseType},
     spinlock::SpinLock,
+    uart,
     virtio::DISK,
 };
 
@@ -36,10 +37,14 @@ pub unsafe fn kerneltrap() {
 
             let irq = plic::claim();
 
-            // TODO uart
-
-            if irq as usize == param::VIRTIO0_IRQ {
-                DISK.lock().intr();
+            match irq as usize {
+                param::VIRTIO0_IRQ => {
+                    DISK.lock().intr();
+                }
+                param::UART0_IRQ => {
+                    uart::intr();
+                }
+                _ => {}
             }
 
             if irq > 0 {
@@ -150,10 +155,14 @@ unsafe extern "C" fn user_trap() {
 
             let irq = plic::claim();
 
-            // TODO uart
-
-            if irq as usize == param::VIRTIO0_IRQ {
-                DISK.lock().intr();
+            match irq as usize {
+                param::VIRTIO0_IRQ => {
+                    DISK.lock().intr();
+                }
+                param::UART0_IRQ => {
+                    uart::intr();
+                }
+                _ => {}
             }
 
             if irq > 0 {
