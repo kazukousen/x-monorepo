@@ -59,7 +59,7 @@ pub const QEMU_TEST0: usize = 0x100000;
 pub const QEMU_TEST0_MAP_SIZE: usize = PAGESIZE;
 // https://elixir.bootlin.com/qemu/v7.0.0/source/include/hw/misc/sifive_test.h#L41
 const QEMU_EXIT_SUCCESS: u32 = 0x5555;
-const QEMU_EXIT_FAIL: u32 = 0x13333;
+const QEMU_EXIT_FAIL: u32 = 0x13333; // exit 1
 
 pub static PANICKED: AtomicBool = AtomicBool::new(false);
 
