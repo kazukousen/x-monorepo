@@ -30,7 +30,6 @@ mod sleeplock;
 mod spinlock;
 mod start;
 mod superblock;
-mod test;
 mod trap;
 mod uart;
 mod virtio;
@@ -47,25 +46,30 @@ use param::PAGESIZE;
 use process::PROCESS_TABLE;
 use virtio::DISK;
 
-pub fn test_runner(tests: &[&dyn Fn()]) {
+pub fn test_runner(tests: &[&dyn Testable]) {
     println!("Running {} tests", tests.len());
     for test in tests {
-        test();
+        test.run();
     }
     unsafe { ptr::write_volatile(QEMU_TEST0 as *mut u32, QEMU_EXIT_SUCCESS) };
 }
 
+// https://elixir.bootlin.com/qemu/v7.0.0/source/hw/riscv/virt.c#L73
 pub const QEMU_TEST0: usize = 0x100000;
 pub const QEMU_TEST0_MAP_SIZE: usize = PAGESIZE;
 // https://elixir.bootlin.com/qemu/v7.0.0/source/include/hw/misc/sifive_test.h#L41
 const QEMU_EXIT_SUCCESS: u32 = 0x5555;
-const QEMU_EXIT_FAIL: u32 = 0x3333;
+const QEMU_EXIT_FAIL: u32 = 0x13333;
 
 pub static PANICKED: AtomicBool = AtomicBool::new(false);
 
 #[cfg(test)]
 #[panic_handler]
-fn panic(info: &PanicInfo<'_>) -> ! {
+pub fn panic(info: &PanicInfo<'_>) -> ! {
+    test_panic_handler(info)
+}
+
+pub fn test_panic_handler(info: &PanicInfo<'_>) -> ! {
     println!("failed: {}", info);
     PANICKED.store(true, Ordering::Relaxed);
     unsafe { ptr::write_volatile(QEMU_TEST0 as *mut u32, QEMU_EXIT_FAIL) };
@@ -81,9 +85,22 @@ unsafe fn main() {
 
 #[test_case]
 fn trivial_assertion() {
-    print!("trivial assertion...");
     assert_eq!(1, 1);
-    println!("[ok]");
+}
+
+pub trait Testable {
+    fn run(&self) -> ();
+}
+
+impl<T> Testable for T
+where
+    T: Fn(),
+{
+    fn run(&self) {
+        print!("{}...\t", core::any::type_name::<T>());
+        self();
+        println!("\x1b[0;32m[ok]\x1b[0m");
+    }
 }
 
 static STARTED: AtomicBool = AtomicBool::new(false);
