@@ -2,9 +2,9 @@ use crate::{
     console,
     cpu::{self, CPU_TABLE},
     param::UART0,
-    printf::PANICKED,
     process::PROCESS_TABLE,
     spinlock::SpinLock,
+    PANICKED,
 };
 use core::{num::Wrapping, ptr, sync::atomic::Ordering};
 

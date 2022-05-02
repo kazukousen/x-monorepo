@@ -4,13 +4,22 @@
 #![test_runner(riscv_os::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-use riscv_os::{bootstrap, CPU_TABLE};
+use core::{panic::PanicInfo, sync::atomic::Ordering};
+
+use riscv_os::{bootstrap, println, CPU_TABLE, PANICKED};
 
 /// start() jumps here in supervisor mode on all CPUs.
 #[no_mangle]
 unsafe fn main() -> ! {
-    bootstrap();
     #[cfg(test)]
     test_main();
+    bootstrap();
     CPU_TABLE.scheduler();
+}
+
+#[panic_handler]
+fn panic(info: &PanicInfo<'_>) -> ! {
+    println!("panic: {}", info);
+    PANICKED.store(true, Ordering::Relaxed);
+    loop {}
 }

@@ -1,10 +1,10 @@
-use crate::QEMU_TEST0;
 use crate::page_table::{PageTable, PteFlag};
 use crate::param::{
     CLINT, CLINT_MAP_SIZE, KERNBASE, PAGESIZE, PHYSTOP, PLIC, PLIC_MAP_SIZE, TRAMPOLINE, UART0,
     UART0_MAP_SIZE, VIRTIO0, VIRTIO0_MAP_SIZE,
 };
 use crate::register::satp;
+use crate::QEMU_TEST0;
 use core::arch::asm;
 
 static mut KERNEL_PAGE_TABLE: PageTable = PageTable::empty();
@@ -16,12 +16,7 @@ pub unsafe fn init_hart() {
 
 pub unsafe fn init() {
     // uart registers
-    kvm_map(
-        UART0,
-        UART0,
-        UART0_MAP_SIZE,
-        PteFlag::READ | PteFlag::WRITE,
-    );
+    kvm_map(UART0, UART0, UART0_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
 
     // virtio mmio disk interface
     kvm_map(
@@ -39,20 +34,10 @@ pub unsafe fn init() {
     );
 
     // CLINT
-    kvm_map(
-        CLINT,
-        CLINT,
-        CLINT_MAP_SIZE,
-        PteFlag::READ | PteFlag::WRITE,
-    );
+    kvm_map(CLINT, CLINT, CLINT_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
 
     // PLIC
-    kvm_map(
-        PLIC,
-        PLIC,
-        PLIC_MAP_SIZE,
-        PteFlag::READ | PteFlag::WRITE,
-    );
+    kvm_map(PLIC, PLIC, PLIC_MAP_SIZE, PteFlag::READ | PteFlag::WRITE);
 
     extern "C" {
         fn _etext();

@@ -1,7 +1,7 @@
 use core::fmt::{self, Write};
-use core::panic::PanicInfo;
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::Ordering;
 
+use crate::PANICKED;
 use crate::{console, spinlock::SpinLock};
 
 struct Print;
@@ -37,15 +37,6 @@ macro_rules! print {
 macro_rules! println {
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
-}
-
-pub static PANICKED: AtomicBool = AtomicBool::new(false);
-
-#[panic_handler]
-fn panic(info: &PanicInfo<'_>) -> ! {
-    crate::println!("panic: {}", info);
-    PANICKED.store(true, Ordering::Relaxed);
-    loop {}
 }
 
 #[no_mangle]
