@@ -10,7 +10,6 @@ use crate::{
     bio::{BufGuard, BSIZE},
     cpu::CPU_TABLE,
     param::{PAGESIZE, VIRTIO0},
-    println,
     process::PROCESS_TABLE,
     spinlock::SpinLock,
 };
@@ -179,13 +178,10 @@ impl Disk {
         write(VIRTIO_MMIO_QUEUE_NUM, NUM);
 
         let pfn: usize = (self as *const Disk as usize) >> 12;
-        println!("DISK pfn: {:#x}", pfn);
         write(VIRTIO_MMIO_QUEUE_PFN, u32::try_from(pfn).unwrap());
 
         // all NUM descriptors start out unused.
         self.free.iter_mut().for_each(|v| *v = true);
-
-        println!("virtio: init virtio driver done");
     }
 
     pub fn intr(&mut self) {

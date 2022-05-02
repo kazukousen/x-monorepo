@@ -4,7 +4,6 @@ use crate::{
     bio::{BufGuard, BCACHE},
     cpu::CPU_TABLE,
     param::{LOGSIZE, MAXOPBLOCKS},
-    println,
     process::PROCESS_TABLE,
     spinlock::SpinLock,
     superblock::SuperBlock,
@@ -164,7 +163,6 @@ impl Log {
         self.size = sb.nlog;
         self.dev = dev;
         self.recover_from_log();
-        println!("log init done");
     }
 
     fn recover_from_log(&mut self) {

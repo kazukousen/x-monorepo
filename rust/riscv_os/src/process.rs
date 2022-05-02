@@ -34,7 +34,6 @@ impl ProcessTable {
                 .expect("process_table: insufficient memory for process's kernel stack");
             // map
             kvm_map(
-                "process's kernel stack",
                 va,
                 pa as usize,
                 PAGESIZE * 4,
@@ -94,12 +93,6 @@ impl ProcessTable {
                             return None;
                         }
                     }
-                    println!(
-                        "alloc_proc: pid={} tf={:#x} satp={:#x}",
-                        pid,
-                        pd.tf as usize,
-                        pd.page_table.as_ref().unwrap().as_satp()
-                    );
 
                     pd.init_context();
                     locked.pid = pid;

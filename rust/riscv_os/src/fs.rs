@@ -47,7 +47,6 @@ use crate::{
     cpu::CPU_TABLE,
     log::LOG,
     param::ROOTDEV,
-    println,
     proc::either_copy,
     sleeplock::{SleepLock, SleepLockGuard},
     spinlock::SpinLock,
@@ -57,8 +56,6 @@ use crate::{
 pub unsafe fn init(dev: u32) {
     read_super_block(dev);
     LOG.init(dev, &SB);
-
-    println!("fs: init done");
 }
 
 const NINODE: usize = 50;

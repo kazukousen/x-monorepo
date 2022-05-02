@@ -2,7 +2,6 @@ use core::alloc::GlobalAlloc;
 use core::{mem, ptr};
 
 use crate::param::PHYSTOP;
-use crate::println;
 use crate::spinlock::SpinLock;
 use alloc::alloc::Layout;
 
@@ -19,14 +18,9 @@ pub fn heap_init() {
         fn end();
     }
     let heap_start: usize = end as usize;
-    println!(
-        "kalloc: available phys memory[{:#x}, {:#x}]",
-        heap_start, PHYSTOP
-    );
     unsafe {
         ALLOCATOR.lock().init(heap_start, PHYSTOP - heap_start);
     }
-    println!("kalloc: init memory done");
 }
 
 struct ListNode {
