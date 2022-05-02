@@ -25,8 +25,6 @@ pub const O_TRUNC: i32 = 0x400;
 ///     if multiple processes open the same file independently, the different instances will have
 ///     different I/O offsets.
 pub struct File {
-    // A reference count tracks the number of references to a particular open file.
-
     // A file can be open for reading or writing or both. The `readable` and `writable` fields
     // track this.
     readable: bool,
@@ -92,7 +90,7 @@ impl File {
         }))
     }
 
-    pub fn fwrite(&self, mut addr: *const u8, mut n: usize) -> Result<usize, &'static str> {
+    pub fn fwrite(&self, mut addr: *const u8, n: usize) -> Result<usize, &'static str> {
         if !self.writable {
             return Err("fwrite: not writable");
         }
@@ -107,21 +105,20 @@ impl File {
                 let offset = unsafe { &mut *fi.offset.get() };
 
                 let inode = fi.inode.as_ref().unwrap();
-
+                let mut idata = inode.ilock();
+                LOG.begin_op();
                 for i in (0..n).step_by(max_n) {
                     let write_n = min(max_n, n - i);
-                    LOG.begin_op();
-                    let mut idata = inode.ilock();
-                    if idata.writei(true, addr, *offset as usize, write_n).is_err() {
+                    if idata.writei(true, addr, *offset, write_n).is_err() {
                         drop(idata);
                         LOG.end_op();
                         return Err("fwrite: inode type");
                     };
-                    *offset += write_n as u32;
-                    drop(idata);
-                    LOG.end_op();
+                    *offset += write_n;
                     addr = unsafe { addr.offset(write_n as isize) };
                 }
+                drop(idata);
+                LOG.end_op();
                 return Ok(n);
             }
         }
@@ -146,6 +143,6 @@ enum FileInner {
 }
 
 struct FileInode {
-    offset: UnsafeCell<u32>,
+    offset: UnsafeCell<usize>,
     inode: Option<Inode>,
 }
