@@ -33,16 +33,14 @@ mod virtio;
 
 use bio::BCACHE;
 use cpu::CpuTable;
-use cpu::CPU_TABLE;
+pub use cpu::CPU_TABLE;
 use process::PROCESS_TABLE;
 use virtio::DISK;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 static STARTED: AtomicBool = AtomicBool::new(false);
 
-/// start() jumps here in supervisor mode on all CPUs.
-#[no_mangle]
-pub unsafe fn main() -> ! {
+pub unsafe fn bootstrap() {
     let cpu_id = CpuTable::cpu_id();
     if cpu_id == 0 {
         console::init();
@@ -66,6 +64,4 @@ pub unsafe fn main() -> ! {
         trap::init_hart(); // install kernel trap handler
         plic::init_hart(cpu_id); // ask PLIC for device interrupts
     }
-
-    CPU_TABLE.scheduler();
 }
