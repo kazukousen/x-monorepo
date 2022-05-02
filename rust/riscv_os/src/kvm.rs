@@ -1,9 +1,10 @@
+use crate::QEMU_TEST0;
 use crate::page_table::{PageTable, PteFlag};
 use crate::param::{
     CLINT, CLINT_MAP_SIZE, KERNBASE, PAGESIZE, PHYSTOP, PLIC, PLIC_MAP_SIZE, TRAMPOLINE, UART0,
     UART0_MAP_SIZE, VIRTIO0, VIRTIO0_MAP_SIZE,
 };
-use crate::register::{satp, tp};
+use crate::register::satp;
 use core::arch::asm;
 
 static mut KERNEL_PAGE_TABLE: PageTable = PageTable::empty();
@@ -27,6 +28,13 @@ pub unsafe fn init() {
         VIRTIO0,
         VIRTIO0,
         VIRTIO0_MAP_SIZE,
+        PteFlag::READ | PteFlag::WRITE,
+    );
+
+    kvm_map(
+        QEMU_TEST0,
+        QEMU_TEST0,
+        PAGESIZE,
         PteFlag::READ | PteFlag::WRITE,
     );
 
