@@ -68,9 +68,9 @@ impl PageTable {
         extern "C" {
             fn trampoline();
         }
-        let mut pt = unsafe { Box::<Self>::try_new_zeroed().ok()?.assume_init() };
+        let mut pgt = unsafe { Box::<Self>::try_new_zeroed().ok()?.assume_init() };
 
-        pt.map_pages(
+        pgt.map_pages(
             TRAMPOLINE,
             trampoline as usize,
             PAGESIZE,
@@ -78,7 +78,7 @@ impl PageTable {
         )
         .ok()?;
 
-        pt.map_pages(
+        pgt.map_pages(
             TRAPFRAME,
             trapframe,
             PAGESIZE,
@@ -86,7 +86,7 @@ impl PageTable {
         )
         .ok()?;
 
-        Some(pt)
+        Some(pgt)
     }
 
     /// Unmap process's pages.
@@ -197,7 +197,6 @@ impl PageTable {
         let mut pa = pa;
 
         for va in (va_start..va_end).step_by(PAGESIZE) {
-            // println!("va_start={:#x}, va_end={:#x}, pa={:#x}, size={:#x}", va, va_end, pa, size);
             match self.walk_alloc(va) {
                 Some(pte) => {
                     if pte.is_valid() {
@@ -477,7 +476,7 @@ impl PageTableEntry {
                 // phys memory should already be freed.
                 panic!("freeing a PTE leaf")
             }
-            drop(unsafe { Box::from_raw(self.as_page_table()) })
+            unsafe { PageTable::free_from_raw(self.as_page_table()) };
         }
     }
 }
@@ -490,4 +489,36 @@ const fn align_down(addr: usize, align: usize) -> usize {
 const fn align_up(addr: usize, align: usize) -> usize {
     assert!(align.is_power_of_two());
     (addr + align - 1) & !(align - 1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test_case]
+    fn new_page_table() {
+        let pgt = Box::<PageTable>::try_new_zeroed();
+        assert!(pgt.is_ok());
+        let pgt = unsafe { pgt.unwrap().assume_init() };
+        drop(pgt);
+    }
+
+    #[test_case]
+    fn alloc_page_table() {
+        let tf = unsafe { SinglePage::alloc_into_raw() };
+        assert!(tf.is_ok());
+        let tf = tf.unwrap();
+
+        let pgt = PageTable::alloc_user_page_table(tf as usize);
+        assert!(pgt.is_some());
+        let mut pgt = pgt.unwrap();
+
+        assert_eq!(100, pgt.uvm_alloc(0, 100).expect("uvm_alloc"));
+
+        let pte = pgt.walk(0).expect("walk");
+        assert!(pte.is_user());
+        pgt.unmap_user_page_table(100);
+
+        drop(pgt);
+    }
 }
