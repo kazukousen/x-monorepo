@@ -35,6 +35,7 @@ impl<T: ?Sized> SpinLock<T> {
     // TODO: fn holding()
 
     fn acquire(&self) {
+        // disable interrupts to avoid deadlock.
         cpu::push_off();
 
         // TODO: if !self.holding() panic

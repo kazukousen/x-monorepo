@@ -150,7 +150,7 @@ impl InodeTable {
         drop(guard);
     }
 
-    pub fn idup(&self, ip: &Inode) -> Inode {
+    fn idup(&self, ip: &Inode) -> Inode {
         let mut guard = self.meta.lock();
         let i = ip.index;
         guard[i].refcnt += 1;
@@ -729,4 +729,25 @@ pub const IPB: usize = BSIZE / mem::size_of::<DiskInode>();
 #[inline]
 fn inode_offset(inum: u32) -> isize {
     (inum as usize % IPB) as isize
+}
+
+#[cfg(test)]
+mod tests {
+    use core::ops::Deref;
+
+    use super::*;
+
+    #[test_case]
+    fn many_iget() {
+        let i1 = INODE_TABLE.iget(ROOTDEV, ROOTINO);
+        let imeta = INODE_TABLE.meta.lock().deref() as *const [InodeMeta; NINODE];
+        let imeta = unsafe { imeta.as_ref() }.unwrap();
+        assert_eq!(2, imeta[0].refcnt); // (ROOTDEV, ROOTINO) is already used as superblock
+        let i2 = INODE_TABLE.iget(ROOTDEV, ROOTINO);
+        assert_eq!(3, imeta[0].refcnt);
+        drop(i1);
+        assert_eq!(2, imeta[0].refcnt);
+        drop(i2);
+        assert_eq!(1, imeta[0].refcnt);
+    }
 }

@@ -17,6 +17,7 @@ pub unsafe fn init_hart() {
     register::stvec::write(kernelvec as usize);
 }
 
+/// kernelvec jumps here
 #[no_mangle]
 pub unsafe fn kerneltrap() {
     let sepc = register::sepc::read();

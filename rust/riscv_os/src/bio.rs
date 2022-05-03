@@ -42,7 +42,7 @@ impl BCache {
         let mut buf = self.bget(dev, blockno);
 
         if !self.bufs[buf.index].valid.load(Ordering::Relaxed) {
-            DISK.rw(&mut buf, false);
+            DISK.read(&mut buf);
             self.bufs[buf.index].valid.store(true, Ordering::Relaxed);
         }
         buf
@@ -106,7 +106,7 @@ impl<'a> BufGuard<'a> {
 
 impl<'a> BufGuard<'a> {
     pub fn bwrite(&mut self) {
-        DISK.rw(self, true);
+        DISK.write(self);
     }
 
     pub unsafe fn bpin(&mut self) {

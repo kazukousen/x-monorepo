@@ -504,7 +504,7 @@ mod tests {
     }
 
     #[test_case]
-    fn alloc_page_table() {
+    fn alloc_user_page_table() {
         let tf = unsafe { SinglePage::alloc_into_raw() };
         assert!(tf.is_ok());
         let tf = tf.unwrap();

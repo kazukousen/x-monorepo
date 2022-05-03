@@ -284,11 +284,19 @@ impl Disk {
 }
 
 impl SpinLock<Disk> {
+    pub fn read(&self, buf: &mut BufGuard) {
+        self.rw(buf, false);
+    }
+
+    pub fn write(&self, buf: &mut BufGuard) {
+        self.rw(buf, true);
+    }
+
     /// block operations use three descriptors:
     /// one for type/reserved/sector
     /// one for the data
     /// one for a 1-byte status result
-    pub fn rw(&self, buf: &mut BufGuard, writing: bool) {
+    fn rw(&self, buf: &mut BufGuard, writing: bool) {
         let mut locked = self.lock();
 
         // allocate three descriptors
@@ -421,18 +429,15 @@ unsafe fn write(offset: usize, v: u32) {
     ptr::write_volatile(dst, v);
 }
 
+#[cfg(test)]
 pub mod tests {
+
+    use crate::{bio::BCACHE, param::ROOTDEV};
 
     use super::*;
 
-    pub fn tests() -> &'static [(&'static str, fn())] {
-        &[
-            ("memory layout", test_memory_layout),
-            ("read write", test_rw),
-        ]
-    }
-
-    pub fn test_memory_layout() {
+    #[test_case]
+    pub fn memory_layout() {
         let disk = DISK.lock();
         assert_eq!(&disk.desc as *const _ as usize % PAGESIZE, 0);
         assert_eq!(&disk.used as *const _ as usize % PAGESIZE, 0);
@@ -442,8 +447,10 @@ pub mod tests {
         );
     }
 
-    pub fn test_rw() {
-        // let buf = BCACHE.bread(ROOTDEV, 1);
+    #[test_case]
+    pub fn read() {
+        let buf = BCACHE.bread(ROOTDEV, 1);
+        drop(buf);
         // let buf_ptr = buf.data_ptr();
     }
 }

@@ -102,6 +102,7 @@ impl Cpu {
     }
 
     /// Switch to scheduler.
+    /// Must hold only process's lock, must not hold another locks.
     /// Saves and restores intena because intena is a property of this
     /// kernel thread, not this CPU.
     /// Passing in and out a locked because we need to the lock during this function.

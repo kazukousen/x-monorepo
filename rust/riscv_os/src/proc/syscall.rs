@@ -27,12 +27,7 @@ impl Syscall for ProcessData {
 
     fn sys_exec(&mut self) -> SysResult {
         let mut path: [u8; 128] = unsafe { mem::MaybeUninit::uninit().assume_init() };
-        let nul_pos = self.arg_str(0, &mut path)?;
-        let path_str = unsafe { str::from_utf8_unchecked(&path[0..nul_pos]) };
-
-        if path_str == "/init" {
-            // crate::test::run_tests();
-        }
+        self.arg_str(0, &mut path)?;
 
         let arg_base_addr = self.arg_raw(1)?;
         let mut argv: [Option<Box<[u8; MAXARGLEN]>>; MAXARG] = array![_ => None; MAXARG];

@@ -6,10 +6,10 @@ pub static mut SB: SuperBlock = SuperBlock::new();
 const FSMAGIC: u32 = 0x10203040;
 
 pub unsafe fn read_super_block(dev: u32) {
-    let bp = BCACHE.bread(dev, 1);
+    let buf = BCACHE.bread(dev, 1);
 
     ptr::copy_nonoverlapping(
-        bp.data_ptr() as *const SuperBlock,
+        buf.data_ptr() as *const SuperBlock,
         &mut SB as *mut SuperBlock,
         1,
     );
@@ -18,7 +18,7 @@ pub unsafe fn read_super_block(dev: u32) {
         panic!("invalid file system");
     }
 
-    drop(bp);
+    drop(buf);
 }
 
 #[repr(C)]

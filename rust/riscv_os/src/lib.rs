@@ -41,7 +41,7 @@ use core::{
     sync::atomic::{AtomicBool, Ordering},
 };
 use cpu::CpuTable;
-pub use cpu::CPU_TABLE;
+use cpu::CPU_TABLE;
 use param::PAGESIZE;
 use process::PROCESS_TABLE;
 use virtio::DISK;
@@ -78,9 +78,8 @@ pub fn test_panic_handler(info: &PanicInfo<'_>) -> ! {
 
 #[cfg(test)]
 #[no_mangle]
-unsafe fn main() {
+unsafe fn main() -> ! {
     bootstrap();
-    test_main();
 }
 
 pub trait Testable {
@@ -100,7 +99,7 @@ where
 
 static STARTED: AtomicBool = AtomicBool::new(false);
 
-pub unsafe fn bootstrap() {
+pub unsafe fn bootstrap() -> ! {
     let cpu_id = CpuTable::cpu_id();
     if cpu_id == 0 {
         console::init();
@@ -124,4 +123,6 @@ pub unsafe fn bootstrap() {
         trap::init_hart(); // install kernel trap handler
         plic::init_hart(cpu_id); // ask PLIC for device interrupts
     }
+
+    CPU_TABLE.scheduler();
 }

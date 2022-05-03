@@ -304,6 +304,8 @@ pub unsafe fn forkret() -> ! {
     if FIRST {
         FIRST = false;
         fs::init(ROOTDEV);
+        #[cfg(test)]
+        crate::test_main();
     }
 
     trap::user_trap_ret();

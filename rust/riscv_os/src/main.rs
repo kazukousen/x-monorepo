@@ -6,7 +6,7 @@
 
 use core::{panic::PanicInfo, sync::atomic::Ordering};
 
-use riscv_os::{bootstrap, println, CPU_TABLE, PANICKED};
+use riscv_os::{bootstrap, println, PANICKED};
 
 /// start() jumps here in supervisor mode on all CPUs.
 #[no_mangle]
@@ -14,7 +14,6 @@ unsafe fn main() -> ! {
     #[cfg(test)]
     test_main();
     bootstrap();
-    CPU_TABLE.scheduler();
 }
 
 #[panic_handler]
