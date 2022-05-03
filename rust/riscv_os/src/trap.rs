@@ -2,7 +2,7 @@ use core::mem;
 
 use crate::{
     cpu::{self, CpuTable, CPU_TABLE},
-    param, plic, println,
+    param, plic,
     register::{self, scause::ScauseType},
     spinlock::SpinLock,
     uart,

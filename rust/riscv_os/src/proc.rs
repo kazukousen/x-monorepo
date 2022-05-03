@@ -222,6 +222,9 @@ impl Proc {
     pub unsafe fn syscall(&mut self) {
         let pd = self.data.get_mut();
         let tf = pd.tf.as_mut().unwrap();
+        // sepc points to the ecall instruction,
+        // but we want to return to the next instruction.
+        tf.epc += 4;
 
         let num = tf.a7;
 
