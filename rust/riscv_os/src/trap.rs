@@ -30,6 +30,15 @@ pub unsafe fn kerneltrap() {
         panic!("kerneltrap: interrupts enabled");
     }
 
+    handle_trap(false);
+
+    // the yield() may have caused some traps to occur,
+    // so restore trap registers for use by kernelvec.S's sepc instruction.
+    register::sepc::write(sepc);
+    register::sstatus::write(sstatus);
+}
+
+unsafe fn handle_trap(is_user: bool) {
     let scause = register::scause::get_type();
     match scause {
         ScauseType::IntSExt => {
@@ -63,17 +72,19 @@ pub unsafe fn kerneltrap() {
             CPU_TABLE.my_cpu_mut().yielding();
         }
         ScauseType::ExcEcall => {
-            panic!("kerneltrap: handling syscall");
+            if !is_user {
+                panic!("kerneltrap: handling syscall");
+            }
+            // an interrupt will change sstatus &c registers,
+            // so don't enable until done with those registers.
+            register::sstatus::intr_on();
+
+            cpu::CPU_TABLE.my_proc().syscall();
         }
         ScauseType::Unknown(v) => {
-            panic!("kerneltrap: scause {:#x}", v);
+            panic!("handle_trap: scause {:#x}", v);
         }
     }
-
-    // the yield() may have caused some traps to occur,
-    // so restore trap registers for use by kernelvec.S's sepc instruction.
-    register::sepc::write(sepc);
-    register::sstatus::write(sstatus);
 }
 
 static TICKS: SpinLock<usize> = SpinLock::new(0);
@@ -143,62 +154,10 @@ unsafe extern "C" fn user_trap() {
 
     let p = cpu::CPU_TABLE.my_proc();
     let tf = p.data.get_mut().tf.as_mut().unwrap();
-
     // save user program counter.
     tf.epc = register::sepc::read();
 
-    let scause = register::scause::get_type();
-
-    match scause {
-        ScauseType::IntSExt => {
-            // this is a supervisor external interrupt, via PLIC.
-
-            let irq = plic::claim();
-
-            match irq as usize {
-                param::VIRTIO0_IRQ => {
-                    DISK.lock().intr();
-                }
-                param::UART0_IRQ => {
-                    uart::intr();
-                }
-                _ => {}
-            }
-
-            if irq > 0 {
-                plic::complete(irq);
-            }
-        }
-        ScauseType::IntSSoft => {
-            println!("user_trap: handling timer interrupt");
-
-            if cpu::CpuTable::cpu_id() == 0 {
-                clock_intr();
-            }
-
-            register::sip::clear_ssip();
-
-            CPU_TABLE.my_cpu_mut().yielding();
-        }
-        ScauseType::ExcEcall => {
-            // sepc points to the ecall instruction,
-            // but we want to return to the next instruction.
-            tf.epc += 4;
-
-            // an interrupt will change sstatus &c registers,
-            // so don't enable until done with those registers.
-            register::sstatus::intr_on();
-
-            p.syscall();
-        }
-        ScauseType::Unknown(v) => {
-            panic!(
-                "user_trap: scause={:#x} sepc={:#x}",
-                v,
-                register::sepc::read()
-            );
-        }
-    }
+    handle_trap(true);
 
     user_trap_ret();
 }
