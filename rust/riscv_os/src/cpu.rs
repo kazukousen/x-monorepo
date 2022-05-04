@@ -30,7 +30,7 @@ impl CpuTable {
 
     pub unsafe fn scheduler(&mut self) -> ! {
         extern "C" {
-            fn swtch(old: *mut Context, new: *mut Context);
+            fn swtch(old: *const Context, new: *mut Context);
         }
 
         let cpu = self.my_cpu_mut();
@@ -45,8 +45,12 @@ impl CpuTable {
                 let mut locked = p.inner.lock();
                 locked.state = ProcState::Running;
 
-                let ctx = p.data.get_mut().get_context();
-                swtch(&mut cpu.scheduler as *mut _, ctx);
+                // Save the scheduler context as soon as it is switched to the process's context.
+                swtch(&cpu.scheduler as *const _, p.data.get_mut().get_context());
+
+                // swtch called by `sched()` returns on the scheduler's stack as through
+                // scheduler's switch had returned the scheduler continues its loop, finds a
+                // process to run, switches to it, and the cycle repeats.
 
                 cpu.proc = ptr::null_mut();
                 drop(locked);
@@ -83,8 +87,10 @@ impl CpuTable {
 pub struct Cpu {
     hartid: usize,
     proc: *mut Proc,
+    // save at the point in the past when `scheduler()` switched to the process's context.
     scheduler: Context,
     // Depth of push_off() nesting.
+    // push_off/pop_off tracks to the nesting level of locks on the current CPU.
     noff: u8,
     // Were interruputs enabled before push_off()?
     intena: bool,
@@ -101,15 +107,15 @@ impl Cpu {
         }
     }
 
-    /// Switch to scheduler.
+    /// Switch to cpu->scheduler, the per-CPU scheduler context that was saved at the point in the
+    /// past when `scheduler()` called `swtch` to switch to the process that's giving up the CPU.
     /// Must hold only process's lock, must not hold another locks.
-    /// Saves and restores intena because intena is a property of this
-    /// kernel thread, not this CPU.
+    /// Saves and restores intena because intena is a property of this kernel thread, not this CPU.
     /// Passing in and out a locked because we need to the lock during this function.
     pub fn sched<'a>(
         &mut self,
         locked: SpinLockGuard<'a, ProcInner>,
-        ctx: *mut Context,
+        ctx: *const Context,
     ) -> SpinLockGuard<'a, ProcInner> {
         if self.noff != 1 {
             panic!("sched: multi locks");
@@ -124,7 +130,7 @@ impl Cpu {
         let intena = self.intena;
 
         extern "C" {
-            fn swtch(old: *mut Context, new: *mut Context);
+            fn swtch(old: *const Context, new: *mut Context);
         }
         unsafe {
             swtch(ctx, &mut self.scheduler as *mut _);
@@ -143,7 +149,9 @@ impl Cpu {
     }
 }
 
-/// push_off/pop_off are like intr_off()/intr_on()
+/// `push_off()` are like `intr_off` to increment the nesting level of locks on the current CPU.
+/// if it is called from the start of the outermost critical section, it saves the interrupt enable
+/// state.
 pub fn push_off() {
     let old = sstatus::intr_get();
     sstatus::intr_off();
@@ -156,6 +164,9 @@ pub fn push_off() {
     cpu.noff += 1;
 }
 
+/// `pop_off()` are like `intr_on` to increment the nesting level of locks on the current CPU.
+/// `noff` reaches zero, `pop_off()` restores the interrupt enable state that existed at the start
+/// of the outermost critical section.
 pub fn pop_off() {
     let cpu = unsafe { CPU_TABLE.my_cpu_mut() };
 

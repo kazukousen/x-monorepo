@@ -1,3 +1,22 @@
+//! Sometimes OS kernel needs to hold a lock for a long time. for example, the file system keeps a
+//! file locked while reading and writing its content on the disk, and these disk operations can
+//! take tens of milliseconds. Holding a spinlock that long would lead to wasste if another process
+//! wanted to acquire it, since the acquiring process would waste CPU for a long time while
+//! spinning. another draw back of spinlocks is that a process cannot yield the CPU while retaining
+//! a spinlock; we'd like to do this so that other processes can use the CPU while the process with
+//! the lock waits for the disk.
+//!
+//! Yielding while holding a spinlock is illegal because it might lead to deadlock if a second
+//! thread then tried to acquire the spinlock; since `lock()` doesn't yield the CPU, the second
+//! thread's spinning might prevent the first thread from running and releasing the lock.
+//! Yielding whinle holding a lock would also violate the requirement that interrupts must be off
+//! while a spinlock is held. Thus, we'd like a type of lock that yields the CPU while waiting to
+//! acquire, and allows yields (and interrupts) while the lock is held.
+//!
+//! Because sleep-locks leave interrupts enabled, they cannot be used tin interrput handlers.
+//! Because `SleepLock<T>.lock()` may yield the CPU, sleep-locks cannot be used inside spinlock
+//! critical sections (through spinlocks cannot be used inside sleep-lock critical sections).
+
 use core::{
     cell::{Cell, UnsafeCell},
     ops::{Deref, DerefMut},

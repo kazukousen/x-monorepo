@@ -1,3 +1,10 @@
+//! Spinlocks protect data that is used by both threads and intterupt handlers.
+//!
+//! To avoid deadlock situation, if a spinlock is used by an interrupt handler, a CPU must never
+//! hold that lock with interrupts enabled. So when a CPU acquires any lock, the OS kernel always
+//! disables interrupts on that CPU. Intterupts may still occur on other CPUs, so an interrupt's
+//! `SpinLock<T>.lock()` can wait for a thread to release a spinlock; just not on the same CPU.
+
 use core::{
     cell::UnsafeCell,
     ops::Deref,

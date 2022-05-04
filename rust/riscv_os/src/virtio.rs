@@ -432,8 +432,6 @@ unsafe fn write(offset: usize, v: u32) {
 #[cfg(test)]
 pub mod tests {
 
-    use crate::{bio::BCACHE, param::ROOTDEV};
-
     use super::*;
 
     #[test_case]
@@ -445,12 +443,5 @@ pub mod tests {
             &disk.used as *const _ as usize - &disk.desc as *const _ as usize,
             PAGESIZE
         );
-    }
-
-    #[test_case]
-    pub fn read() {
-        let buf = BCACHE.bread(ROOTDEV, 1);
-        drop(buf);
-        // let buf_ptr = buf.data_ptr();
     }
 }

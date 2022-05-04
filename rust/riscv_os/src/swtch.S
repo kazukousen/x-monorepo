@@ -1,8 +1,10 @@
 # Context switch
 #
-#   void swtch(struct context *old, struct context *new);
+#   fn swtch(old: *const Context, new: *mut Context);
 # 
 # Save current registers in old. Load from new.	
+# swtch saves the `ra` register, which holds the return address from which swtch was called,
+# instead of the program counter because it saves only calle-saved regsiters.
 
 
 .section .text
