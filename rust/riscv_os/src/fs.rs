@@ -328,7 +328,6 @@ impl InodeTable {
     }
 
     /// Lookup and return the inode for a pathname.
-    /// must be called inside a transaction (begin_op/end_op) since it calls iput().
     pub fn namei(&self, path: &[u8]) -> Option<Inode> {
         let mut name: [u8; DIRSIZ] = [0; DIRSIZ];
         self.namex(path, &mut name, false)
@@ -736,6 +735,29 @@ mod tests {
     use core::ops::Deref;
 
     use super::*;
+
+    #[test_case]
+    fn skip_elem_rootipath() {
+        let mut name = [0u8; DIRSIZ];
+        let cur = INODE_TABLE.skip_elem(&[b'/', 0], 0, &mut name);
+        assert_eq!(0, cur);
+        let exp_name = [0u8; DIRSIZ];
+        assert_eq!(&exp_name, &name);
+    }
+
+    #[test_case]
+    fn skip_elem_init() {
+        let mut name = [0u8; DIRSIZ];
+        let cur = INODE_TABLE.skip_elem(&[b'/', b'i', b'n', b'i', b't', 0], 0, &mut name);
+        assert_eq!(5, cur);
+
+        let mut exp_name = [0u8; DIRSIZ];
+        exp_name[0] = b'i';
+        exp_name[1] = b'n';
+        exp_name[2] = b'i';
+        exp_name[3] = b't';
+        assert_eq!(&exp_name, &name);
+    }
 
     #[test_case]
     fn many_iget() {
